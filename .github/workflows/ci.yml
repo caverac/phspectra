@@ -41,22 +41,44 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --group test-lambda
 
       - name: Check formatting with black
-        run: uv run black --check packages/phspectra/src/ packages/phspectra/tests/
+        run: >-
+          uv run black --check
+          packages/phspectra/src/
+          packages/phspectra/tests/
+          packages/infrastructure/lambda/
 
       - name: Check import order with isort
-        run: uv run isort --check-only packages/phspectra/src/ packages/phspectra/tests/
+        run: >-
+          uv run isort --check-only
+          packages/phspectra/src/
+          packages/phspectra/tests/
+          packages/infrastructure/lambda/
 
       - name: Lint with flake8
-        run: uv run flake8 packages/phspectra/src/ packages/phspectra/tests/
+        run: >-
+          uv run flake8
+          packages/phspectra/src/
+          packages/phspectra/tests/
+          packages/infrastructure/lambda/
 
       - name: Lint with pylint
-        run: uv run pylint packages/phspectra/src/ packages/phspectra/tests/
+        run: >-
+          uv run pylint
+          packages/phspectra/src/
+          packages/phspectra/tests/
+          packages/infrastructure/lambda/splitter/
+          packages/infrastructure/lambda/worker/
+          packages/infrastructure/lambda/tests/
 
       - name: Check docstrings with pydocstyle
-        run: uv run pydocstyle packages/phspectra/src/
+        run: >-
+          uv run pydocstyle
+          packages/phspectra/src/
+          packages/infrastructure/lambda/splitter/
+          packages/infrastructure/lambda/worker/
 
   typecheck-python:
     name: Typecheck (Python)
@@ -93,7 +115,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --group test-lambda
 
       - name: Run tests
         run: uv run python -m pytest -m "not slow" -v
@@ -145,6 +167,26 @@ jobs:
       - name: Run TypeScript checks
         run: yarn typecheck
 
+  test-js:
+    name: Test (JS/TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run CDK tests
+        run: yarn workspace @phspectra/infrastructure test
+
   # ===========================================================================
   # Build (requires all lint/test jobs to pass)
   # ===========================================================================
@@ -160,6 +202,7 @@ jobs:
       # JS/TS
       - lint-js
       - typecheck-js
+      - test-js
     steps:
       - uses: actions/checkout@v4
 

@@ -12,8 +12,6 @@
     "format:fix": "prettier --write .",
     "typecheck": "yarn workspaces foreach -Apt run typecheck",
     "build": "yarn workspaces foreach -Apt run build",
-    "build:docs": "yarn workspace @phspectra/docs build",
-    "dev:docs": "yarn workspace @phspectra/docs start",
     "ci": "yarn lint && yarn format && yarn typecheck && yarn build"
   },
   "devDependencies": {
