@@ -40,7 +40,6 @@ $$
 \mathrm{min}_{\mathrm{persistence}} = \beta \times \sigma_{\mathrm{rms}}
 $$
 
-
 where $\sigma_{\rm rms}$ is estimated robustly from the data itself (via the median absolute deviation). This makes $\beta$ the **sole free parameter** of the model — it controls the sensitivity/specificity trade-off, analogous to a signal-to-noise cut.
 
 ### Comparison with GaussPy

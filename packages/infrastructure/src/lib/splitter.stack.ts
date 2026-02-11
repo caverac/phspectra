@@ -10,7 +10,6 @@ import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import { DeploymentEnvironment } from 'utils/types'
 
-
 export interface SplitterStackProps extends cdk.StackProps {
   deploymentEnvironment: DeploymentEnvironment
   bucket: s3.IBucket
@@ -27,7 +26,7 @@ export class SplitterStack extends cdk.Stack {
     const splitterLogGroup = new logs.LogGroup(this, 'SplitterLogGroup', {
       logGroupName: '/aws/lambda/phspectra__splitter',
       retention: logs.RetentionDays.ONE_WEEK,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
     })
 
     const splitterFn = new lambda.DockerImageFunction(this, 'SplitterFn', {

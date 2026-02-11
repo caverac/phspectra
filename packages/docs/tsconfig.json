@@ -5,7 +5,7 @@
     "strict": true,
     "skipLibCheck": true,
     "composite": true,
-    "emit": false
+    "noEmit": true
   },
   "include": ["src/", "docs/", "*.ts"]
 }

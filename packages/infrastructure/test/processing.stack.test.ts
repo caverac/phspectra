@@ -1,4 +1,5 @@
 import { Match } from 'aws-cdk-lib/assertions'
+
 import { createProcessingTemplate } from './helpers'
 
 describe('ProcessingStack', () => {
@@ -11,15 +12,15 @@ describe('ProcessingStack', () => {
   test('main queue has 6-minute visibility timeout and 14-day retention', () => {
     template.hasResourceProperties('AWS::SQS::Queue', {
       VisibilityTimeout: 360,
-      MessageRetentionPeriod: 1209600,
+      MessageRetentionPeriod: 1209600
     })
   })
 
   test('DLQ has maxReceiveCount of 3', () => {
     template.hasResourceProperties('AWS::SQS::Queue', {
       RedrivePolicy: Match.objectLike({
-        maxReceiveCount: 3,
-      }),
+        maxReceiveCount: 3
+      })
     })
   })
 
@@ -28,14 +29,14 @@ describe('ProcessingStack', () => {
       FunctionName: 'phspectra__worker',
       Architectures: ['arm64'],
       MemorySize: 512,
-      Timeout: 300,
+      Timeout: 300
     })
   })
 
   test('Log group with correct name and 7-day retention', () => {
     template.hasResourceProperties('AWS::Logs::LogGroup', {
       LogGroupName: '/aws/lambda/phspectra__worker',
-      RetentionInDays: 7,
+      RetentionInDays: 7
     })
   })
 
@@ -43,8 +44,8 @@ describe('ProcessingStack', () => {
     template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
       BatchSize: 1,
       ScalingConfig: {
-        MaximumConcurrency: 500,
-      },
+        MaximumConcurrency: 500
+      }
     })
   })
 
@@ -54,10 +55,10 @@ describe('ProcessingStack', () => {
         Statement: Match.arrayWith([
           Match.objectLike({
             Action: Match.arrayWith(['s3:GetObject*', 's3:GetBucket*', 's3:List*']),
-            Effect: 'Allow',
-          }),
-        ]),
-      },
+            Effect: 'Allow'
+          })
+        ])
+      }
     })
 
     template.hasResourceProperties('AWS::IAM::Policy', {
@@ -65,10 +66,10 @@ describe('ProcessingStack', () => {
         Statement: Match.arrayWith([
           Match.objectLike({
             Action: Match.arrayWith(['s3:PutObject', 's3:Abort*']),
-            Effect: 'Allow',
-          }),
-        ]),
-      },
+            Effect: 'Allow'
+          })
+        ])
+      }
     })
   })
 })

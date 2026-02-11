@@ -1,4 +1,5 @@
 import { Match } from 'aws-cdk-lib/assertions'
+
 import { createSplitterTemplate } from './helpers'
 
 describe('SplitterStack', () => {
@@ -9,14 +10,14 @@ describe('SplitterStack', () => {
       FunctionName: 'phspectra__splitter',
       Architectures: ['arm64'],
       MemorySize: 2048,
-      Timeout: 900,
+      Timeout: 900
     })
   })
 
   test('Log group with correct name and 7-day retention', () => {
     template.hasResourceProperties('AWS::Logs::LogGroup', {
       LogGroupName: '/aws/lambda/phspectra__splitter',
-      RetentionInDays: 7,
+      RetentionInDays: 7
     })
   })
 
@@ -31,10 +32,10 @@ describe('SplitterStack', () => {
         'detail-type': ['Object Created'],
         detail: Match.objectLike({
           object: {
-            key: [{ suffix: '.fits' }],
-          },
-        }),
-      }),
+            key: [{ suffix: '.fits' }]
+          }
+        })
+      })
     })
   })
 
@@ -45,18 +46,16 @@ describe('SplitterStack', () => {
         'detail-type': ['Object Created'],
         detail: Match.objectLike({
           object: {
-            key: [{ prefix: 'manifests/' }, { suffix: '.json' }],
-          },
-        }),
-      }),
+            key: [{ prefix: 'manifests/' }, { suffix: '.json' }]
+          }
+        })
+      })
     })
   })
 
   test('has Project=phspectra tag', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
-      Tags: Match.arrayWith([
-        Match.objectLike({ Key: 'Project', Value: 'phspectra' }),
-      ]),
+      Tags: Match.arrayWith([Match.objectLike({ Key: 'Project', Value: 'phspectra' })])
     })
   })
 
@@ -66,10 +65,10 @@ describe('SplitterStack', () => {
         Statement: Match.arrayWith([
           Match.objectLike({
             Action: Match.arrayWith(['s3:GetObject*', 's3:GetBucket*', 's3:List*']),
-            Effect: 'Allow',
-          }),
-        ]),
-      },
+            Effect: 'Allow'
+          })
+        ])
+      }
     })
 
     template.hasResourceProperties('AWS::IAM::Policy', {
@@ -77,10 +76,10 @@ describe('SplitterStack', () => {
         Statement: Match.arrayWith([
           Match.objectLike({
             Action: Match.arrayWith(['s3:PutObject', 's3:Abort*']),
-            Effect: 'Allow',
-          }),
-        ]),
-      },
+            Effect: 'Allow'
+          })
+        ])
+      }
     })
   })
 
@@ -92,12 +91,12 @@ describe('SplitterStack', () => {
             Action: Match.arrayWith([
               'sqs:SendMessage',
               'sqs:GetQueueAttributes',
-              'sqs:GetQueueUrl',
+              'sqs:GetQueueUrl'
             ]),
-            Effect: 'Allow',
-          }),
-        ]),
-      },
+            Effect: 'Allow'
+          })
+        ])
+      }
     })
   })
 })

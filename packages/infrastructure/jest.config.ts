@@ -5,12 +5,12 @@ const config: Config = {
   roots: ['<rootDir>/test'],
   testMatch: ['**/*.test.ts'],
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': 'ts-jest'
   },
   moduleNameMapper: {
     '^lib/(.*)$': '<rootDir>/src/lib/$1',
-    '^utils/(.*)$': '<rootDir>/src/utils/$1',
-  },
+    '^utils/(.*)$': '<rootDir>/src/utils/$1'
+  }
 }
 
 export default config

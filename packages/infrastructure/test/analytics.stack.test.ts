@@ -1,4 +1,5 @@
 import { Match } from 'aws-cdk-lib/assertions'
+
 import { createAnalyticsTemplate } from './helpers'
 
 describe('AnalyticsStack', () => {
@@ -7,8 +8,8 @@ describe('AnalyticsStack', () => {
   test('Glue database named phspectra', () => {
     template.hasResourceProperties('AWS::Glue::Database', {
       DatabaseInput: {
-        Name: 'phspectra',
-      },
+        Name: 'phspectra'
+      }
     })
   })
 
@@ -16,8 +17,8 @@ describe('AnalyticsStack', () => {
     template.hasResourceProperties('AWS::Glue::Table', {
       TableInput: Match.objectLike({
         Name: 'decompositions',
-        TableType: 'EXTERNAL_TABLE',
-      }),
+        TableType: 'EXTERNAL_TABLE'
+      })
     })
   })
 
@@ -27,9 +28,9 @@ describe('AnalyticsStack', () => {
         Parameters: Match.objectLike({
           'projection.enabled': 'true',
           'projection.survey.type': 'enum',
-          'projection.beta.type': 'decimal',
-        }),
-      }),
+          'projection.beta.type': 'decimal'
+        })
+      })
     })
   })
 
@@ -45,14 +46,14 @@ describe('AnalyticsStack', () => {
             { Name: 'n_components', Type: 'int' },
             { Name: 'component_amplitudes', Type: 'array<double>' },
             { Name: 'component_means', Type: 'array<double>' },
-            { Name: 'component_stddevs', Type: 'array<double>' },
-          ]),
+            { Name: 'component_stddevs', Type: 'array<double>' }
+          ])
         }),
         PartitionKeys: [
           { Name: 'survey', Type: 'string' },
-          { Name: 'beta', Type: 'string' },
-        ],
-      }),
+          { Name: 'beta', Type: 'string' }
+        ]
+      })
     })
   })
 
@@ -61,17 +62,16 @@ describe('AnalyticsStack', () => {
       TableInput: Match.objectLike({
         StorageDescriptor: Match.objectLike({
           SerdeInfo: {
-            SerializationLibrary:
-              'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe',
-          },
-        }),
-      }),
+            SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+          }
+        })
+      })
     })
   })
 
   test('Athena workgroup named phspectra', () => {
     template.hasResourceProperties('AWS::Athena::WorkGroup', {
-      Name: 'phspectra',
+      Name: 'phspectra'
     })
   })
 
@@ -80,8 +80,8 @@ describe('AnalyticsStack', () => {
       WorkGroupConfiguration: Match.objectLike({
         BytesScannedCutoffPerQuery: 10737418240,
         EnforceWorkGroupConfiguration: true,
-        PublishCloudWatchMetricsEnabled: true,
-      }),
+        PublishCloudWatchMetricsEnabled: true
+      })
     })
   })
 
@@ -93,13 +93,13 @@ describe('AnalyticsStack', () => {
     template.hasResourceProperties('AWS::Athena::NamedQuery', {
       Database: 'phspectra',
       WorkGroup: 'phspectra',
-      Name: 'beta-component-count-comparison',
+      Name: 'beta-component-count-comparison'
     })
 
     template.hasResourceProperties('AWS::Athena::NamedQuery', {
       Database: 'phspectra',
       WorkGroup: 'phspectra',
-      Name: 'rms-distribution-sanity-check',
+      Name: 'rms-distribution-sanity-check'
     })
   })
 })

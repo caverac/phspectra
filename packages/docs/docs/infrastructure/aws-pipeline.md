@@ -47,14 +47,14 @@ flowchart TB
 
 ### What each component does
 
-| Component | Role |
-|---|---|
-| **EventBridge** | Watches the S3 bucket for new objects. A `.fits` file in `cubes/` triggers decomposition with the default $\beta = 5.0$. A `.json` file in `manifests/` triggers a full beta sweep. |
+| Component           | Role                                                                                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **EventBridge**     | Watches the S3 bucket for new objects. A `.fits` file in `cubes/` triggers decomposition with the default $\beta = 5.0$. A `.json` file in `manifests/` triggers a full beta sweep.                                     |
 | **Splitter Lambda** | Reads the FITS cube with `astropy`, reshapes the data into a flat array of spectra, groups them into chunks of 500, writes each chunk as a compressed `.npz` file, and sends one SQS message per (chunk, $\beta$) pair. |
-| **SQS Queue** | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection. |
-| **Worker Lambda** | Reads a single `.npz` chunk from S3, runs `fit_gaussians(spectrum, beta=β)` on each spectrum, builds a PyArrow table, and writes the result as a Snappy-compressed Parquet file to the output prefix. |
-| **S3 (Parquet)** | Results are written in Hive-style partitioning: `decompositions/survey={name}/beta={value}/`. This layout enables Athena to read only the partitions relevant to a query. |
-| **Glue + Athena** | The Glue table uses partition projection — no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys and $\beta$ values immediately after the workers finish writing. |
+| **SQS Queue**       | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection.                                             |
+| **Worker Lambda**   | Reads a single `.npz` chunk from S3, runs `fit_gaussians(spectrum, beta=β)` on each spectrum, builds a PyArrow table, and writes the result as a Snappy-compressed Parquet file to the output prefix.                   |
+| **S3 (Parquet)**    | Results are written in Hive-style partitioning: `decompositions/survey={name}/beta={value}/`. This layout enables Athena to read only the partitions relevant to a query.                                               |
+| **Glue + Athena**   | The Glue table uses partition projection — no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys and $\beta$ values immediately after the workers finish writing.                            |
 
 ## S3 bucket layout
 
@@ -118,16 +118,16 @@ The Glue table `decompositions` is pre-configured with [partition projection](ht
 
 ### Parquet schema
 
-| Column | Type | Description |
-|---|---|---|
-| `x` | `int32` | Spatial x pixel coordinate |
-| `y` | `int32` | Spatial y pixel coordinate |
-| `rms` | `float64` | MAD-based noise estimate ($\sigma_{\mathrm{rms}}$) |
-| `min_persistence` | `float64` | Persistence threshold used ($\beta \times \sigma_{\mathrm{rms}}$) |
-| `n_components` | `int32` | Number of fitted Gaussian components |
-| `component_amplitudes` | `list<float64>` | Amplitude of each component |
-| `component_means` | `list<float64>` | Mean position (channel units) |
-| `component_stddevs` | `list<float64>` | Standard deviation of each component |
+| Column                 | Type            | Description                                                       |
+| ---------------------- | --------------- | ----------------------------------------------------------------- |
+| `x`                    | `int32`         | Spatial x pixel coordinate                                        |
+| `y`                    | `int32`         | Spatial y pixel coordinate                                        |
+| `rms`                  | `float64`       | MAD-based noise estimate ($\sigma_{\mathrm{rms}}$)                |
+| `min_persistence`      | `float64`       | Persistence threshold used ($\beta \times \sigma_{\mathrm{rms}}$) |
+| `n_components`         | `int32`         | Number of fitted Gaussian components                              |
+| `component_amplitudes` | `list<float64>` | Amplitude of each component                                       |
+| `component_means`      | `list<float64>` | Mean position (channel units)                                     |
+| `component_stddevs`    | `list<float64>` | Standard deviation of each component                              |
 
 Partition keys (encoded in the S3 path, not in the Parquet files): `survey` (string), `beta` (string).
 
@@ -239,12 +239,12 @@ flowchart LR
     PR -- "queue" --> SL
 ```
 
-| Construct | Source file | Resources |
-|---|---|---|
-| `DataLake` | `constructs/data-lake.ts` | S3 bucket with EventBridge notifications, lifecycle rules |
-| `Processing` | `constructs/processing.ts` | SQS queue + DLQ, Worker Lambda (Docker, ARM64) |
-| `Splitter` | `constructs/splitter.ts` | Splitter Lambda (Docker, ARM64), 2 EventBridge rules |
-| `Analytics` | `constructs/analytics.ts` | Glue database + table, Athena workgroup, named queries |
+| Construct    | Source file                | Resources                                                 |
+| ------------ | -------------------------- | --------------------------------------------------------- |
+| `DataLake`   | `constructs/data-lake.ts`  | S3 bucket with EventBridge notifications, lifecycle rules |
+| `Processing` | `constructs/processing.ts` | SQS queue + DLQ, Worker Lambda (Docker, ARM64)            |
+| `Splitter`   | `constructs/splitter.ts`   | Splitter Lambda (Docker, ARM64), 2 EventBridge rules      |
+| `Analytics`  | `constructs/analytics.ts`  | Glue database + table, Athena workgroup, named queries    |
 
 ### Deploying
 
@@ -264,11 +264,11 @@ The `deploy` target automatically builds the phspectra wheel and copies it into 
 
 The stack name and all resource names include the environment: `phspectra-development`, `phspectra-staging`, or `phspectra-production`. Key differences between environments:
 
-| Setting | Development | Production |
-|---|---|---|
+| Setting                  | Development                                | Production           |
+| ------------------------ | ------------------------------------------ | -------------------- |
 | S3 bucket removal policy | `DESTROY` (auto-deleted on stack teardown) | `RETAIN` (preserved) |
-| Auto-delete objects | Yes | No |
-| Athena scan limit | 10 GB | 10 GB |
+| Auto-delete objects      | Yes                                        | No                   |
+| Athena scan limit        | 10 GB                                      | 10 GB                |
 
 ## Design decisions
 
@@ -286,9 +286,9 @@ The stack name and all resource names include the environment: `phspectra-develo
 
 ## Cost estimates
 
-| Scenario | Lambda invocations | Estimated cost |
-|---|---|---|
-| GRS test field, 6 $\beta$ values (7,200 spectra) | 18 | < $0.01 |
-| Full GRS survey, 6 $\beta$ values (13.8M spectra) | ~27,600 | ~$13 |
+| Scenario                                          | Lambda invocations | Estimated cost |
+| ------------------------------------------------- | ------------------ | -------------- |
+| GRS test field, 6 $\beta$ values (7,200 spectra)  | 18                 | < $0.01        |
+| Full GRS survey, 6 $\beta$ values (13.8M spectra) | ~27,600            | ~$13           |
 
 The dominant cost is Lambda compute. S3 storage for Parquet results is negligible (a few cents per GB-month). Athena charges \$5/TB scanned — a typical query over one survey and one $\beta$ value scans well under 1 GB.

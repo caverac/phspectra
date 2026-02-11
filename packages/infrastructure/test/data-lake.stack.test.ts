@@ -1,4 +1,5 @@
 import { Match } from 'aws-cdk-lib/assertions'
+
 import { createDataLakeTemplate } from './helpers'
 
 describe('DataLakeStack', () => {
@@ -19,8 +20,8 @@ describe('DataLakeStack', () => {
         BlockPublicAcls: true,
         BlockPublicPolicy: true,
         IgnorePublicAcls: true,
-        RestrictPublicBuckets: true,
-      },
+        RestrictPublicBuckets: true
+      }
     })
   })
 
@@ -31,11 +32,11 @@ describe('DataLakeStack', () => {
           Match.objectLike({
             Effect: 'Deny',
             Condition: {
-              Bool: { 'aws:SecureTransport': 'false' },
-            },
-          }),
-        ]),
-      },
+              Bool: { 'aws:SecureTransport': 'false' }
+            }
+          })
+        ])
+      }
     })
   })
 
@@ -46,10 +47,10 @@ describe('DataLakeStack', () => {
           Match.objectLike({
             Prefix: 'chunks/',
             ExpirationInDays: 7,
-            Status: 'Enabled',
-          }),
-        ]),
-      },
+            Status: 'Enabled'
+          })
+        ])
+      }
     })
   })
 
@@ -60,10 +61,10 @@ describe('DataLakeStack', () => {
           Match.objectLike({
             Prefix: 'athena-results/',
             ExpirationInDays: 7,
-            Status: 'Enabled',
-          }),
-        ]),
-      },
+            Status: 'Enabled'
+          })
+        ])
+      }
     })
   })
 
@@ -71,13 +72,13 @@ describe('DataLakeStack', () => {
     const prodTemplate = createDataLakeTemplate('production')
     prodTemplate.hasResource('AWS::S3::Bucket', {
       DeletionPolicy: 'Retain',
-      UpdateReplacePolicy: 'Retain',
+      UpdateReplacePolicy: 'Retain'
     })
   })
 
   test('development uses DESTROY removal policy', () => {
     template.hasResource('AWS::S3::Bucket', {
-      DeletionPolicy: 'Delete',
+      DeletionPolicy: 'Delete'
     })
   })
 })

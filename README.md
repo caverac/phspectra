@@ -18,11 +18,11 @@ This project uses **0-dimensional persistent homology** to detect and rank peaks
 
 This is a monorepo with three packages:
 
-| Package | Description |
-|---|---|
-| [`phspectra`](packages/phspectra) | Core Python library — persistence-based peak detection and Gaussian fitting |
-| [`docs`](packages/docs) | Project documentation ([live site](https://caverac.github.io/phspectra/)) |
-| [`infrastructure`](packages/infrastructure) | AWS CDK stack for large-scale processing |
+| Package                                     | Description                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| [`phspectra`](packages/phspectra)           | Core Python library — persistence-based peak detection and Gaussian fitting |
+| [`docs`](packages/docs)                     | Project documentation ([live site](https://caverac.github.io/phspectra/))   |
+| [`infrastructure`](packages/infrastructure) | AWS CDK stack for large-scale processing                                    |
 
 See the [documentation site](https://caverac.github.io/phspectra/) for motivation, algorithm details, and the project roadmap.
 

@@ -12,7 +12,7 @@ export function createDataLakeTemplate(
   const app = new cdk.App()
   const stack = new DataLakeStack(app, 'TestDataLake', {
     deploymentEnvironment: environment,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   return Template.fromStack(stack)
 }
@@ -23,12 +23,12 @@ export function createProcessingTemplate(
   const app = new cdk.App()
   const dataLake = new DataLakeStack(app, 'TestDataLake', {
     deploymentEnvironment: environment,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   const stack = new ProcessingStack(app, 'TestProcessing', {
     deploymentEnvironment: environment,
     bucket: dataLake.bucket,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   return Template.fromStack(stack)
 }
@@ -39,18 +39,18 @@ export function createSplitterTemplate(
   const app = new cdk.App()
   const dataLake = new DataLakeStack(app, 'TestDataLake', {
     deploymentEnvironment: environment,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   const processing = new ProcessingStack(app, 'TestProcessing', {
     deploymentEnvironment: environment,
     bucket: dataLake.bucket,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   const stack = new SplitterStack(app, 'TestSplitter', {
     deploymentEnvironment: environment,
     bucket: dataLake.bucket,
     queue: processing.queue,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   return Template.fromStack(stack)
 }
@@ -61,12 +61,12 @@ export function createAnalyticsTemplate(
   const app = new cdk.App()
   const dataLake = new DataLakeStack(app, 'TestDataLake', {
     deploymentEnvironment: environment,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   const stack = new AnalyticsStack(app, 'TestAnalytics', {
     deploymentEnvironment: environment,
     bucket: dataLake.bucket,
-    env: { account: '123456789012', region: 'us-east-1' },
+    env: { account: '123456789012', region: 'us-east-1' }
   })
   return Template.fromStack(stack)
 }

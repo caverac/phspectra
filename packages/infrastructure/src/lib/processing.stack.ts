@@ -9,7 +9,6 @@ import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import { DeploymentEnvironment } from 'utils/types'
 
-
 export interface ProcessingStackProps extends cdk.StackProps {
   deploymentEnvironment: DeploymentEnvironment
   bucket: s3.IBucket
@@ -37,7 +36,7 @@ export class ProcessingStack extends cdk.Stack {
     const workerLogGroup = new logs.LogGroup(this, 'WorkerLogGroup', {
       logGroupName: '/aws/lambda/phspectra__worker',
       retention: logs.RetentionDays.ONE_WEEK,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
     })
 
     const workerFn = new lambda.DockerImageFunction(this, 'WorkerFn', {
