@@ -19,11 +19,16 @@ from numpy.typing import NDArray
 class PersistentPeak:
     """A peak identified by 0-dim persistent homology.
 
-    Attributes:
-        index: Index of the local maximum in the original signal.
-        birth: Function value at which this component was born (the peak height).
-        death: Function value at which this component merged into an older one.
-        persistence: ``birth - death`` -- the significance of the peak.
+    Attributes
+    ----------
+    index : int
+        Index of the local maximum in the original signal.
+    birth : float
+        Function value at which this component was born (the peak height).
+    death : float
+        Function value at which this component merged into an older one.
+    persistence : float
+        ``birth - death`` -- the significance of the peak.
     """
 
     index: int

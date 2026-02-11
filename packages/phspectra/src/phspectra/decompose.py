@@ -32,10 +32,14 @@ def estimate_rms(signal: NDArray[np.floating]) -> float:
 class GaussianComponent:
     """A single Gaussian component from the decomposition.
 
-    Attributes:
-        amplitude: Peak height of the Gaussian.
-        mean: Centre position (in array-index or channel units).
-        stddev: Standard deviation (width).
+    Attributes
+    ----------
+    amplitude : float
+        Peak height of the Gaussian.
+    mean : float
+        Centre position (in array-index or channel units).
+    stddev : float
+        Standard deviation (width).
     """
 
     amplitude: float

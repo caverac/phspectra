@@ -32,6 +32,7 @@ venv/
 htmlcov/
 .coverage
 *.cover
+notebooks/
 
 # === IDE ===
 .idea/
@@ -54,6 +55,7 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+.envrc
 
 # === Data / artifacts ===
 *.onnx

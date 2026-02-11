@@ -35,11 +35,34 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Lint with ruff
-        run: uvx ruff check packages/phspectra/src/ packages/phspectra/tests/
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Check formatting with ruff
-        run: uvx ruff format --check packages/phspectra/src/ packages/phspectra/tests/
+      - name: Install dependencies
+        working-directory: packages/phspectra
+        run: uv sync --dev
+
+      - name: Check formatting with black
+        working-directory: packages/phspectra
+        run: uv run black --check src/ tests/
+
+      - name: Check import order with isort
+        working-directory: packages/phspectra
+        run: uv run isort --check-only src/ tests/
+
+      - name: Lint with flake8
+        working-directory: packages/phspectra
+        run: uv run flake8 src/ tests/
+
+      - name: Lint with pylint
+        working-directory: packages/phspectra
+        run: uv run pylint src/ tests/
+
+      - name: Check docstrings with pydocstyle
+        working-directory: packages/phspectra
+        run: uv run pydocstyle src/
 
   typecheck-python:
     name: Typecheck (Python)

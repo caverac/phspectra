@@ -20,9 +20,7 @@ import pytest
 from phspectra.decompose import fit_gaussians
 from phspectra.persistence import find_peaks_by_persistence
 
-FITS_URL = (
-    "https://github.com/mriener/gausspyplus/raw/master/gausspyplus/data/grs-test_field.fits"
-)
+FITS_URL = "https://github.com/mriener/gausspyplus/raw/master/gausspyplus/data/grs-test_field.fits"
 
 CACHE_DIR = Path(__file__).resolve().parent / ".cache"
 FITS_PATH = CACHE_DIR / "grs-test_field.fits"
@@ -44,7 +42,7 @@ ALL_POSITIONS = BRIGHT_POSITIONS + [
 @pytest.fixture(scope="session")
 def fits_cube() -> np.ndarray:
     """Download the GRS test-field FITS cube (cached) and return the data array."""
-    from astropy.io import fits  # type: ignore[import-untyped]
+    from astropy.io import fits  # type: ignore[import-untyped]  # pylint: disable=import-error
 
     if not FITS_PATH.exists():
         CACHE_DIR.mkdir(parents=True, exist_ok=True)

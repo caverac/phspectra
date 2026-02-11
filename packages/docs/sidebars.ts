@@ -12,6 +12,11 @@ const sidebars: SidebarsConfig = {
         'idea-and-plan/plan-of-attack',
         'idea-and-plan/data-sources'
       ]
+    },
+    {
+      type: 'category',
+      label: 'Infrastructure',
+      items: ['infrastructure/aws-pipeline']
     }
   ]
 }

@@ -3,7 +3,7 @@ slug: /
 sidebar_position: 1
 ---
 
-# Morse-Smale Spectra
+# PHSpectra
 
 **Persistent homology for spectral line decomposition.**
 

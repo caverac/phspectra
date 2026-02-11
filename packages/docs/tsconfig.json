@@ -3,7 +3,9 @@
   "compilerOptions": {
     "baseUrl": ".",
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "composite": true,
+    "emit": false
   },
   "include": ["src/", "docs/", "*.ts"]
 }

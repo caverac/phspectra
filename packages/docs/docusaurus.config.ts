@@ -1,13 +1,13 @@
-import { themes as prismThemes } from 'prism-react-renderer'
-import type { Config } from '@docusaurus/types'
 import type * as Preset from '@docusaurus/preset-classic'
-import remarkMath from 'remark-math'
+import type { Config } from '@docusaurus/types'
+import { themes as prismThemes } from 'prism-react-renderer'
 import rehypeKatex from 'rehype-katex'
+import remarkMath from 'remark-math'
 
-const baseUrl = process.env.DOCS_BASE_URL ?? '/morse-smale-spectra/'
+const baseUrl = process.env.DOCS_BASE_URL ?? '/phspectra/'
 
 const config: Config = {
-  title: 'Morse-Smale Spectra',
+  title: 'PHSpectra',
   tagline: 'Persistent homology for spectral line decomposition',
   favicon: 'img/favicon.svg',
 
@@ -15,7 +15,7 @@ const config: Config = {
   baseUrl,
 
   organizationName: 'cavera',
-  projectName: 'morse-smale-spectra',
+  projectName: 'phspectra',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -60,7 +60,7 @@ const config: Config = {
         docs: {
           routeBasePath: '/',
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/caverac/morse-smale-spectra/tree/main/packages/docs/',
+          editUrl: 'https://github.com/caverac/phspectra/tree/main/packages/docs/',
           remarkPlugins: [remarkMath],
           rehypePlugins: [rehypeKatex]
         },
@@ -74,9 +74,9 @@ const config: Config = {
 
   themeConfig: {
     navbar: {
-      title: 'Morse-Smale Spectra',
+      title: 'PHSpectra',
       logo: {
-        alt: 'Morse-Smale Spectra logo',
+        alt: 'PHSpectra logo',
         src: 'img/logo.svg'
       },
       items: [
@@ -87,7 +87,7 @@ const config: Config = {
           label: 'Documentation'
         },
         {
-          href: 'https://github.com/caverac/morse-smale-spectra',
+          href: 'https://github.com/caverac/phspectra',
           label: 'GitHub',
           position: 'right'
         }
@@ -110,7 +110,7 @@ const config: Config = {
           ]
         }
       ],
-      copyright: `Copyright \u00a9 ${new Date().getFullYear()} Morse-Smale Spectra. Built with Docusaurus.`
+      copyright: `Copyright \u00a9 ${new Date().getFullYear()} PHSpectra. Built with Docusaurus.`
     },
     prism: {
       theme: prismThemes.github,

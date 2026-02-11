@@ -30,8 +30,9 @@ def test_two_peaks() -> None:
 
 
 def test_empty_signal() -> None:
+    """Empty signal should return no peaks."""
     peaks = find_peaks_by_persistence(np.array([]))
-    assert peaks == []
+    assert not peaks
 
 
 def test_fit_gaussians_recovers_params() -> None:

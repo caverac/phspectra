@@ -1,21 +1,45 @@
 import * as cdk from 'aws-cdk-lib'
+import { AnalyticsStack } from 'lib/analytics.stack'
+import { DataLakeStack } from 'lib/data-lake.stack'
+import { ProcessingStack } from 'lib/processing.stack'
+import { SplitterStack } from 'lib/splitter.stack'
 import { z } from 'zod'
-import { PhspectraStack } from 'lib/phspectra.stack'
 
 const envSchema = z.object({
-  ENVIRONMENT: z.enum(['development', 'staging', 'production']),
-  AWS_ACCOUNT: z.string().optional(),
-  AWS_REGION: z.string().default('us-east-1')
+  ENVIRONMENT: z.enum(['development', 'production']),
+  AWS_ACCOUNT: z.string(),
+  AWS_DEFAULT_REGION: z.string().default('us-east-1')
 })
 
 const env = envSchema.parse(process.env)
 
+const cdkEnv = {
+  account: env.AWS_ACCOUNT,
+  region: env.AWS_DEFAULT_REGION
+}
+
 const app = new cdk.App()
 
-new PhspectraStack(app, `phspectra-${env.ENVIRONMENT}`, {
+const dataLake = new DataLakeStack(app, 'PHSDataLake', {
   deploymentEnvironment: env.ENVIRONMENT,
-  env: {
-    account: env.AWS_ACCOUNT ?? process.env.CDK_DEFAULT_ACCOUNT,
-    region: env.AWS_REGION ?? process.env.CDK_DEFAULT_REGION
-  }
+  env: cdkEnv
+})
+
+const processing = new ProcessingStack(app, 'PHSProcessing', {
+  deploymentEnvironment: env.ENVIRONMENT,
+  bucket: dataLake.bucket,
+  env: cdkEnv
+})
+
+new SplitterStack(app, 'PHSSplitter', {
+  deploymentEnvironment: env.ENVIRONMENT,
+  bucket: dataLake.bucket,
+  queue: processing.queue,
+  env: cdkEnv
+})
+
+new AnalyticsStack(app, 'PHSAnalytics', {
+  deploymentEnvironment: env.ENVIRONMENT,
+  bucket: dataLake.bucket,
+  env: cdkEnv
 })

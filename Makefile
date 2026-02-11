@@ -27,16 +27,23 @@ dev-docs: ## Start Docusaurus dev server
 # ============================================================
 
 .PHONY: lint-python
-lint-python: ## Lint Python code with ruff
-	cd packages/phspectra && uv run ruff check .
-
-.PHONY: lint-python-fix
-lint-python-fix: ## Lint + fix Python code with ruff
-	cd packages/phspectra && uv run ruff check --fix .
+lint-python: ## Lint Python code with flake8 + pylint
+	cd packages/phspectra && uv run flake8 src/ tests/
+	cd packages/phspectra && uv run pylint src/ tests/
 
 .PHONY: format-python
-format-python: ## Format Python code with ruff
-	cd packages/phspectra && uv run ruff format .
+format-python: ## Format Python code with black + isort
+	cd packages/phspectra && uv run isort src/ tests/
+	cd packages/phspectra && uv run black src/ tests/
+
+.PHONY: format-python-check
+format-python-check: ## Check Python formatting with black + isort
+	cd packages/phspectra && uv run isort --check-only src/ tests/
+	cd packages/phspectra && uv run black --check src/ tests/
+
+.PHONY: docstyle-python
+docstyle-python: ## Check docstring style with pydocstyle
+	cd packages/phspectra && uv run pydocstyle src/
 
 .PHONY: test-python
 test-python: ## Run Python tests with pytest
@@ -55,8 +62,45 @@ typecheck-python: ## Type-check Python code with mypy
 # ============================================================
 
 .PHONY: ci-python
-ci-python: lint-python test-python typecheck-python ## Run full Python CI pipeline
+ci-python: lint-python format-python-check docstyle-python test-python typecheck-python ## Run full Python CI pipeline
 
 .PHONY: ci
 ci: ci-python ## Full CI pipeline (JS + Python)
 	yarn ci
+
+# ============================================================
+# Infrastructure
+# ============================================================
+
+INFRA_DIR := packages/infrastructure
+PHSPECTRA_DIR := packages/phspectra
+WORKER_DIR := $(INFRA_DIR)/lambda/worker
+
+.PHONY: build-phspectra-wheel
+build-phspectra-wheel: ## Build phspectra wheel for Lambda worker
+	cd $(PHSPECTRA_DIR) && uv build --wheel --out-dir ../../$(WORKER_DIR)/
+
+.PHONY: build-lambdas
+build-lambdas: build-phspectra-wheel ## Build Lambda Docker images (via CDK)
+	cd $(INFRA_DIR) && yarn build
+
+.PHONY: synth
+synth: build-phspectra-wheel ## Synthesise CloudFormation template
+	cd $(INFRA_DIR) && ENVIRONMENT=development yarn cdk synth
+
+.PHONY: deploy
+deploy: build-phspectra-wheel ## Deploy stack to AWS (ENVIRONMENT=development by default)
+	cd $(INFRA_DIR) && ENVIRONMENT=$${ENVIRONMENT:-development} yarn cdk deploy --require-approval broadening
+
+.PHONY: diff
+diff: build-phspectra-wheel ## Show CDK diff against deployed stack
+	cd $(INFRA_DIR) && ENVIRONMENT=$${ENVIRONMENT:-development} yarn cdk diff
+
+.PHONY: upload-test-cube
+upload-test-cube: ## Upload GRS test field FITS to S3
+	aws s3 cp tests/fixtures/grs-test-field.fits s3://phspectra-development-data/cubes/grs-test-field.fits
+
+.PHONY: upload-beta-sweep
+upload-beta-sweep: ## Upload beta sweep manifest to S3
+	@echo '{"cube_key":"cubes/grs-test-field.fits","survey":"grs","beta_values":[3,4,5,6,7,8]}' | \
+		aws s3 cp - s3://phspectra-development-data/manifests/grs-beta-sweep.json
