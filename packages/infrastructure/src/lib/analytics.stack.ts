@@ -37,7 +37,7 @@ export class AnalyticsStack extends cdk.Stack {
           'projection.survey.values': 'grs,vgps,cgps,sgps,thor',
           'projection.beta.type': 'decimal',
           'projection.beta.range': '0.5,20.0',
-          'projection.beta.digits': '1',
+          'projection.beta.digits': '2',
           'storage.location.template': `s3://${props.bucket.bucketName}/decompositions/survey=\${survey}/beta=\${beta}/`
         },
         storageDescriptor: {

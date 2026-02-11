@@ -33,6 +33,7 @@ lambda = [
     "aws-lambda-powertools>=3.0",
 ]
 smoke = [
+    "matplotlib>=3.10.8",
     "pytest>=8.0",
     { include-group = "lambda" },
 ]

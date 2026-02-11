@@ -2,49 +2,31 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 from numpy.typing import NDArray
 from scipy.optimize import curve_fit
 
+from phspectra._types import GaussianComponent
+from phspectra.noise import estimate_rms, estimate_rms_simple
 from phspectra.persistence import PersistentPeak, find_peaks_by_persistence
+from phspectra.quality import aicc, find_blended_pairs, validate_components
+
+# Re-export for backward compatibility
+__all__ = [
+    "DEFAULT_BETA",
+    "GaussianComponent",
+    "estimate_rms",
+    "estimate_rms_simple",
+    "fit_gaussians",
+]
 
 #: Default persistence threshold in units of noise sigma.
-DEFAULT_BETA: float = 5.0
+DEFAULT_BETA: float = 5.2
 
 
-def estimate_rms(signal: NDArray[np.floating]) -> float:
-    """Estimate the noise RMS of a 1-D signal using the median absolute deviation.
-
-    The MAD is robust to outliers (real signal peaks) and is converted to a
-    Gaussian-equivalent sigma via ``MAD / 0.6745``.
-    """
-    signal = np.asarray(signal, dtype=np.float64).ravel()
-    if len(signal) == 0:
-        return 0.0
-    med = float(np.median(signal))
-    mad = float(np.median(np.abs(signal - med)))
-    return mad / 0.6745
-
-
-@dataclass(frozen=True, slots=True)
-class GaussianComponent:
-    """A single Gaussian component from the decomposition.
-
-    Attributes
-    ----------
-    amplitude : float
-        Peak height of the Gaussian.
-    mean : float
-        Centre position (in array-index or channel units).
-    stddev : float
-        Standard deviation (width).
-    """
-
-    amplitude: float
-    mean: float
-    stddev: float
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 
 def _multi_gaussian(x: NDArray[np.floating], *params: float) -> NDArray[np.floating]:
@@ -56,6 +38,254 @@ def _multi_gaussian(x: NDArray[np.floating], *params: float) -> NDArray[np.float
     return y
 
 
+def _components_to_params(
+    components: list[GaussianComponent],
+    n_channels: int,
+) -> tuple[list[float], list[float], list[float]]:
+    """Flatten components to (p0, lower, upper) for curve_fit."""
+    p0: list[float] = []
+    lower: list[float] = []
+    upper: list[float] = []
+    for c in components:
+        p0.extend([c.amplitude, c.mean, c.stddev])
+        lower.extend([0.0, 0.0, 0.3])
+        upper.extend([np.inf, float(n_channels), float(n_channels) / 2])
+    return p0, lower, upper
+
+
+def _fit_components(
+    x: NDArray[np.floating],
+    signal: NDArray[np.floating],
+    components: list[GaussianComponent],
+    n_channels: int,
+    *,
+    maxfev: int = 10_000,
+) -> tuple[list[GaussianComponent], NDArray[np.floating]]:
+    """Run curve_fit and return (fitted components, residual)."""
+    if not components:
+        return [], signal.copy()
+
+    p0, lower, upper = _components_to_params(components, n_channels)
+
+    try:
+        popt, _ = curve_fit(
+            _multi_gaussian,
+            x,
+            signal,
+            p0=p0,
+            bounds=(lower, upper),
+            maxfev=maxfev,
+        )
+    except RuntimeError:
+        popt = np.array(p0)
+
+    fitted = [
+        GaussianComponent(
+            amplitude=float(popt[i]),
+            mean=float(popt[i + 1]),
+            stddev=float(abs(popt[i + 2])),
+        )
+        for i in range(0, len(popt), 3)
+    ]
+    model = _multi_gaussian(x, *popt)
+    residual = signal - model
+    return fitted, residual
+
+
+def _peaks_to_components(
+    peaks: list[PersistentPeak],
+    signal: NDArray[np.floating],
+) -> list[GaussianComponent]:
+    """Convert PersistentPeak list to initial-guess GaussianComponents."""
+    return [
+        GaussianComponent(
+            amplitude=max(float(signal[pk.index]), 1e-10),
+            mean=float(pk.index),
+            stddev=1.0,
+        )
+        for pk in peaks
+    ]
+
+
+def _find_residual_peaks(
+    residual: NDArray[np.floating],
+    rms: float,
+    snr_min: float,
+    sig_min: float,
+) -> list[GaussianComponent]:
+    """Find peaks in the residual above S/N and significance thresholds."""
+    threshold = snr_min * rms
+    peaks = find_peaks_by_persistence(residual, min_persistence=threshold)
+    if not peaks:
+        return []
+
+    n_channels = len(residual)
+    candidates = _peaks_to_components(peaks, residual)
+    return validate_components(
+        candidates,
+        rms,
+        n_channels,
+        snr_min=snr_min,
+        sig_min=sig_min,
+    )
+
+
+def _has_negative_dip(
+    residual: NDArray[np.floating],
+    rms: float,
+    neg_thresh: float,
+) -> int | None:
+    """Find the channel of the deepest negative dip exceeding threshold.
+
+    Returns the channel index, or None if no significant dip exists.
+    """
+    threshold = -neg_thresh * rms
+    below = residual < threshold
+    if not np.any(below):
+        return None
+    return int(np.argmin(residual))
+
+
+def _split_component_at(
+    components: list[GaussianComponent],
+    dip_channel: int,
+) -> list[GaussianComponent] | None:
+    """Split the broadest component overlapping *dip_channel* into two.
+
+    Returns a new component list with the split applied, or None if no
+    component overlaps the dip.
+    """
+    # Find the broadest component whose mean is closest to the dip
+    best_idx = None
+    best_stddev = 0.0
+    for i, c in enumerate(components):
+        if abs(c.mean - dip_channel) < 3.0 * c.stddev and c.stddev > best_stddev:
+            best_idx = i
+            best_stddev = c.stddev
+
+    if best_idx is None:
+        return None
+
+    c = components[best_idx]
+    offset = c.stddev * 0.5
+    left = GaussianComponent(
+        amplitude=c.amplitude * 0.7,
+        mean=c.mean - offset,
+        stddev=c.stddev * 0.5,
+    )
+    right = GaussianComponent(
+        amplitude=c.amplitude * 0.7,
+        mean=c.mean + offset,
+        stddev=c.stddev * 0.5,
+    )
+    result = list(components)
+    result[best_idx] = left
+    result.append(right)
+    return result
+
+
+def _merge_blended(
+    components: list[GaussianComponent],
+    i: int,
+    j: int,
+) -> list[GaussianComponent]:
+    """Merge two blended components into one."""
+    ci, cj = components[i], components[j]
+    # Flux-weighted merge
+    w_i = ci.amplitude * ci.stddev
+    w_j = cj.amplitude * cj.stddev
+    w_total = w_i + w_j
+    if w_total == 0:
+        w_total = 1.0
+
+    merged = GaussianComponent(
+        amplitude=ci.amplitude + cj.amplitude,
+        mean=(ci.mean * w_i + cj.mean * w_j) / w_total,
+        stddev=(ci.stddev * w_i + cj.stddev * w_j) / w_total,
+    )
+    result = [c for k, c in enumerate(components) if k not in (i, j)]
+    result.append(merged)
+    return result
+
+
+def _try_refit(
+    x: NDArray[np.floating],
+    signal: NDArray[np.floating],
+    candidate: list[GaussianComponent],
+    n_channels: int,
+    current_aicc: float,
+) -> tuple[list[GaussianComponent], NDArray[np.floating], float, bool]:
+    """Refit *candidate* and accept if AICc improves."""
+    new_comps, new_resid = _fit_components(x, signal, candidate, n_channels, maxfev=5_000)
+    new_aicc = aicc(new_resid, 3 * len(new_comps))
+    if new_aicc < current_aicc:
+        return new_comps, new_resid, new_aicc, True
+    return [], new_resid, current_aicc, False
+
+
+def _refine_iteration(  # pylint: disable=too-many-arguments
+    x: NDArray[np.floating],
+    signal: NDArray[np.floating],
+    components: list[GaussianComponent],
+    residual: NDArray[np.floating],
+    n_channels: int,
+    current_aicc: float,
+    *,
+    rms: float,
+    snr_min: float,
+    sig_min: float,
+    neg_thresh: float,
+    f_sep: float,
+    max_components: int | None,
+) -> tuple[list[GaussianComponent], NDArray[np.floating], float, bool]:
+    """Run one refinement iteration: residual peaks, dip split, blended merge."""
+    changed = False
+
+    # Search residual for new peaks
+    new_peaks = _find_residual_peaks(residual, rms, snr_min, sig_min)
+    if new_peaks:
+        candidate = list(components) + new_peaks
+        if max_components is not None:
+            candidate = candidate[:max_components]
+        new_comps, new_resid, current_aicc, accepted = _try_refit(
+            x, signal, candidate, n_channels, current_aicc
+        )
+        if accepted:
+            components, residual = new_comps, new_resid
+            changed = True
+
+    # Check for negative residual dips
+    dip = _has_negative_dip(residual, rms, neg_thresh)
+    if dip is not None:
+        split_comps = _split_component_at(components, dip)
+        if split_comps is not None:
+            new_comps, new_resid, current_aicc, accepted = _try_refit(
+                x, signal, split_comps, n_channels, current_aicc
+            )
+            if accepted:
+                components, residual = new_comps, new_resid
+                changed = True
+
+    # Check for blended pairs
+    blended = find_blended_pairs(components, f_sep)
+    if blended:
+        i, j = blended[0]
+        merged_comps = _merge_blended(components, i, j)
+        new_comps, new_resid, current_aicc, accepted = _try_refit(
+            x, signal, merged_comps, n_channels, current_aicc
+        )
+        if accepted:
+            components, residual = new_comps, new_resid
+            changed = True
+
+    return components, residual, current_aicc, changed
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
 def fit_gaussians(
     signal: NDArray[np.floating],
     *,
@@ -63,12 +293,27 @@ def fit_gaussians(
     beta: float = DEFAULT_BETA,
     min_persistence: float | None = None,
     max_components: int | None = None,
+    refine: bool = True,
+    max_refine_iter: int = 3,
+    snr_min: float = 1.5,
+    sig_min: float = 5.0,
+    f_sep: float = 1.2,
+    neg_thresh: float = 5.0,
 ) -> list[GaussianComponent]:
     """Fit a sum of Gaussians to *signal* using persistence-detected peaks.
 
     The persistence threshold is set automatically as ``beta * rms``, where
-    *rms* is estimated from the signal via the median absolute deviation.
+    *rms* is estimated from the signal via signal-masked MAD estimation.
     This makes **beta** the single free parameter of the model.
+
+    When *refine* is ``True`` (default), an iterative refinement loop applies:
+
+    * Component quality validation (SNR, significance, FWHM)
+    * Residual peak search (adds missed components)
+    * Negative-dip splitting (decomposes blended peaks)
+    * Blended-pair merging (removes redundant components)
+
+    Each refinement step is accepted only if it improves AICc.
 
     Parameters
     ----------
@@ -85,6 +330,18 @@ def fit_gaussians(
         Absolute persistence threshold.  When set, overrides *beta*.
     max_components:
         Cap on the number of Gaussians to fit.
+    refine:
+        Enable iterative refinement.  Set to ``False`` for legacy behaviour.
+    max_refine_iter:
+        Maximum number of refinement iterations.
+    snr_min:
+        Minimum signal-to-noise ratio for a component to be valid.
+    sig_min:
+        Minimum significance for a component.
+    f_sep:
+        Blended-pair separation factor (in units of FWHM).
+    neg_thresh:
+        Negative residual threshold in units of RMS for dip detection.
 
     Returns
     -------
@@ -92,11 +349,19 @@ def fit_gaussians(
         Fitted Gaussians sorted by mean position.
     """
     signal = np.asarray(signal, dtype=np.float64).ravel()
-    x = np.arange(len(signal), dtype=np.float64)
+    n_channels = len(signal)
+    x = np.arange(n_channels, dtype=np.float64)
 
+    # --- Step 1: RMS estimation --------------------------------------------
+    if refine:
+        rms = estimate_rms(signal)
+    else:
+        rms = estimate_rms_simple(signal)
+
+    # --- Step 2: Peak detection --------------------------------------------
     if peaks is None:
         if min_persistence is None:
-            min_persistence = beta * estimate_rms(signal)
+            min_persistence = beta * rms
         peaks = find_peaks_by_persistence(signal, min_persistence=min_persistence)
 
     if max_components is not None:
@@ -105,36 +370,50 @@ def fit_gaussians(
     if not peaks:
         return []
 
-    # Initial guesses: amplitude = signal value at peak, sigma = 1 channel
-    p0: list[float] = []
-    lower: list[float] = []
-    upper: list[float] = []
-    for pk in peaks:
-        amp_guess = max(signal[pk.index], 1e-10)
-        p0.extend([amp_guess, float(pk.index), 1.0])
-        lower.extend([0.0, 0.0, 0.3])
-        upper.extend([np.inf, float(len(signal)), float(len(signal)) / 2])
+    # --- Step 3: Initial fit -----------------------------------------------
+    initial_guesses = _peaks_to_components(peaks, signal)
+    components, residual = _fit_components(x, signal, initial_guesses, n_channels)
 
-    try:
-        popt, _ = curve_fit(
-            _multi_gaussian,
+    if not refine:
+        components.sort(key=lambda c: c.mean)
+        return components
+
+    # --- Step 4: Validation ------------------------------------------------
+    validated = validate_components(components, rms, n_channels, snr_min=snr_min, sig_min=sig_min)
+    if len(validated) != len(components):
+        if not validated:
+            return []
+        components, residual = _fit_components(x, signal, validated, n_channels, maxfev=5_000)
+
+    # --- Step 5: AICc baseline ---------------------------------------------
+    current_aicc = aicc(residual, 3 * len(components))
+
+    # --- Early exit: nothing to refine? ------------------------------------
+    residual_peaks = _find_residual_peaks(residual, rms, snr_min, sig_min)
+    blended = find_blended_pairs(components, f_sep)
+    if not residual_peaks and not blended:
+        components.sort(key=lambda c: c.mean)
+        return components
+
+    # --- Step 6: Iterative refinement loop ---------------------------------
+    for _ in range(max_refine_iter):
+        components, residual, current_aicc, changed = _refine_iteration(
             x,
             signal,
-            p0=p0,
-            bounds=(lower, upper),
-            maxfev=10_000,
+            components,
+            residual,
+            n_channels,
+            current_aicc,
+            rms=rms,
+            snr_min=snr_min,
+            sig_min=sig_min,
+            neg_thresh=neg_thresh,
+            f_sep=f_sep,
+            max_components=max_components,
         )
-    except RuntimeError:
-        # curve_fit failed to converge -- return initial guesses
-        popt = np.array(p0)
+        if not changed:
+            break
 
-    components = [
-        GaussianComponent(
-            amplitude=float(popt[i]),
-            mean=float(popt[i + 1]),
-            stddev=float(abs(popt[i + 2])),
-        )
-        for i in range(0, len(popt), 3)
-    ]
+    # --- Step 7: Return sorted by mean -------------------------------------
     components.sort(key=lambda c: c.mean)
     return components

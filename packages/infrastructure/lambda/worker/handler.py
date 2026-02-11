@@ -104,7 +104,7 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     )
 
     # Write Parquet to /tmp then upload
-    beta_str = f"{beta:.1f}"
+    beta_str = f"{beta:.2f}"
     chunk_basename = os.path.basename(chunk_key).replace(".npz", ".parquet")
     output_key = f"decompositions/survey={survey}/beta={beta_str}/{chunk_basename}"
 

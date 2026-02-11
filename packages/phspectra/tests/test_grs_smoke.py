@@ -19,16 +19,23 @@ from phspectra.persistence import find_peaks_by_persistence
 
 # Spatial positions to test: (y, x) in the cube.
 # The first entry is the one used in the GaussPy+ tutorial.
-# "bright" positions are known to have real emission; "any" may be noise-only.
+# "bright" have clear emission (SNR>5); "marginal" have weak/narrow features;
+# "any" may be noise-only.
 BRIGHT_POSITIONS = [
     (31, 40),
+]
+MARGINAL_POSITIONS = [
     (5, 5),
     (50, 18),
 ]
-ALL_POSITIONS = BRIGHT_POSITIONS + [
-    (10, 10),
-    (20, 15),
-]
+ALL_POSITIONS = (
+    BRIGHT_POSITIONS
+    + MARGINAL_POSITIONS
+    + [
+        (10, 10),
+        (20, 15),
+    ]
+)
 
 
 @pytest.mark.slow
@@ -71,10 +78,22 @@ class TestGRSSmoke:
         spectrum = grs_cube[:, y, x]
         spectrum = np.nan_to_num(spectrum, nan=0.0)
 
-        # Use default beta=5.0 (noise-aware threshold)
         components = fit_gaussians(spectrum)
 
         assert len(components) >= 1, f"No components fitted at (y={y}, x={x})"
+        for comp in components:
+            assert comp.amplitude > 0, f"Non-positive amplitude: {comp}"
+            assert comp.stddev > 0, f"Non-positive stddev: {comp}"
+
+    @pytest.mark.parametrize("y,x", MARGINAL_POSITIONS)
+    def test_fit_gaussians_marginal(self, grs_cube: np.ndarray, y: int, x: int) -> None:
+        """Marginal positions may return 0 components after quality validation."""
+        spectrum = grs_cube[:, y, x]
+        spectrum = np.nan_to_num(spectrum, nan=0.0)
+
+        components = fit_gaussians(spectrum)
+
+        # Marginal detections may be filtered by quality control
         for comp in components:
             assert comp.amplitude > 0, f"Non-positive amplitude: {comp}"
             assert comp.stddev > 0, f"Non-positive stddev: {comp}"
