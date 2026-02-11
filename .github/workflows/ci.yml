@@ -1,0 +1,233 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+  PYTHON_VERSION: '3.11'
+
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  # ===========================================================================
+  # Python Jobs (run in parallel)
+  # ===========================================================================
+
+  lint-python:
+    name: Lint (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint with ruff
+        run: uvx ruff check packages/phspectra/src/ packages/phspectra/tests/
+
+      - name: Check formatting with ruff
+        run: uvx ruff format --check packages/phspectra/src/ packages/phspectra/tests/
+
+  typecheck-python:
+    name: Typecheck (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        working-directory: packages/phspectra
+        run: uv sync --dev
+
+      - name: Run mypy
+        working-directory: packages/phspectra
+        run: uv run mypy src/
+
+  test-python:
+    name: Test (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        working-directory: packages/phspectra
+        run: uv sync --dev
+
+      - name: Run tests
+        working-directory: packages/phspectra
+        run: uv run python -m pytest -m "not slow" -v
+
+  # ===========================================================================
+  # JS/TS Jobs (run in parallel)
+  # ===========================================================================
+
+  lint-js:
+    name: Lint (JS/TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run ESLint
+        run: yarn lint
+
+      - name: Check formatting
+        run: yarn format
+
+  typecheck-js:
+    name: Typecheck (JS/TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run TypeScript checks
+        run: yarn typecheck
+
+  # ===========================================================================
+  # Build (requires all lint/test jobs to pass)
+  # ===========================================================================
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs:
+      # Python
+      - lint-python
+      - typecheck-python
+      - test-python
+      # JS/TS
+      - lint-js
+      - typecheck-js
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build all workspaces
+        run: yarn build
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-build
+          path: packages/docs/build/
+          retention-days: 7
+
+  # ===========================================================================
+  # Deploy Docs to GitHub Pages
+  # ===========================================================================
+
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    needs: [build]
+    # Only deploy on push to main, not on PRs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-build
+          path: ./docs-build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs-build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ===========================================================================
+  # Summary
+  # ===========================================================================
+
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs: [build, deploy-docs]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          # Build must succeed
+          if [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "Build failed"
+            exit 1
+          fi
+
+          # Deployment must succeed or be skipped (skipped on PRs)
+          if [[ "${{ needs.deploy-docs.result }}" == "failure" ]]; then
+            echo "Docs deployment failed"
+            exit 1
+          fi
+
+          echo "All CI checks passed!"
+          if [[ "${{ needs.deploy-docs.result }}" == "success" ]]; then
+            echo "  Docs deployed to GitHub Pages"
+          fi
