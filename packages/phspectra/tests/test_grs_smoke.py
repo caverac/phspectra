@@ -49,7 +49,7 @@ def fits_cube() -> np.ndarray:
         urlretrieve(FITS_URL, FITS_PATH)  # noqa: S310
 
     with fits.open(FITS_PATH) as hdul:
-        data: np.ndarray = np.array(hdul[0].data, dtype=np.float64)
+        data: np.ndarray = np.array(hdul[0].data, dtype=np.float64)  # pylint: disable=no-member
     return data
 
 

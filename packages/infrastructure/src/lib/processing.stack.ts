@@ -3,6 +3,7 @@ import path = require('path')
 import * as cdk from 'aws-cdk-lib'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources'
+import * as logs from 'aws-cdk-lib/aws-logs'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
@@ -33,13 +34,21 @@ export class ProcessingStack extends cdk.Stack {
       }
     })
 
+    const workerLogGroup = new logs.LogGroup(this, 'WorkerLogGroup', {
+      logGroupName: '/aws/lambda/phspectra__worker',
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    })
+
     const workerFn = new lambda.DockerImageFunction(this, 'WorkerFn', {
+      functionName: 'phspectra__worker',
       code: lambda.DockerImageCode.fromImageAsset(
         path.join(__dirname, '..', '..', 'lambda', 'worker')
       ),
       architecture: lambda.Architecture.ARM_64,
       memorySize: 512,
       timeout: cdk.Duration.minutes(5),
+      logGroup: workerLogGroup,
       environment: {
         BUCKET_NAME: props.bucket.bucketName
       }

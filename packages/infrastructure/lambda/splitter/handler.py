@@ -9,6 +9,8 @@ import uuid
 import boto3
 import numpy as np
 from astropy.io import fits
+from aws_lambda_powertools.utilities.data_classes import EventBridgeEvent
+from aws_lambda_powertools.utilities.typing import LambdaContext
 
 s3 = boto3.client("s3")
 sqs = boto3.client("sqs")
@@ -19,23 +21,57 @@ CHUNK_SIZE = 500
 DEFAULT_BETA = 5.0
 
 
-def handler(event: dict, context: object) -> dict:
-    """Entry point for EventBridge S3 notifications."""
-    detail = event.get("detail", {})
-    key = detail["object"]["key"]
+def handler(event: dict[str, object], context: LambdaContext) -> dict[str, object]:
+    """Route an EventBridge S3 notification to the appropriate handler.
+
+    Supports two trigger types: a ``.fits`` cube upload (chunked and fanned
+    out with a default beta) or a ``manifests/*.json`` upload (which
+    specifies the cube key, survey, and beta sweep values).
+
+    Parameters
+    ----------
+    event : dict[str, object]
+        Raw EventBridge event forwarded by the S3-to-EventBridge rule.
+    context : LambdaContext
+        Lambda runtime context (unused).
+
+    Returns
+    -------
+    dict[str, object]
+        Response with ``statusCode`` and a ``body`` containing the run
+        metadata (run_id, chunk/message counts) or an error message.
+    """
+    del context  # unused
+    parsed = EventBridgeEvent(event)
+    detail = parsed.detail
+    key: str = detail["object"]["key"]
 
     if key.startswith("manifests/") and key.endswith(".json"):
         return _handle_manifest(key)
-    elif key.endswith(".fits"):
-        return _handle_fits(
-            key, survey=_survey_from_key(key), beta_values=[DEFAULT_BETA]
-        )
-    else:
-        return {"statusCode": 400, "body": f"Unsupported key: {key}"}
+
+    if key.endswith(".fits"):
+        return _handle_fits(key, survey=_survey_from_key(key), beta_values=[DEFAULT_BETA])
+
+    return {"statusCode": 400, "body": f"Unsupported key: {key}"}
 
 
-def _handle_manifest(key: str) -> dict:
-    """Read a JSON manifest and fan out a beta sweep."""
+def _handle_manifest(key: str) -> dict[str, object]:
+    """Parse a JSON manifest from S3 and delegate to ``_handle_fits``.
+
+    The manifest must contain ``cube_key``, ``survey``, and
+    ``beta_values`` fields, allowing callers to specify a multi-beta
+    sweep over a single FITS cube.
+
+    Parameters
+    ----------
+    key : str
+        S3 key under ``manifests/`` pointing to the JSON manifest.
+
+    Returns
+    -------
+    dict[str, object]
+        Forwarded result from ``_handle_fits``.
+    """
     resp = s3.get_object(Bucket=BUCKET, Key=key)
     manifest = json.loads(resp["Body"].read())
     cube_key = manifest["cube_key"]
@@ -44,8 +80,32 @@ def _handle_manifest(key: str) -> dict:
     return _handle_fits(cube_key, survey=survey, beta_values=beta_values)
 
 
-def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict:
-    """Read a FITS cube, chunk spectra, and send SQS messages."""
+def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict[str, object]:
+    """Download a 3-D FITS cube, chunk its spectra, and fan out to SQS.
+
+    The cube is reshaped from ``(n_channels, ny, nx)`` into individual
+    spectra, split into chunks of ``CHUNK_SIZE``, uploaded as ``.npz``
+    files, and one SQS message is sent per ``(chunk, beta)`` pair.
+
+    Parameters
+    ----------
+    key : str
+        S3 key of the ``.fits`` cube.
+    survey : str
+        Survey identifier carried through to worker messages.
+    beta_values : list[float]
+        Persistence thresholds (in multiples of RMS) to sweep.
+
+    Returns
+    -------
+    dict[str, object]
+        Response with ``statusCode`` 200 and run metadata.
+
+    Raises
+    ------
+    ValueError
+        If the FITS primary HDU is not a 3-D array.
+    """
     run_id = str(uuid.uuid4())
 
     # Download FITS to /tmp
@@ -53,7 +113,7 @@ def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict:
     s3.download_file(BUCKET, key, local_path)
 
     with fits.open(local_path) as hdul:
-        data = hdul[0].data  # type: ignore[union-attr]
+        data = hdul[0].data  # type: ignore # pylint: disable=no-member
 
     os.remove(local_path)
 
@@ -119,6 +179,17 @@ def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict:
 
 
 def _survey_from_key(key: str) -> str:
-    """Extract a survey name from the FITS key, defaulting to the filename stem."""
+    """Derive a survey name from an S3 key by taking the lowercase file stem.
+
+    Parameters
+    ----------
+    key : str
+        S3 object key (e.g. ``uploads/NGC1234.fits``).
+
+    Returns
+    -------
+    str
+        Lowercase filename without extension (e.g. ``ngc1234``).
+    """
     basename = os.path.basename(key)
     return os.path.splitext(basename)[0].lower()

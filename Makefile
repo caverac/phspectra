@@ -16,7 +16,7 @@ help: ## List all targets
 .PHONY: install
 install: ## Install all dependencies (JS + Python)
 	yarn install
-	cd packages/phspectra && uv sync --dev
+	uv sync --all-groups
 
 .PHONY: dev-docs
 dev-docs: ## Start Docusaurus dev server
@@ -26,36 +26,38 @@ dev-docs: ## Start Docusaurus dev server
 # Python (Make owns this — Yarn does NOT touch Python)
 # ============================================================
 
+PYTHON_SRC := packages/phspectra/src/ packages/phspectra/tests/
+
 .PHONY: lint-python
 lint-python: ## Lint Python code with flake8 + pylint
-	cd packages/phspectra && uv run flake8 src/ tests/
-	cd packages/phspectra && uv run pylint src/ tests/
+	uv run flake8 $(PYTHON_SRC)
+	uv run pylint $(PYTHON_SRC)
 
 .PHONY: format-python
 format-python: ## Format Python code with black + isort
-	cd packages/phspectra && uv run isort src/ tests/
-	cd packages/phspectra && uv run black src/ tests/
+	uv run isort $(PYTHON_SRC)
+	uv run black $(PYTHON_SRC)
 
 .PHONY: format-python-check
 format-python-check: ## Check Python formatting with black + isort
-	cd packages/phspectra && uv run isort --check-only src/ tests/
-	cd packages/phspectra && uv run black --check src/ tests/
+	uv run isort --check-only $(PYTHON_SRC)
+	uv run black --check $(PYTHON_SRC)
 
 .PHONY: docstyle-python
 docstyle-python: ## Check docstring style with pydocstyle
-	cd packages/phspectra && uv run pydocstyle src/
+	uv run pydocstyle packages/phspectra/src/
 
 .PHONY: test-python
 test-python: ## Run Python tests with pytest
-	cd packages/phspectra && uv run python -m pytest -m "not slow"
+	uv run python -m pytest -m "not slow"
 
 .PHONY: test-python-smoke
 test-python-smoke: ## Run slow smoke tests (GRS FITS, needs network + astropy)
-	cd packages/phspectra && uv run --group smoke python -m pytest -m slow
+	uv run --group smoke python -m pytest -m slow
 
 .PHONY: typecheck-python
 typecheck-python: ## Type-check Python code with mypy
-	cd packages/phspectra && uv run mypy src/
+	uv run mypy packages/phspectra/src/
 
 # ============================================================
 # CI

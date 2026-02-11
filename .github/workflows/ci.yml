@@ -41,28 +41,22 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        working-directory: packages/phspectra
-        run: uv sync --dev
+        run: uv sync
 
       - name: Check formatting with black
-        working-directory: packages/phspectra
-        run: uv run black --check src/ tests/
+        run: uv run black --check packages/phspectra/src/ packages/phspectra/tests/
 
       - name: Check import order with isort
-        working-directory: packages/phspectra
-        run: uv run isort --check-only src/ tests/
+        run: uv run isort --check-only packages/phspectra/src/ packages/phspectra/tests/
 
       - name: Lint with flake8
-        working-directory: packages/phspectra
-        run: uv run flake8 src/ tests/
+        run: uv run flake8 packages/phspectra/src/ packages/phspectra/tests/
 
       - name: Lint with pylint
-        working-directory: packages/phspectra
-        run: uv run pylint src/ tests/
+        run: uv run pylint packages/phspectra/src/ packages/phspectra/tests/
 
       - name: Check docstrings with pydocstyle
-        working-directory: packages/phspectra
-        run: uv run pydocstyle src/
+        run: uv run pydocstyle packages/phspectra/src/
 
   typecheck-python:
     name: Typecheck (Python)
@@ -79,12 +73,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        working-directory: packages/phspectra
-        run: uv sync --dev
+        run: uv sync
 
       - name: Run mypy
-        working-directory: packages/phspectra
-        run: uv run mypy src/
+        run: uv run mypy packages/phspectra/src/
 
   test-python:
     name: Test (Python)
@@ -101,11 +93,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        working-directory: packages/phspectra
-        run: uv sync --dev
+        run: uv sync
 
       - name: Run tests
-        working-directory: packages/phspectra
         run: uv run python -m pytest -m "not slow" -v
 
   # ===========================================================================
