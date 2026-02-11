@@ -1,0 +1,37 @@
+{
+  "name": "morse-smale-spectra",
+  "private": true,
+  "packageManager": "yarn@4.12.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "eslint --max-warnings 0",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "typecheck": "yarn workspaces foreach -Apt run typecheck",
+    "build": "yarn workspaces foreach -Apt run build",
+    "build:docs": "yarn workspace @morse-smale-spectra/docs build",
+    "dev:docs": "yarn workspace @morse-smale-spectra/docs start",
+    "ci": "yarn lint && yarn format && yarn typecheck && yarn build"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
+    "@eslint/js": "^9.39.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.34.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

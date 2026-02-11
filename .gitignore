@@ -1,0 +1,63 @@
+# === Node / Yarn ===
+node_modules/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
+# === Build outputs ===
+dist/
+build/
+.docusaurus/
+*.tsbuildinfo
+
+# === CDK ===
+cdk.out/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.cover
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Environment ===
+.env
+.env.*
+!.env.example
+
+# === Data / artifacts ===
+*.onnx
+*.pt
+*.pth
+*.fits
+.cache/

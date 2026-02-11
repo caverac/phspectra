@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="specFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6C5CE7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#6C5CE7" stop-opacity="0.02"/>
+    </linearGradient>
+    <radialGradient id="dot">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#0F0E17" stroke="#2D2B55" stroke-width="4"/>
+
+  <!-- Diffuse glowing dots -->
+  <circle cx="120" cy="120" r="6" fill="url(#dot)"/>
+  <circle cx="400" cy="100" r="5" fill="url(#dot)"/>
+  <circle cx="160" cy="85" r="4" fill="url(#dot)"/>
+  <circle cx="380" cy="150" r="4.5" fill="url(#dot)"/>
+  <circle cx="280" cy="78" r="3.5" fill="url(#dot)"/>
+  <circle cx="440" cy="200" r="4" fill="url(#dot)"/>
+  <circle cx="100" cy="180" r="3" fill="url(#dot)"/>
+  <circle cx="320" cy="95" r="4.5" fill="url(#dot)"/>
+  <circle cx="200" cy="100" r="3" fill="url(#dot)"/>
+  <circle cx="450" cy="280" r="3.5" fill="url(#dot)"/>
+  <circle cx="90" cy="300" r="4" fill="url(#dot)"/>
+
+  <!-- Subtle axis lines -->
+  <line x1="80" y1="400" x2="432" y2="400" stroke="#2D2B55" stroke-width="1.5"/>
+  <line x1="80" y1="400" x2="80" y2="80" stroke="#2D2B55" stroke-width="1.5"/>
+
+  <!-- Spectrum fill -->
+  <path d="M80,400
+           C100,400 110,398 130,390
+           C150,382 155,340 170,280
+           C180,240 188,200 195,180
+           Q205,140 215,180
+           C222,200 228,240 238,280
+           C248,320 255,355 265,365
+           C275,375 280,370 290,350
+           C300,330 305,280 315,220
+           Q325,140 335,100
+           Q345,60  355,100
+           C365,140 370,220 378,280
+           C386,340 392,365 400,378
+           C408,388 412,392 418,395
+           C424,398 430,400 432,400"
+        fill="url(#specFill)" stroke="none"/>
+
+  <!-- Spectrum stroke -->
+  <path d="M80,400
+           C100,400 110,398 130,390
+           C150,382 155,340 170,280
+           C180,240 188,200 195,180
+           Q205,140 215,180
+           C222,200 228,240 238,280
+           C248,320 255,355 265,365
+           C275,375 280,370 290,350
+           C300,330 305,280 315,220
+           Q325,140 335,100
+           Q345,60  355,100
+           C365,140 370,220 378,280
+           C386,340 392,365 400,378
+           C408,388 412,392 418,395
+           C424,398 430,400 432,400"
+        fill="none" stroke="#A29BFE" stroke-width="3.5" stroke-linecap="round"/>
+</svg>
