@@ -24,11 +24,20 @@ Downloads and caches the GRS test field FITS cube and VizieR catalog to `/tmp/ph
 uv run benchmarks compare
 ```
 
-Runs phspectra and GaussPy+ (Docker) on 400 real GRS spectra. Produces:
+Runs phspectra and GaussPy+ (Docker) on 400 real GRS spectra, that number can be changed with the `--num-spectra` option, this runs in serial, so be ready to wait a while. Produces:
 
 - `/tmp/phspectra/compare-docker/spectra.npz` — the 400 spectra
 - `/tmp/phspectra/compare-docker/results.json` — GaussPy+ decompositions + timing
-- Plots: `compare-disagreements.png`, `compare-narrower-widths.png`, `compare-rms.png`
+- `/tmp/phspectra/compare-docker/phspectra_results.json` — phspectra decompositions + timing
+- `/tmp/phspectra/compare-docker/comparison_docker.json` — summary statistics
+
+Then generate the plots:
+
+```bash
+uv run benchmarks compare-plot
+```
+
+Produces: `compare-disagreements-docker.png`, `compare-narrower-widths-docker.png`, `compare-rms-docker.png`
 
 ## Step 2: Beta training sweep
 

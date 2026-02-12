@@ -8,6 +8,8 @@ import sys
 
 import click
 import numpy as np
+from matplotlib import pyplot as plt
+
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR, DEFAULT_BETA, DEFAULT_MAX_COMPONENTS
 from numpy.linalg import LinAlgError
@@ -26,8 +28,6 @@ from phspectra import fit_gaussians
 @click.option("--output-dir", default=None, help="Output directory (defaults to data-dir).")
 def width(data_dir: str, beta: float, output_dir: str | None) -> None:
     """Compare fitted widths: phspectra vs GaussPy+ (Docker)."""
-    import matplotlib.pyplot as plt
-
     if output_dir is None:
         output_dir = data_dir
 

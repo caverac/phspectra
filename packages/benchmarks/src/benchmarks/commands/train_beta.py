@@ -3,21 +3,33 @@
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
 import os
 import sys
 import time
+from pathlib import Path
 
 import click
 import numpy as np
-from benchmarks._console import console, err_console
-from benchmarks._constants import CACHE_DIR
-from benchmarks._gaussian import gaussian_model
-from benchmarks._matching import count_correct_matches, f1_score
-from benchmarks._types import Component
+from matplotlib import pyplot as plt
+from matplotlib.ticker import AutoMinorLocator
 from numpy.linalg import LinAlgError
 
+from benchmarks._console import console, err_console
+from benchmarks._constants import CACHE_DIR, DOCS_IMG_DIR
+from benchmarks._gaussian import gaussian_model
+from benchmarks._matching import count_correct_matches, f1_score
+from benchmarks._plotting import save_figure_if_changed
+from benchmarks._types import BetaSweepResult, Component
 from phspectra import fit_gaussians
+
+_SAVEFIG_KWARGS: dict[str, int | str] = {
+    "dpi": 300,
+    "bbox_inches": "tight",
+    "facecolor": "white",
+    "edgecolor": "none",
+}
 
 
 @click.command("train-beta")
@@ -32,8 +44,6 @@ from phspectra import fit_gaussians
 @click.option("--beta-steps", default=13, show_default=True)
 def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int) -> None:
     """Sweep beta values against GaussPy+ Docker decompositions."""
-    import matplotlib.pyplot as plt
-
     output_dir = os.path.join(data_dir, "training-output")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -53,6 +63,11 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     signals = np.load(spectra_path)["signals"]
     n_spectra, n_channels = signals.shape
     console.print(f"  {n_spectra} spectra, {n_channels} channels each")
+
+    # TODO(temporary): limit to 10 spectra for fast testing — remove before merging
+    signals = signals[:10]
+    n_spectra = len(signals)
+    console.print(f"  [bold red]TEMPORARY: limited to {n_spectra} spectra[/bold red]")
 
     # Load GaussPy+ Docker decompositions
     console.print("\nStep 2: Load GaussPy+ Docker decompositions", style="bold cyan")
@@ -80,7 +95,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
         f"\nStep 3: Sweep {len(beta_grid)} beta values ({n_train * len(beta_grid)} fits)",
         style="bold cyan",
     )
-    results: list[dict] = []
+    results: list[BetaSweepResult] = []
     for beta in beta_grid:
         tot_correct = 0
         tot_true = 0
@@ -107,19 +122,19 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
 
         prec, rec, f1 = f1_score(tot_correct, tot_true, tot_guessed)
         results.append(
-            {
-                "beta": beta,
-                "f1": round(f1, 4),
-                "precision": round(prec, 4),
-                "recall": round(rec, 4),
-                "n_correct": tot_correct,
-                "n_true": tot_true,
-                "n_guessed": tot_guessed,
-                "time_s": round(elapsed, 2),
-                "mean_ph_rms": round(float(np.mean(ph_rms_list)), 6),
-                "mean_gp_rms": round(float(np.mean(gp_rms_list)), 6),
-                "n_ph_wins": sum(1 for p, g in zip(ph_rms_list, gp_rms_list) if p < g),
-            }
+            BetaSweepResult(
+                beta=beta,
+                f1=round(f1, 4),
+                precision=round(prec, 4),
+                recall=round(rec, 4),
+                n_correct=tot_correct,
+                n_true=tot_true,
+                n_guessed=tot_guessed,
+                time_s=round(elapsed, 2),
+                mean_ph_rms=round(float(np.mean(ph_rms_list)), 6),
+                mean_gp_rms=round(float(np.mean(gp_rms_list)), 6),
+                n_ph_wins=sum(1 for p, g in zip(ph_rms_list, gp_rms_list) if p < g),
+            )
         )
         console.print(
             f"  beta={beta:>5.2f}  F1={f1:.3f}  P={prec:.3f}  R={rec:.3f}  "
@@ -127,18 +142,19 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
             f"({elapsed:.1f}s)"
         )
 
-    best = max(results, key=lambda r: r["f1"])
+    best = max(results, key=lambda r: r.f1)
     console.print(
-        f"\nOptimal beta = [bold yellow]{best['beta']:.2f}[/bold yellow]"
-        f"  (F1 = {best['f1']:.4f})"
+        f"\nOptimal beta = [bold yellow]{best.beta:.2f}[/bold yellow]" f"  (F1 = {best.f1:.4f})"
     )
 
     # Save CSV
     csv_path = os.path.join(output_dir, "beta_sweep_docker.csv")
+    fieldnames = [f.name for f in dataclasses.fields(BetaSweepResult)]
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(results[0].keys()))
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(results)
+        for r in results:
+            writer.writerow(dataclasses.asdict(r))
     console.print(f"  CSV: [blue]{csv_path}[/blue]")
 
     # Save JSON
@@ -147,47 +163,46 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
         "n_spectra": n_train,
         "beta_grid": beta_grid,
         "reference": "GaussPy+ Docker (alpha1=2.89, alpha2=6.65, two-phase)",
-        "optimal_beta": best["beta"],
-        "optimal_f1": best["f1"],
-        "results": results,
+        "optimal_beta": best.beta,
+        "optimal_f1": best.f1,
+        "results": [dataclasses.asdict(r) for r in results],
     }
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
     console.print(f"  JSON: [blue]{json_path}[/blue]")
 
     # Plot
-    betas = [r["beta"] for r in results]
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.plot(betas, [r["f1"] for r in results], "o-", color="C0", linewidth=2, label="F1")
-    ax.plot(
-        betas,
-        [r["precision"] for r in results],
-        "s--",
-        color="C2",
-        linewidth=1,
-        alpha=0.7,
-        label="Precision",
-    )
-    ax.plot(
-        betas,
-        [r["recall"] for r in results],
-        "^--",
-        color="C3",
-        linewidth=1,
-        alpha=0.7,
-        label="Recall",
-    )
-    ax.axvline(best["beta"], color="C0", linestyle=":", alpha=0.5)
+    betas = [r.beta for r in results]
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.92)
+
+    ax.plot(betas, [r.f1 for r in results], "-k", lw=1.5, label="F1")
+    ax.plot(betas, [r.precision for r in results], "--k", lw=1.5, label="Precision")
+    ax.plot(betas, [r.recall for r in results], "-.k", lw=1.5, label="Recall")
+    ax.axvline(best.beta, color="k", linestyle=":", lw=0.8, alpha=0.5)
+
     ax.set_xlabel(r"$\beta$")
     ax.set_ylabel("Score")
-    ax.set_title(f"Beta training — {n_train} GRS spectra (vs GaussPy+ Docker reference)")
-    ax.legend(loc="center left")
     ax.set_ylim(-0.02, 1.05)
-    ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    plot_path = os.path.join(output_dir, "train-beta-docker.png")
-    fig.savefig(plot_path, dpi=150)
+    ax.legend(loc="center left", frameon=False)
+
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    ax.tick_params(which="minor", length=3, color="gray", direction="in")
+    ax.tick_params(which="major", length=6, direction="in")
+    ax.tick_params(top=True, right=True, which="both")
+
+    # Save to data dir (alongside CSV/JSON)
+    plot_path = os.path.join(output_dir, "f1-beta-sweep.png")
+    fig.savefig(plot_path, **_SAVEFIG_KWARGS)
     console.print(f"  Plot: [blue]{plot_path}[/blue]")
+
+    # Save to docs
+    docs_path = Path(DOCS_IMG_DIR) / "f1-beta-sweep.png"
+    if save_figure_if_changed(fig, docs_path, **_SAVEFIG_KWARGS):
+        console.print(f"  Docs: [blue]{docs_path}[/blue]")
+    else:
+        console.print(f"  Docs: unchanged [dim]{docs_path}[/dim]")
     plt.close(fig)
 
     console.print("\nDone.", style="bold green")

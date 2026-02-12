@@ -31,6 +31,23 @@ class ComparisonResult:
 
 
 @dataclass
+class BetaSweepResult:
+    """Result of a single beta value in the sweep."""
+
+    beta: float
+    f1: float
+    precision: float
+    recall: float
+    n_correct: int
+    n_true: int
+    n_guessed: int
+    time_s: float
+    mean_ph_rms: float
+    mean_gp_rms: float
+    n_ph_wins: int
+
+
+@dataclass
 class SyntheticSpectrum:
     """A synthetic spectrum with known ground-truth components."""
 

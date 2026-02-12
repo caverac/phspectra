@@ -11,10 +11,12 @@ from dataclasses import asdict
 
 import click
 import numpy as np
+from matplotlib import pyplot as plt
+
 from benchmarks._console import console
 from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
-from benchmarks._gaussian import gaussian
-from benchmarks._matching import count_correct_matches, f1_score
+from benchmarks._gaussian import gaussian, gaussian_model
+from benchmarks._matching import count_correct_matches, f1_score, match_pairs
 from benchmarks._types import Component, SyntheticSpectrum
 from numpy.linalg import LinAlgError
 
@@ -39,7 +41,7 @@ def _rand_mean(rng: np.random.Generator) -> float:
     return float(rng.uniform(MEAN_MARGIN, N_CHANNELS - MEAN_MARGIN))
 
 
-# ── Spectrum generators ──────────────────────────────────────────────────────
+# Spectrum generators
 
 
 def _gen_single_bright(rng: np.random.Generator, n: int) -> list[SyntheticSpectrum]:
@@ -149,7 +151,7 @@ GENERATORS = {
 }
 
 
-# ── Parallel worker ──────────────────────────────────────────────────────────
+# Parallel worker
 
 
 def _evaluate_one(args: tuple) -> dict:
@@ -169,8 +171,6 @@ def _evaluate_one(args: tuple) -> dict:
     n_correct = count_correct_matches(true_comps, detected)
     prec, rec, f1 = f1_score(n_correct, n_true, n_detected)
 
-    from benchmarks._gaussian import gaussian_model
-
     model = gaussian_model(x, detected) if detected else np.zeros_like(signal)
     residual = signal - model
     rms = float(np.sqrt(np.mean(residual**2)))
@@ -181,9 +181,7 @@ def _evaluate_one(args: tuple) -> dict:
     pos_errs: list[float] = []
     width_rel_errs: list[float] = []
 
-    from benchmarks._matching import match_pairs as _match
-
-    pairs = _match(true_comps, detected, pos_tol_sigma=1.0)
+    pairs = match_pairs(true_comps, detected, pos_tol_sigma=1.0)
     for tc, dc in pairs:
         if tc.amplitude > 0:
             amp_rel_errs.append(abs(dc.amplitude - tc.amplitude) / tc.amplitude)
@@ -227,8 +225,6 @@ def synthetic(
     seed: int,
 ) -> None:
     """Synthetic benchmark with known ground-truth components."""
-    import matplotlib.pyplot as plt
-
     output_dir = os.path.join("/tmp/phspectra", "synthetic-benchmark")
     os.makedirs(output_dir, exist_ok=True)
     rng = np.random.default_rng(seed)

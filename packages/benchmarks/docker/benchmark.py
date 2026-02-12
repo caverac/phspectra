@@ -123,7 +123,7 @@ def _decompose_one(
     return n_det, elapsed
 
 
-# ── Batch decomposition ─────────────────────────────────────────────────
+# Batch decomposition
 
 
 class BatchResults:

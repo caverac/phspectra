@@ -8,8 +8,12 @@ import sys
 
 import click
 import numpy as np
+from astropy.table import Table
+from matplotlib import pyplot as plt
+
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
+from benchmarks._data import ensure_fits, match_catalog_pixels
 from benchmarks._gaussian import gaussian_model
 from benchmarks._types import Component
 from numpy.linalg import LinAlgError
@@ -45,9 +49,6 @@ def inspect_pixel(
     sig_mins: str,
 ) -> None:
     """Inspect pixel (PX, PY): spectrum + GP+ + phspectra at multiple betas."""
-    import matplotlib.pyplot as plt
-    from benchmarks._data import ensure_fits, match_catalog_pixels
-
     beta_list = [float(b) for b in betas.split(",")]
     sig_min_list = [float(s) for s in sig_mins.split(",")]
 
@@ -64,8 +65,6 @@ def inspect_pixel(
         sys.exit(1)
 
     # Rebuild pixel selection to find spec_idx
-    from astropy.table import Table
-
     catalog = Table.read(catalog_path, format="votable")
     pixel_counts = match_catalog_pixels(catalog, header)
     eligible = {k: v for k, v in pixel_counts.items() if 1 <= v <= 8}

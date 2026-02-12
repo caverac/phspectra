@@ -9,6 +9,8 @@ import time
 
 import click
 import numpy as np
+from matplotlib import pyplot as plt
+
 from benchmarks._console import console, err_console
 from benchmarks._constants import (
     CACHE_DIR,
@@ -33,8 +35,6 @@ from phspectra import fit_gaussians
 @click.option("--seed", default=DEFAULT_SEED, show_default=True)
 def performance(n_spectra: int, beta: float, seed: int) -> None:
     """Run timing benchmark: phspectra vs GaussPy+ (Docker)."""
-    import matplotlib.pyplot as plt
-
     output_dir = os.path.join(CACHE_DIR, "performance-benchmark")
     os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)

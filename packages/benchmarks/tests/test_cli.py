@@ -15,13 +15,14 @@ def test_cli_help() -> None:
 
 
 def test_cli_lists_commands() -> None:
-    """CLI help should list all 7 commands."""
+    """CLI help should list all 8 commands."""
     runner = CliRunner()
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0
     for cmd in [
         "download",
         "compare",
+        "compare-plot",
         "train-beta",
         "width",
         "inspect",
@@ -45,6 +46,14 @@ def test_compare_help() -> None:
     result = runner.invoke(main, ["compare", "--help"])
     assert result.exit_code == 0
     assert "--n-spectra" in result.output
+
+
+def test_compare_plot_help() -> None:
+    """``benchmarks compare-plot --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["compare-plot", "--help"])
+    assert result.exit_code == 0
+    assert "--data-dir" in result.output
 
 
 def test_synthetic_help() -> None:

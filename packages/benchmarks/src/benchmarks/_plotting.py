@@ -2,11 +2,54 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+import io
+from pathlib import Path
+from typing import Any, Sequence
 
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+
 from benchmarks._gaussian import gaussian_model
 from benchmarks._types import ComparisonResult, Component
+
+
+def save_figure_if_changed(
+    fig: Figure,
+    path: Path,
+    **savefig_kwargs: Any,
+) -> bool:
+    """Save a figure only if its pixel content differs from the existing file.
+
+    Prevents unnecessary file changes that would bloat git history
+    when the visual content hasn't actually changed.
+
+    Parameters
+    ----------
+    fig:
+        Matplotlib figure to save.
+    path:
+        Output path for the figure.
+    **savefig_kwargs:
+        Arguments passed to ``fig.savefig()`` (e.g. *dpi*, *bbox_inches*).
+
+    Returns
+    -------
+    bool
+        True if the file was written, False if skipped (unchanged).
+    """
+    if path.exists():
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", **savefig_kwargs)
+        buf.seek(0)
+        new_img = plt.imread(buf)
+        existing_img = plt.imread(path)
+        if new_img.shape == existing_img.shape and bool(np.array_equal(new_img, existing_img)):
+            return False
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, **savefig_kwargs)
+    return True
 
 
 def plot_panel(

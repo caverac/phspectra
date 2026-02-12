@@ -45,37 +45,53 @@ For a 1D signal of length $n$, the algorithm sorts indices by decreasing value (
 
 Think of the signal as a mountain range seen from the side, with water starting above all peaks. As the water drains:
 
-```mermaid
-flowchart TB
-    subgraph step1["t = max(f)"]
-        direction LR
-        s1["Water covers everything"]
-    end
-    subgraph step2["t drops below peak A"]
-        direction LR
-        s2["Island A born — 1 component"]
-    end
-    subgraph step3["t drops below peak B"]
-        direction LR
-        s3["Island B born — 2 components"]
-    end
-    subgraph step4["t drops below saddle between A and B"]
-        direction LR
-        s4["Islands merge — B dies<br/>persistence(B) = height(B) − saddle"]
-    end
+The figure below shows this process on a synthetic three-peak spectrum (the same kind of signal phspectra is designed to decompose). The blue shaded region represents the water, and the dashed line marks the current threshold $t$. Red dots appear at the moment a peak is born, annotated with its final persistence $\pi$.
 
-    step1 --> step2 --> step3 --> step4
-```
+![Water level stages](/img/results/water-level-stages.png)
 
-<!-- TODO: add a figure showing a sample spectrum with the water level at several thresholds,
-     annotating birth/death events and the resulting persistence values for each peak. -->
+Walk through the four panels left-to-right, top-to-bottom:
+
+1. **Top-left — $t$ above all peaks.** The water covers the entire signal. No part of the curve pokes above the surface, so the upper-level set $U_t$ is empty. There are zero connected components and nothing has been born yet.
+
+2. **Top-right — $t$ just below peak A.** The water drops past the tallest peak (channel 60, amplitude $\approx 2.5$). A single island emerges: connected component A is **born** at $b_A = f(60)$. Because A is the global maximum it will never merge into anything else — its persistence equals its full height. The annotation $\pi = 2.58$ reflects this: it is the most significant feature in the signal by a wide margin.
+
+3. **Bottom-left — $t$ just below peak B.** The water continues to descend and now drops past the second-tallest peak (channel 100, amplitude $\approx 1.4$). A second island appears: component B is **born** at $b_B = f(100)$. At this moment two disconnected islands coexist. Peak C (channel 140) is still submerged. Note that both born peaks already carry their final persistence annotations — persistence is determined entirely by when a peak is born and when it eventually dies, not by the current water level.
+
+4. **Bottom-right — $t$ below the saddle between A and C.** The water has dropped far enough that the valley between peaks A and C fills in and their islands connect. Because C has a lower maximum than A, C is the **younger** component: it **dies** at the merge threshold. Its persistence $\pi_C = b_C - d_C = 0.73$ measures the height difference between its peak and the saddle where it was absorbed. Meanwhile peak B, sitting in a separate valley, remains an independent island with $\pi_B = 1.20$. The algorithm continues until only one component (the global maximum) survives.
+
+The key insight is that **persistence directly encodes significance**: peak A ($\pi = 2.58$) is clearly the dominant feature, peak B ($\pi = 1.20$) is a solid secondary detection, and peak C ($\pi = 0.73$) is weaker but still well above the noise floor. Noise fluctuations, by contrast, produce tiny islands that merge almost immediately, resulting in persistence values close to zero. Setting a threshold $\pi_{\min} = \beta \times \sigma_{\rm rms}$ cleanly separates real peaks from noise without any smoothing or derivative computation.
 
 ### The persistence diagram
 
-Each peak maps to a point $(b, d)$ in a 2D plane. The diagonal $b = d$ represents zero persistence (pure noise). Points far from the diagonal are significant peaks.
+The persistence diagram provides a compact summary of every birth-death event in the filtration. Each peak is plotted as a point $(b, d)$ where $b$ is the birth value (peak height) and $d$ is the death value (merge threshold). The diagonal line $b = d$ represents zero persistence — a peak born and immediately killed. The farther a point sits from the diagonal, the more significant the peak.
 
-<!-- TODO: add a persistence diagram figure for a real GRS spectrum,
-     coloring points above and below the β·σ threshold differently. -->
+![Persistence diagram](/img/results/persistence-diagram.png)
+
+In this diagram, the three real peaks (red points) are clearly separated from the cluster of grey noise points hugging the diagonal. This visual separation is what makes persistence-based peak detection so effective: there is no ambiguous boundary between signal and noise, just a clear gap in persistence space. Any horizontal line drawn through this gap (i.e., a persistence threshold $\pi_{\min}$) will cleanly select the real peaks and reject the noise, and the exact position of that line is not critical — the result is stable across a wide range of thresholds.
+
+This is the fundamental advantage over derivative-based methods: instead of relying on a smoothing kernel to suppress noise (where too little smoothing creates false peaks and too much destroys real ones), persistence ranks every candidate peak by an intrinsic topological measure that is robust to the noise level.
+
+### From persistence to Gaussian candidates
+
+The persistence filtration produces a list of `PersistentPeak` objects, each carrying four pieces of information: the **channel index** of the local maximum, its **birth** value (peak height), its **death** value (merge threshold), and its **persistence** ($\pi = b - d$). This is the raw output of the topology — but these are not yet Gaussian fits. The next step is to convert them into initial guesses that a nonlinear least-squares solver can refine.
+
+The conversion is deliberately simple. For each peak that survives the persistence threshold $\pi_{\min} = \beta \times \sigma_{\rm rms}$:
+
+1. **Amplitude** is set to the signal value at the peak's channel index: $a_0 = f(\text{index})$. This is the actual measured height at that position, not the birth value (which is the same for non-noise peaks, but using the signal directly avoids edge cases).
+
+2. **Mean** (center position) is set to the peak's channel index itself. The persistence algorithm identifies exactly which sample is the local maximum, so no interpolation is needed — the index is already the best discrete estimate of the peak location.
+
+3. **Standard deviation** is initialized to a fixed value of $\sigma_0 = 1.0$ channel. This is intentionally naive: the persistence filtration tells us *where* peaks are and *how significant* they are, but it says nothing about their width. The width information will be recovered entirely by the least-squares fit in the next stage.
+
+The peaks are ordered by persistence (most significant first), so if a `max_components` cap is set, the least significant surviving peaks are dropped. This ordering also means the solver starts with the strongest features anchored in place, which improves convergence.
+
+This initial guess is then passed to `scipy.optimize.curve_fit`, which fits a sum of Gaussians to the full signal:
+
+$$
+F(x, \mathbf{a}, \mathbf{\mu}, \mathbf{\sigma}) = \sum_i a_i \exp\!\bigl(-\tfrac{1}{2}\bigl(\tfrac{x - \mu_i}{\sigma_i}\bigr)^2\bigr).
+$$
+
+The solver adjusts all three parameters per component simultaneously (with bounds: $a \geq 0$, $\mu \in [0, n)$, $\sigma \in [0.3, n/2]$). Because the initial positions and amplitudes are already close to the truth — persistence detected the right peaks — the fit typically converges in few iterations, and the solver's main job is to determine the correct widths and fine-tune the positions and amplitudes.
 
 ## The algorithm in phspectra
 
