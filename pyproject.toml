@@ -8,14 +8,17 @@ requires-python = ">=3.11"
 package = false
 
 [tool.uv.workspace]
-members = ["packages/phspectra"]
+members = ["packages/phspectra", "packages/benchmarks"]
 
 [tool.uv.sources]
 phspectra = { workspace = true }
+benchmarks = { workspace = true }
+
 
 [dependency-groups]
 dev = [
     "phspectra",
+    "benchmarks",
     "pytest>=8.0",
     "mypy>=1.15",
     "black>=24.0.0",
@@ -99,11 +102,19 @@ ignore_missing_imports = true
 module = "aws_lambda_powertools.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "matplotlib.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "click.*"
+ignore_missing_imports = true
+
 [tool.pyright]
 reportMissingTypeStubs = false
 
 [tool.pytest.ini_options]
-testpaths = ["packages/phspectra/tests", "packages/infrastructure/lambda/tests"]
+testpaths = ["packages/phspectra/tests", "packages/infrastructure/lambda/tests", "packages/benchmarks/tests"]
 markers = [
     "slow: marks tests that require network access and optional dependencies (deselect with '-m \"not slow\"')",
 ]

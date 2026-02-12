@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 #: Default persistence threshold in units of noise sigma.
-DEFAULT_BETA: float = 5.2
+DEFAULT_BETA: float = 4.0
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +296,7 @@ def fit_gaussians(
     refine: bool = True,
     max_refine_iter: int = 3,
     snr_min: float = 1.5,
-    sig_min: float = 5.0,
+    sig_min: float = 4.0,
     f_sep: float = 1.2,
     neg_thresh: float = 5.0,
 ) -> list[GaussianComponent]:

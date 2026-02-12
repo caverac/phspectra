@@ -7,7 +7,7 @@ sidebar_position: 1
 
 **Persistent homology for spectral line decomposition.**
 
-This project explores a novel approach to decomposing astronomical spectra into individual Gaussian components. Instead of relying on derivative spectroscopy (as in [GaussPy](https://gausspy.readthedocs.io/) and GaussPy+), we use **persistent homology** — a tool from topological data analysis — to identify peaks and measure their significance in a parameter-free way.
+This project explores a novel approach to decomposing astronomical spectra into individual Gaussian components. Instead of relying on derivative spectroscopy (as in [GaussPy](https://gausspy.readthedocs.io/) and [GaussPy+](https://arxiv.org/abs/1906.10506)), we use **persistent homology** — a tool from topological data analysis — to identify peaks and measure their significance in a parameter-free way.
 
 ## What problem does this solve?
 
@@ -18,5 +18,5 @@ Existing tools like GaussPy require a trained smoothing parameter (alpha) and us
 ## Quick links
 
 - [Motivation](idea-and-plan/motivation) — Why topology instead of derivatives?
-- [Persistent Homology Primer](idea-and-plan/persistent-homology-primer) — The "descending water level" metaphor
+- [Persistent Homology](idea-and-plan/persistent-homology-primer) — Mathematics, algorithm, and integration in phspectra
 - [Plan of Attack](idea-and-plan/plan-of-attack) — Roadmap and milestones

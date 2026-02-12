@@ -15,6 +15,16 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Results',
+      items: [
+        'results/beta',
+        'results/accuracy',
+        'results/performance',
+        'results/reproducing'
+      ]
+    },
+    {
+      type: 'category',
       label: 'Infrastructure',
       items: ['infrastructure/aws-pipeline']
     }

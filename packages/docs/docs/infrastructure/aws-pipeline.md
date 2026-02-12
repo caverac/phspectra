@@ -102,16 +102,6 @@ aws s3 cp beta-sweep.json s3://phspectra-development-data/manifests/beta-sweep.j
 
 The splitter fans out SQS messages for every (chunk, $\beta$) combination. For a cube with 1,200 spectra and 6 $\beta$ values, this produces $\lceil 1200/500 \rceil \times 6 = 18$ worker invocations, all running in parallel.
 
-### Makefile shortcuts
-
-```bash
-make upload-test-cube     # Upload the GRS test field FITS
-make upload-beta-sweep    # Trigger a sweep with β = [3, 4, 5, 6, 7, 8]
-make synth                # Synthesise CloudFormation (no deploy)
-make deploy               # Deploy the stack (ENVIRONMENT=development)
-make diff                 # Preview changes against the deployed stack
-```
-
 ## Querying results with Athena
 
 The Glue table `decompositions` is pre-configured with [partition projection](https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html), so new partitions are discovered instantly without running crawlers.
@@ -251,14 +241,15 @@ flowchart LR
 Prerequisites: AWS credentials configured, Docker running (for Lambda container images), Node.js 20+.
 
 ```bash
-make install          # Install JS + Python dependencies
-make deploy           # Deploy to development (default)
+# Synthesise CloudFormation (no deploy)
+yarn workspace @phspectra/infrastructure cdk synth
 
-# Or target a specific environment:
-ENVIRONMENT=production make deploy
+# Deploy to development (default)
+yarn workspace @phspectra/infrastructure cdk deploy
+
+# Preview changes against the deployed stack
+yarn workspace @phspectra/infrastructure cdk diff
 ```
-
-The `deploy` target automatically builds the phspectra wheel and copies it into the worker Lambda's Docker context before synthesising the template.
 
 ### Environment handling
 

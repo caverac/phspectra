@@ -40,7 +40,7 @@ $$
 \mathrm{min}_{\mathrm{persistence}} = \beta \times \sigma_{\mathrm{rms}}
 $$
 
-where $\sigma_{\rm rms}$ is estimated robustly from the data itself (via the median absolute deviation). This makes $\beta$ the **sole free parameter** of the model — it controls the sensitivity/specificity trade-off, analogous to a signal-to-noise cut.
+where $\sigma_{\rm rms}$ is estimated robustly from the data itself using signal-masked RMS estimation (following Riener et al. 2019, Sect. 3.1.1): positive-channel runs are masked, a MAD-based clip removes outliers, and the final $\sigma$ is computed as the RMS of surviving noise channels. This makes $\beta$ the **sole free parameter** of the model — it controls the sensitivity/specificity trade-off, analogous to a signal-to-noise cut.
 
 ### Comparison with GaussPy
 
@@ -49,10 +49,10 @@ where $\sigma_{\rm rms}$ is estimated robustly from the data itself (via the med
 | **Free parameters**   | $\alpha_1, \alpha_2$ (smoothing widths) + SNR thresholds | $\beta$ (persistence in noise units)            |
 | **Training**          | Requires synthetic training set                          | Single scalar — grid search or 1-D optimization |
 | **Peak significance** | Implicit (via smoothing)                                 | Explicit (persistence)                          |
-| **Noise handling**    | Smoothing kernel                                         | MAD-based $\sigma$ estimate $ \times \beta$     |
+| **Noise handling**    | Smoothing kernel                                         | Signal-masked RMS estimate $\times \beta$       |
 | **Multi-scale**       | Single scale per $\alpha$                                | All scales simultaneously                       |
 
-$\beta = 5$ (a 5$\sigma$ persistence cut) is a reasonable default. Training $\beta$ on a labeled dataset is a simple 1-D optimization, compared to GaussPy's multi-parameter search over synthetic spectra.
+$\beta = 4$ (a 4$\sigma$ persistence cut) is the default. Training $\beta$ on a labeled dataset is a simple 1-D optimization, compared to GaussPy's multi-parameter search over synthetic spectra.
 
 ## Why this matters
 
