@@ -28,7 +28,7 @@ from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._gaussian import gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score
-from benchmarks._plotting import SAVEFIG_DEFAULTS, configure_axes, docs_figure
+from benchmarks._plotting import configure_axes, docs_figure
 from benchmarks._types import BetaSweepResult, Component
 from phspectra import fit_gaussians
 
@@ -168,21 +168,19 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     console.print(f"  JSON: [blue]{json_path}[/blue]")
 
     # Plot
-    _plot_beta_sweep(results, output_dir)
+    _plot_beta_sweep(results)
 
     console.print("\nDone.", style="bold green")
 
 
 @docs_figure("f1-beta-sweep.png")
-def _plot_beta_sweep(results: list[BetaSweepResult], output_dir: str) -> Figure:
+def _plot_beta_sweep(results: list[BetaSweepResult]) -> Figure:
     """Build the F1/precision/recall vs beta figure.
 
     Parameters
     ----------
     results : list[BetaSweepResult]
         One entry per beta value, carrying F1, precision, and recall.
-    output_dir : str
-        Directory for the local copy of the figure.
 
     Returns
     -------
@@ -206,6 +204,4 @@ def _plot_beta_sweep(results: list[BetaSweepResult], output_dir: str) -> Figure:
     ax.legend(loc="lower left", frameon=False)
     configure_axes(ax)
 
-    # Local copy for the benchmark output directory.
-    fig.savefig(os.path.join(output_dir, "f1-beta-sweep.png"), **SAVEFIG_DEFAULTS)
     return fig

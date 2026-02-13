@@ -105,7 +105,7 @@ def inspect_pixel(
         )
     ]
     gp_model = gaussian_model(x, gp_comps)
-    gp_rms = float(np.sqrt(np.mean((signal - gp_model) ** 2)))
+    gp_rms = float(np.sqrt(np.mean((signal - gp_model) ** 2)))  #
 
     console.print(f"Pixel ({px}, {py}), index {spec_idx}", style="bold cyan")
     console.print(f"GaussPy+: {len(gp_comps)} components, RMS={gp_rms:.4f}")
@@ -170,8 +170,8 @@ def inspect_pixel(
             )
 
             # phspectra model
-            comps = ph_results[(beta, sig_min)]
-            ph_model = gaussian_model(x, comps)
+            ph_comps = ph_results[(beta, sig_min)]
+            ph_model = gaussian_model(x, ph_comps)
             rms = float(np.sqrt(np.mean((signal - ph_model) ** 2)))
             ax.plot(
                 x,
@@ -179,7 +179,7 @@ def inspect_pixel(
                 color="#1f77b4",
                 linewidth=1.0,
                 linestyle="--",
-                label=f"PHS ({len(comps)} comp, RMS={rms:.3f})",
+                label=f"PHS ({len(ph_comps)} comp, RMS={rms:.3f})",
             )
 
             ax.set_xlim(lo, hi)

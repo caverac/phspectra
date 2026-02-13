@@ -110,7 +110,7 @@ The peaks are ordered by persistence (most significant first), so if a `max_comp
 This initial guess is then passed to `scipy.optimize.curve_fit`, which fits a sum of Gaussians to the full signal:
 
 $$
-F(x, \mathbf{a}, \mathbf{\mu}, \mathbf{\sigma}) = \sum_i a_i \exp\left(-\frac{(x - \mu_i)^2}{2\sigma_i^2}\right).
+F(x, \mathbf{a}, \mathbf{\mu}, \mathbf{\sigma}) = \sum_i A_i \exp\left(-\frac{(x - \mu_i)^2}{2\sigma_i^2}\right).
 $$
 
 The solver adjusts all three parameters per component simultaneously (with bounds: $a \geq 0$, $\mu \in [0, n)$, $\sigma \in [0.3, n/2]$). Because the initial positions and amplitudes are already close to the truth -- persistence detected the right peaks -- the fit typically converges in few iterations, and the solver's main job is to determine the correct widths and fine-tune the positions and amplitudes. That being said, optimizing this function is the slowest step in the pipeline, which is why the refinement loop is designed to minimize unnecessary calls to `curve_fit` by only accepting changes that improve the AICc.

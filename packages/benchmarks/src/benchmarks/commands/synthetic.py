@@ -15,17 +15,18 @@ import csv
 import json
 import os
 import time
-from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict
+from concurrent.futures import ProcessPoolExecutor  # pylint: disable=no-name-in-module
+from dataclasses import asdict, dataclass, fields
 
 import click
 import numpy as np
 import numpy.typing as npt
 from benchmarks._console import console
+from rich.table import Table
 from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
 from benchmarks._gaussian import gaussian, gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score, match_pairs
-from benchmarks._plotting import AxesGrid1D, SAVEFIG_DEFAULTS, configure_axes, docs_figure
+from benchmarks._plotting import AxesGrid1D, configure_axes, docs_figure
 from benchmarks._types import Component, SyntheticSpectrum
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
@@ -34,6 +35,40 @@ from numpy.linalg import LinAlgError
 
 from phspectra import fit_gaussians
 from phspectra.quality import aicc
+
+
+@dataclass
+class _WorkItem:
+    """Input bundle for a single (spectrum, beta) evaluation."""
+
+    signal: npt.NDArray[np.float64]
+    category: str
+    spec_idx: int
+    true_comps_raw: list[dict[str, float]]
+    beta: float
+
+
+@dataclass
+class _EvalResult:
+    """Output of a single (spectrum, beta) evaluation."""
+
+    category: str
+    spectrum_idx: int
+    beta: float
+    f1: float
+    precision: float
+    recall: float
+    n_correct: int
+    n_true: int
+    n_detected: int
+    n_guessed: int
+    count_error: int
+    residual_rms: float
+    aicc: float | None
+    amp_log_ratio_mean: float | None
+    pos_log_ratio_mean: float | None
+    width_log_ratio_mean: float | None
+
 
 CATEGORY_LABELS: dict[str, str] = {
     "single_bright": "SB",
@@ -128,6 +163,7 @@ def _gen_multi_separated(rng: np.random.Generator, n: int) -> list[SyntheticSpec
         for _ in range(n_comp):
             amp = rng.uniform(0.5, 4.0)
             stddev = rng.uniform(2.0, 8.0)
+            mean = 0.0
             for _attempt in range(200):
                 mean = _rand_mean(rng)
                 if all(abs(mean - c.mean) > 4.0 * max(stddev, c.stddev) for c in comps):
@@ -187,32 +223,29 @@ GENERATORS = {
 # Parallel worker
 
 
-def _evaluate_one(args: tuple) -> dict:
+def _evaluate_one(args: _WorkItem) -> _EvalResult:
     """Evaluate a single (spectrum, beta) pair.
 
-    Designed for use with ``ProcessPoolExecutor`` -- all inputs are
-    packed into a single tuple so the function is picklable.
+    Designed for use with ``ProcessPoolExecutor``.
 
     Parameters
     ----------
-    args : tuple
-        ``(signal, category, spec_idx, true_comps_raw, beta)`` where
-        *true_comps_raw* is a list of dicts suitable for
-        ``Component(**d)``.
+    args : _WorkItem
+        Input bundle containing the signal, category metadata,
+        serialised ground-truth components, and beta value.
 
     Returns
     -------
-    dict
-        Row dict with keys: category, spectrum_idx, beta, f1, precision,
-        recall, n_correct, n_true, n_detected, residual_rms, aicc,
-        and per-parameter mean errors.
+    _EvalResult
+        Evaluation metrics including F1, precision, recall, component
+        counts, residual RMS, AICc, and per-parameter mean errors.
     """
-    signal, category, spec_idx, true_comps_raw, beta = args
-    true_comps = [Component(**c) for c in true_comps_raw]
+    true_comps = [Component(**c) for c in args.true_comps_raw]
+    signal = args.signal
     x = np.arange(len(signal), dtype=np.float64)
 
     try:
-        detected_raw = fit_gaussians(signal, beta=beta, max_components=8)
+        detected_raw = fit_gaussians(signal, beta=args.beta, max_components=8)
     except (LinAlgError, ValueError):
         detected_raw = []
 
@@ -228,38 +261,39 @@ def _evaluate_one(args: tuple) -> dict:
     n_params = 3 * n_detected
     aic = aicc(residual, n_params)
 
-    amp_rel_errs: list[float] = []
-    pos_errs: list[float] = []
-    width_rel_errs: list[float] = []
+    amp_log_ratios: list[float] = []
+    pos_log_ratios: list[float] = []
+    width_log_ratios: list[float] = []
 
     pairs = match_pairs(true_comps, detected, pos_tol_sigma=1.0)
     for tc, dc in pairs:
         if tc.amplitude > 0:
-            amp_rel_errs.append(abs(dc.amplitude - tc.amplitude) / tc.amplitude)
-        pos_errs.append(abs(dc.mean - tc.mean))
+            amp_log_ratios.append(float(np.log(dc.amplitude / tc.amplitude)))
+        if tc.mean > 0:
+            pos_log_ratios.append(float(np.log(dc.mean / tc.mean)))
         if tc.stddev > 0:
-            width_rel_errs.append(abs(dc.stddev - tc.stddev) / tc.stddev)
+            width_log_ratios.append(float(np.log(dc.stddev / tc.stddev)))
 
-    return {
-        "category": category,
-        "spectrum_idx": spec_idx,
-        "beta": beta,
-        "f1": round(f1, 4),
-        "precision": round(prec, 4),
-        "recall": round(rec, 4),
-        "n_correct": n_correct,
-        "n_true": n_true,
-        "n_detected": n_detected,
-        "n_guessed": n_detected,
-        "count_error": n_detected - n_true,
-        "residual_rms": round(rms, 6),
-        "aicc": round(aic, 4) if np.isfinite(aic) else None,
-        "amp_rel_err_mean": (round(float(np.mean(amp_rel_errs)), 4) if amp_rel_errs else None),
-        "pos_err_mean": round(float(np.mean(pos_errs)), 4) if pos_errs else None,
-        "width_rel_err_mean": (
-            round(float(np.mean(width_rel_errs)), 4) if width_rel_errs else None
+    return _EvalResult(
+        category=args.category,
+        spectrum_idx=args.spec_idx,
+        beta=args.beta,
+        f1=round(f1, 4),
+        precision=round(prec, 4),
+        recall=round(rec, 4),
+        n_correct=n_correct,
+        n_true=n_true,
+        n_detected=n_detected,
+        n_guessed=n_detected,
+        count_error=n_detected - n_true,
+        residual_rms=round(rms, 6),
+        aicc=round(aic, 4) if np.isfinite(aic) else None,
+        amp_log_ratio_mean=round(float(np.mean(amp_log_ratios)), 4) if amp_log_ratios else None,
+        pos_log_ratio_mean=round(float(np.mean(pos_log_ratios)), 4) if pos_log_ratios else None,
+        width_log_ratio_mean=(
+            round(float(np.mean(width_log_ratios)), 4) if width_log_ratios else None
         ),
-    }
+    )
 
 
 @click.command()
@@ -285,13 +319,19 @@ def synthetic(
     console.print("Step 1: Generate synthetic spectra", style="bold cyan")
     all_spectra: list[SyntheticSpectrum] = []
     categories = list(GENERATORS.keys())
+    table = Table(title="Synthetic spectra")
+    table.add_column("Category")
+    table.add_column("Spectra", justify="right")
+    table.add_column("Components", justify="right")
     for cat, gen_fn in GENERATORS.items():
         batch = gen_fn(rng, n_per_category)
         all_spectra.extend(batch)
         n_comps = sum(len(s.components) for s in batch)
-        console.print(f"  {cat:20s}: {len(batch)} spectra, {n_comps} total components")
+        table.add_row(cat, str(len(batch)), str(n_comps))
     n_total = len(all_spectra)
-    console.print(f"  Total: {n_total} spectra")
+    table.add_section()
+    table.add_row("Total", str(n_total), str(sum(len(s.components) for s in all_spectra)))
+    console.print(table)
 
     # Beta sweep
     n_fits = n_total * len(beta_grid)
@@ -301,23 +341,23 @@ def synthetic(
         f"({n_fits} total fits, {n_workers} workers)",
         style="bold cyan",
     )
-    work_items: list[tuple] = []
+    work_items: list[_WorkItem] = []
     for beta in beta_grid:
         for spec in all_spectra:
             comps_raw = [asdict(c) for c in spec.components]
-            work_items.append((spec.signal, spec.category, spec.index, comps_raw, beta))
+            work_items.append(_WorkItem(spec.signal, spec.category, spec.index, comps_raw, beta))
 
     t0 = time.perf_counter()
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
         all_results = list(pool.map(_evaluate_one, work_items, chunksize=4))
     total_elapsed = time.perf_counter() - t0
-    csv_rows: list[dict] = all_results
+    csv_rows: list[_EvalResult] = all_results
 
     for beta in beta_grid:
-        subset = [r for r in csv_rows if r["beta"] == beta]
-        tot_correct = sum(r["n_correct"] for r in subset)
-        tot_true = sum(r["n_true"] for r in subset)
-        tot_guessed = sum(r["n_guessed"] for r in subset)
+        subset = [r for r in csv_rows if r.beta == beta]
+        tot_correct = sum(r.n_correct for r in subset)
+        tot_true = sum(r.n_true for r in subset)
+        tot_guessed = sum(r.n_guessed for r in subset)
         _, _, overall_f1 = f1_score(tot_correct, tot_true, tot_guessed)
         console.print(
             f"  beta={beta:>4.1f}  F1={overall_f1:.3f}  "
@@ -329,10 +369,10 @@ def synthetic(
     console.print("\nStep 3: Aggregate results", style="bold cyan")
     beta_scores: dict[float, float] = {}
     for beta in beta_grid:
-        subset = [r for r in csv_rows if r["beta"] == beta]
-        tot_c = sum(r["n_correct"] for r in subset)
-        tot_t = sum(r["n_true"] for r in subset)
-        tot_g = sum(r["n_guessed"] for r in subset)
+        subset = [r for r in csv_rows if r.beta == beta]
+        tot_c = sum(r.n_correct for r in subset)
+        tot_t = sum(r.n_true for r in subset)
+        tot_g = sum(r.n_guessed for r in subset)
         _, _, f1 = f1_score(tot_c, tot_t, tot_g)
         beta_scores[beta] = f1
     optimal_beta = max(beta_scores, key=beta_scores.get)  # type: ignore[arg-type]
@@ -345,12 +385,13 @@ def synthetic(
     csv_path = os.path.join(output_dir, "synthetic_benchmark.csv")
     if csv_rows:
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=list(csv_rows[0].keys()))
+            fieldnames = [fld.name for fld in fields(_EvalResult)]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(csv_rows)
+            writer.writerows(asdict(r) for r in csv_rows)
     console.print(f"  CSV: [blue]{csv_path}[/blue]")
 
-    json_data: dict = {
+    json_data: dict[str, object] = {
         "config": {
             "n_channels": N_CHANNELS,
             "noise_sigma": NOISE_SIGMA,
@@ -366,17 +407,17 @@ def synthetic(
         json.dump(json_data, f, indent=2)
     console.print(f"  JSON: [blue]{json_path}[/blue]")
 
-    _plot_f1_vs_beta(csv_rows, categories, output_dir)
-    _plot_error_boxplots(csv_rows, categories, optimal_beta, output_dir)
+    _plot_f1_vs_beta(csv_rows, categories)
+    _plot_error_boxplots(csv_rows, categories, optimal_beta)
     console.print("\nDone.", style="bold green")
 
 
-def _agg_f1(csv_rows: list[dict], beta: float, cat: str | None = None) -> float:
+def _agg_f1(csv_rows: list[_EvalResult], beta: float, cat: str | None = None) -> float:
     """Compute micro-averaged F1 score for a given beta.
 
     Parameters
     ----------
-    csv_rows : list[dict]
+    csv_rows : list[_EvalResult]
         Full benchmark result rows from ``_evaluate_one``.
     beta : float
         Beta value to filter on.
@@ -388,48 +429,44 @@ def _agg_f1(csv_rows: list[dict], beta: float, cat: str | None = None) -> float:
     float
         Micro-averaged F1 score.
     """
-    subset = [r for r in csv_rows if r["beta"] == beta]
+    subset = [r for r in csv_rows if r.beta == beta]
     if cat:
-        subset = [r for r in subset if r["category"] == cat]
+        subset = [r for r in subset if r.category == cat]
     if not subset:
         return 0.0
-    tc = sum(r["n_correct"] for r in subset)
-    tt = sum(r["n_true"] for r in subset)
-    tg = sum(r["n_guessed"] for r in subset)
+    tc = sum(r.n_correct for r in subset)
+    tt = sum(r.n_true for r in subset)
+    tg = sum(r.n_guessed for r in subset)
     _, _, f1_val = f1_score(tc, tt, tg)
     return f1_val
 
 
 @docs_figure("synthetic-f1.png")
 def _plot_f1_vs_beta(
-    csv_rows: list[dict],
+    csv_rows: list[_EvalResult],
     categories: list[str],
-    output_dir: str,
 ) -> Figure:
     """Build the F1 vs beta figure for all categories.
 
-    One line per category plus a bold overall line.  A local copy is
-    also saved to *output_dir*.
+    One line per category plus a bold overall line.
 
     Parameters
     ----------
-    csv_rows : list[dict]
+    csv_rows : list[_EvalResult]
         Full benchmark result rows.
     categories : list[str]
         Ordered list of category keys.
-    output_dir : str
-        Directory for the local PNG copy.
 
     Returns
     -------
     Figure
         The completed matplotlib figure.
     """
-    betas = sorted(set(r["beta"] for r in csv_rows))
+    betas = sorted(set(r.beta for r in csv_rows))
 
     fig: Figure
     ax: Axes
-    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig, ax = plt.subplots(figsize=(6, 5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
     for cat in categories:
@@ -454,17 +491,14 @@ def _plot_f1_vs_beta(
     ax.set_ylim(-0.05, 1.05)
     configure_axes(ax)
 
-    # Local copy for the benchmark output directory.
-    fig.savefig(os.path.join(output_dir, "synthetic-f1.png"), **SAVEFIG_DEFAULTS)
     return fig
 
 
 @docs_figure("synthetic-errors.png")
 def _plot_error_boxplots(
-    csv_rows: list[dict],
+    csv_rows: list[_EvalResult],
     categories: list[str],
     optimal_beta: float,
-    output_dir: str,
 ) -> Figure:
     """Build box-whisker panels for parameter-recovery errors.
 
@@ -474,14 +508,12 @@ def _plot_error_boxplots(
 
     Parameters
     ----------
-    csv_rows : list[dict]
+    csv_rows : list[_EvalResult]
         Full benchmark result rows.
     categories : list[str]
         Ordered list of category keys.
     optimal_beta : float
         Beta value with the highest overall F1.
-    output_dir : str
-        Directory for the local PNG copy.
 
     Returns
     -------
@@ -489,12 +521,12 @@ def _plot_error_boxplots(
         The completed matplotlib figure.
     """
     cat_labels = [CATEGORY_LABELS[c] for c in categories]
-    opt_rows = [r for r in csv_rows if r["beta"] == optimal_beta]
+    opt_rows = [r for r in csv_rows if r.beta == optimal_beta]
 
     err_panels = [
-        ("amp_rel_err_mean", "Amplitude relative error"),
-        ("pos_err_mean", "Position error (channels)"),
-        ("width_rel_err_mean", "Width relative error"),
+        ("amp_log_ratio_mean", r"$\ln(A_{\mathrm{fit}} / A_{\mathrm{true}})$"),
+        ("pos_log_ratio_mean", r"$\ln(\mu_{\mathrm{fit}} / \mu_{\mathrm{true}})$"),
+        ("width_log_ratio_mean", r"$\ln(\sigma_{\mathrm{fit}} / \sigma_{\mathrm{true}})$"),
     ]
 
     fig: Figure
@@ -502,22 +534,27 @@ def _plot_error_boxplots(
     fig, axes = plt.subplots(
         len(err_panels),
         1,
-        figsize=(6.5, 10),
+        figsize=(6, 6),
         sharex=True,
     )
-    fig.subplots_adjust(left=0.14, right=0.95, bottom=0.08, top=0.97, hspace=0.12)
+    fig.subplots_adjust(left=0.14, right=0.95, bottom=0.08, top=0.97, hspace=0.05)
 
     for ax, (key, ylabel) in zip(axes, err_panels):
         box_data = []
         for cat in categories:
-            vals = [r[key] for r in opt_rows if r["category"] == cat and r[key] is not None]
+            vals = [
+                getattr(r, key)
+                for r in opt_rows
+                if r.category == cat and getattr(r, key) is not None
+            ]
             box_data.append(vals)
         bp = ax.boxplot(
             box_data,
-            labels=cat_labels,
+            labels=cat_labels,  # type: ignore[call-arg]
             patch_artist=True,
             widths=0.5,
             medianprops={"color": "k", "linewidth": 1.5},
+            showfliers=False,
         )
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         for patch, color in zip(bp["boxes"], colors):
@@ -528,6 +565,4 @@ def _plot_error_boxplots(
 
     axes[-1].set_xlabel("Category")
 
-    # Local copy for the benchmark output directory.
-    fig.savefig(os.path.join(output_dir, "synthetic-errors.png"), **SAVEFIG_DEFAULTS)
     return fig
