@@ -80,7 +80,7 @@ def _build_figure() -> Figure:
 
 @click.command("survey-map")
 def survey_map() -> None:
-    """Generate 2x2 survey visualisation from full-field decomposition."""
+    """Generate 2x2 survey visualisation from full-field decomposition [WIP]."""
     console.print("Generating survey map placeholder ...", style="bold cyan")
     _build_figure()
     console.print("\nDone.", style="bold green")

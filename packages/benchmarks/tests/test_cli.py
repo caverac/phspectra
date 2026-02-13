@@ -15,7 +15,7 @@ def test_cli_help() -> None:
 
 
 def test_cli_lists_commands() -> None:
-    """CLI help should list all 8 commands."""
+    """CLI help should list all registered commands."""
     runner = CliRunner()
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0
@@ -24,7 +24,6 @@ def test_cli_lists_commands() -> None:
         "compare",
         "compare-plot",
         "train-beta",
-        "width",
         "inspect",
         "performance",
         "synthetic",
@@ -70,14 +69,6 @@ def test_train_beta_help() -> None:
     result = runner.invoke(main, ["train-beta", "--help"])
     assert result.exit_code == 0
     assert "--beta-min" in result.output
-
-
-def test_width_help() -> None:
-    """``benchmarks width --help`` should succeed."""
-    runner = CliRunner()
-    result = runner.invoke(main, ["width", "--help"])
-    assert result.exit_code == 0
-    assert "--beta" in result.output
 
 
 def test_inspect_help() -> None:

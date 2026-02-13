@@ -8,17 +8,26 @@ import sys
 
 import click
 import numpy as np
-from astropy.table import Table
 from matplotlib import pyplot as plt
+from matplotlib.ticker import AutoMinorLocator
+from numpy.linalg import LinAlgError
 
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._data import ensure_fits, match_catalog_pixels
 from benchmarks._gaussian import gaussian_model
 from benchmarks._types import Component
-from numpy.linalg import LinAlgError
 
 from phspectra import fit_gaussians
+
+
+def _style_ax(ax: plt.Axes) -> None:
+    """Apply the shared tick/grid style used by compare-plot figures."""
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    ax.tick_params(which="minor", length=3, color="gray", direction="in")
+    ax.tick_params(which="major", length=6, direction="in")
+    ax.tick_params(top=True, right=True, which="both")
 
 
 @click.command("inspect")
@@ -65,6 +74,8 @@ def inspect_pixel(
         sys.exit(1)
 
     # Rebuild pixel selection to find spec_idx
+    from astropy.table import Table
+
     catalog = Table.read(catalog_path, format="votable")
     pixel_counts = match_catalog_pixels(catalog, header)
     eligible = {k: v for k, v in pixel_counts.items() if 1 <= v <= 8}
@@ -100,9 +111,11 @@ def inspect_pixel(
             gp["stddevs_fit"][spec_idx],
         )
     ]
+    gp_model = gaussian_model(x, gp_comps)
+    gp_rms = float(np.sqrt(np.mean((signal - gp_model) ** 2)))
 
     console.print(f"Pixel ({px}, {py}), index {spec_idx}", style="bold cyan")
-    console.print(f"GaussPy+: {len(gp_comps)} components")
+    console.print(f"GaussPy+: {len(gp_comps)} components, RMS={gp_rms:.4f}")
 
     # phspectra at multiple (beta, sig_min)
     ph_results: dict[tuple[float, float], list[Component]] = {}
@@ -113,7 +126,7 @@ def inspect_pixel(
             except (LinAlgError, ValueError):
                 comps = []
             ph_results[(beta, sig_min)] = [Component(c.amplitude, c.mean, c.stddev) for c in comps]
-            console.print(f"phspectra beta={beta}, sig_min={sig_min}: {len(comps)} components")
+            console.print(f"  beta={beta}, sig_min={sig_min}: {len(comps)} components")
 
     # Zoom range
     all_comps = [gp_comps] + list(ph_results.values())
@@ -125,51 +138,64 @@ def inspect_pixel(
     else:
         lo, hi = 0, n_channels
 
-    gp_model = gaussian_model(x, gp_comps)
-    gp_rms = float(np.sqrt(np.mean((signal - gp_model) ** 2)))
-
     # Plot
     n_rows, n_cols = len(beta_list), len(sig_min_list)
     fig, axes = plt.subplots(
-        n_rows, n_cols, figsize=(6 * n_cols, 4 * n_rows), sharex=True, sharey=True
+        n_rows, n_cols, figsize=(5.5 * n_cols, 4 * n_rows), sharex=True, sharey=True
     )
-    if n_rows == 1:
+    fig.subplots_adjust(left=0.07, right=0.97, bottom=0.07, top=0.93, wspace=0.08, hspace=0.18)
+    if n_rows == 1 and n_cols == 1:
+        axes = np.array([[axes]])
+    elif n_rows == 1:
         axes = np.array([axes])
+    elif n_cols == 1:
+        axes = np.array([[ax] for ax in axes])
 
     for i, beta in enumerate(beta_list):
         for j, sig_min in enumerate(sig_min_list):
             ax = axes[i][j]
-            ax.plot(x, signal, color="0.5", linewidth=0.8, label="Data")
+
+            # Data
+            ax.step(x, signal, where="mid", color="0.6", linewidth=1.0, alpha=0.7, label="Data")
+
+            # GaussPy+ model
             ax.plot(
                 x,
                 gp_model,
-                color="C3",
-                linewidth=1.5,
+                color="k",
+                linewidth=2.0,
                 linestyle="--",
-                label=f"GP+ ({len(gp_comps)} comp)",
+                label=f"GP+ ({len(gp_comps)} comp, RMS={gp_rms:.3f})",
             )
+
+            # phspectra model
             comps = ph_results[(beta, sig_min)]
             ph_model = gaussian_model(x, comps)
             rms = float(np.sqrt(np.mean((signal - ph_model) ** 2)))
             ax.plot(
                 x,
                 ph_model,
-                color="C0",
-                linewidth=1.5,
+                color="k",
+                linewidth=2.0,
                 label=f"PH ({len(comps)} comp, RMS={rms:.3f})",
             )
+
             ax.set_xlim(lo, hi)
-            ax.set_title(f"beta={beta}, sig_min={sig_min}", fontsize=10)
-            ax.legend(fontsize=7)
-            ax.grid(True, alpha=0.2)
+            ax.text(
+                0.03,
+                0.05,
+                f"$\\beta$={beta}, sig_min={sig_min}",
+                transform=ax.transAxes,
+                va="bottom",
+                ha="left",
+            )
+            ax.legend(loc="upper right", frameon=False, fontsize=7)
+            _style_ax(ax)
+
             if i == n_rows - 1:
                 ax.set_xlabel("Channel")
             if j == 0:
                 ax.set_ylabel("T (K)")
 
-    fig.suptitle(f"Pixel ({px}, {py}) — GP+ RMS={gp_rms:.3f}", fontsize=12)
-    fig.tight_layout()
-    out_path = os.path.join(data_dir, f"inspect-px{px}-py{py}.png")
-    fig.savefig(out_path, dpi=150)
-    console.print(f"\nPlot: [blue]{out_path}[/blue]")
-    plt.close(fig)
+    fig.suptitle(f"Pixel ({px}, {py})")
+    plt.show()

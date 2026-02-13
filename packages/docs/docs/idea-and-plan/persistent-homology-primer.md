@@ -88,7 +88,7 @@ The peaks are ordered by persistence (most significant first), so if a `max_comp
 This initial guess is then passed to `scipy.optimize.curve_fit`, which fits a sum of Gaussians to the full signal:
 
 $$
-F(x, \mathbf{a}, \mathbf{\mu}, \mathbf{\sigma}) = \sum_i a_i \exp\!\bigl(-\tfrac{1}{2}\bigl(\tfrac{x - \mu_i}{\sigma_i}\bigr)^2\bigr).
+F(x, \mathbf{a}, \mathbf{\mu}, \mathbf{\sigma}) = \sum_i a_i \exp\left(-\frac{(x - \mu_i)^2}{2\sigma_i^2}\right).
 $$
 
 The solver adjusts all three parameters per component simultaneously (with bounds: $a \geq 0$, $\mu \in [0, n)$, $\sigma \in [0.3, n/2]$). Because the initial positions and amplitudes are already close to the truth — persistence detected the right peaks — the fit typically converges in few iterations, and the solver's main job is to determine the correct widths and fine-tune the positions and amplitudes.

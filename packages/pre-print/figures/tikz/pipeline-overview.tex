@@ -1,0 +1,83 @@
+% Pipeline overview flowchart for phspectra
+% Included via \input{figures/tikz/pipeline-overview.tex} in ms.tex
+\begin{tikzpicture}[
+    node distance=6mm and 4mm,
+    every node/.style={font=\small},
+    block/.style={
+      rectangle, draw, rounded corners=2pt,
+      text width=28mm, minimum height=8mm,
+      align=center, fill=blue!8
+    },
+    decision/.style={
+      diamond, draw, aspect=2,
+      text width=16mm, align=center,
+      inner sep=1pt, fill=yellow!15
+    },
+    fitblock/.style={
+      rectangle, draw, rounded corners=2pt,
+      text width=28mm, minimum height=8mm,
+      align=center, fill=red!15
+    },
+    refineblock/.style={
+      rectangle, draw, rounded corners=2pt,
+      text width=24mm, minimum height=7mm,
+      align=center, fill=green!10
+    },
+    arr/.style={-{Stealth[length=2mm]}, thick},
+    note/.style={font=\scriptsize\itshape, text=gray}
+  ]
+
+  % Main pipeline
+  \node[block] (input) {Raw 1-D\\spectrum};
+  \node[block, below=of input] (rms) {Estimate $\srms$};
+  \node[block, below=of rms] (persist) {Persistence peak\\detection\\$\pmin = \beta \cdot \srms$};
+  \node[block, below=of persist] (guess) {Initial Gaussian\\guesses};
+  \node[fitblock, below=of guess] (fit) {Least-squares fit\\(\texttt{curve\_fit})};
+  \node[decision, below=8mm of fit] (refineq) {Refine?};
+
+  % No-refine path
+  \node[block, right=15mm of refineq] (output) {Return\\components};
+
+  % Refine path
+  \node[block, below=8mm of refineq] (validate) {Validate\\components};
+  \node[block, below=of validate] (aiccbase) {Compute AICc\\baseline};
+
+  % Refinement loop
+  \node[refineblock, below=8mm of aiccbase] (residual) {Search residual\\for peaks};
+  \node[refineblock, below=of residual] (split) {Split at\\negative dip};
+  \node[refineblock, below=of split] (merge) {Merge blended\\pairs};
+  \node[fitblock, below=8mm of merge] (refit) {Refit all\\(\texttt{curve\_fit})};
+  \node[decision, below=8mm of refit] (improved) {AICc\\improved?};
+
+  % Arrows — main path
+  \draw[arr] (input) -- (rms);
+  \draw[arr] (rms) -- (persist);
+  \draw[arr] (persist) -- (guess);
+  \draw[arr] (guess) -- (fit);
+  \draw[arr] (fit) -- (refineq);
+  \draw[arr] (refineq) -- node[above] {\scriptsize No} (output);
+  \draw[arr] (refineq) -- node[right] {\scriptsize Yes} (validate);
+  \draw[arr] (validate) -- (aiccbase);
+  \draw[arr] (aiccbase) -- (residual);
+  \draw[arr] (residual) -- (split);
+  \draw[arr] (split) -- (merge);
+  \draw[arr] (merge) -- (refit);
+  \draw[arr] (refit) -- (improved);
+
+  % Accept → loop back
+  \draw[arr] (improved.west) -- ++(-10mm,0)
+    node[above, pos=0.5] {\scriptsize Yes}
+    |- (residual.west);
+
+  % Reject → output
+  \draw[arr] (improved.east) -- ++(10mm,0)
+    node[above, pos=0.5] {\scriptsize No}
+    |- (output.south);
+
+  % Brace for refinement loop
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}]
+    ([xshift=-3mm]residual.north west) -- ([xshift=-3mm]merge.south west)
+    node[midway, left=5pt, note, text width=12mm, align=right]
+    {up to 3\\iterations};
+
+\end{tikzpicture}

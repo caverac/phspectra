@@ -12,7 +12,6 @@ from benchmarks.commands.synthetic import synthetic
 from benchmarks.commands.train_beta import train_beta
 from benchmarks.commands.persistence_plot import persistence_plot
 from benchmarks.commands.survey_map import survey_map
-from benchmarks.commands.width import width
 
 
 @click.group()
@@ -24,7 +23,6 @@ main.add_command(download)
 main.add_command(compare)
 main.add_command(compare_plot)
 main.add_command(train_beta)
-main.add_command(width)
 main.add_command(inspect_pixel)
 main.add_command(performance)
 main.add_command(performance_plot)

@@ -6,7 +6,7 @@ sidebar_position: 3
 
 ## Speed comparison
 
-We benchmark the wall-clock time for decomposing 200 real GRS spectra (424 channels each) using both phspectra and GaussPy+ (Riener et al. 2019). Both algorithms are run on the same spectra with their recommended configurations:
+We benchmark the wall-clock time for decomposing 1000 real GRS spectra (424 channels each) using both phspectra and GaussPy+ (Riener et al. 2019). Both algorithms are run on the same spectra with their recommended configurations:
 
 - **phspectra**: $\beta = 4.0$ (default), pure Python
 - **GaussPy+**: two-phase decomposition with $\alpha_1 = 2.89$, $\alpha_2 = 6.65$ (trained values from Riener et al. 2019, Sect. 4.1), SNR threshold = 3.0
@@ -15,11 +15,11 @@ We benchmark the wall-clock time for decomposing 200 real GRS spectra (424 chann
 
 | Metric | phspectra | GaussPy+ | Factor |
 |---|---|---|---|
-| Total time (200 spectra) | 22.7 s | 125.8 s | **5.6&times;** |
-| Mean per spectrum | 113 ms | 629 ms | 5.6&times; |
-| Mean components detected | 1.8 | 2.4 | &mdash; |
+| Total time (1000 spectra) | 123.5 s | 812.5 s | **6.6&times;** |
+| Mean per spectrum | 124 ms | 813 ms | 6.6&times; |
+| Mean components detected | 2.7 | 2.4 | &mdash; |
 
-phspectra is **5.6&times; faster** than GaussPy+ on identical real survey data.
+phspectra is **6.6&times; faster** than GaussPy+ on identical real survey data.
 
 ![Performance benchmark](/img/results/performance-benchmark.png)
 
@@ -38,4 +38,4 @@ The speed advantage comes from algorithmic differences:
 - **Hardware**: single-core sequential processing for both tools (no parallelization)
 - **phspectra**: native Python 3.14, run directly
 - **GaussPy+**: Python 3.10 in Docker (required for compatibility with legacy numpy/scipy), batch decomposition via `GaussPyDecompose`, per-spectrum timing via GaussPy core decomposer
-- **Spectra**: 200 randomly selected GRS pixels with at least one cataloged component, 424 velocity channels each
+- **Spectra**: 1000 randomly selected GRS pixels with at least one cataloged component, 424 velocity channels each
