@@ -18,6 +18,7 @@ import time
 
 import click
 import numpy as np
+import numpy.typing as npt
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -73,7 +74,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     gp_stds = gp_results["stddevs_fit"]
 
     # Build training set (skip spectra with no GP+ detections)
-    training: list[tuple[np.ndarray, list[Component]]] = []
+    training: list[tuple[npt.NDArray[np.float64], list[Component]]] = []
     for i in range(n_spectra):
         if not gp_amps[i]:
             continue

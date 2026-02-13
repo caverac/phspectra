@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 # -- helpers -----------------------------------------------------------------
@@ -21,7 +22,7 @@ class FakeGaussianComponent:
     stddev: float
 
 
-def _make_chunk(n_spectra: int, n_channels: int = 64) -> dict[str, np.ndarray]:
+def _make_chunk(n_spectra: int, n_channels: int = 64) -> dict[str, npt.NDArray[np.float64]]:
     """Build a dict that mimics ``np.load(...)`` for a ``.npz`` chunk."""
     return {
         "spectra": np.random.default_rng(42).standard_normal((n_spectra, n_channels)),

@@ -5,15 +5,16 @@ from __future__ import annotations
 from typing import Sequence
 
 import numpy as np
+import numpy.typing as npt
 from benchmarks._types import Component
 
 
-def gaussian(x: np.ndarray, amp: float, mean: float, stddev: float) -> np.ndarray:
+def gaussian(x: npt.NDArray[np.float64], amp: float, mean: float, stddev: float) -> npt.NDArray[np.float64]:
     """Evaluate a single Gaussian at *x*.
 
     Parameters
     ----------
-    x : np.ndarray
+    x : npt.NDArray[np.float64]
         Channel array.
     amp : float
         Peak amplitude.
@@ -24,25 +25,25 @@ def gaussian(x: np.ndarray, amp: float, mean: float, stddev: float) -> np.ndarra
 
     Returns
     -------
-    np.ndarray
+    npt.NDArray[np.float64]
         Evaluated Gaussian.
     """
     return amp * np.exp(-0.5 * ((x - mean) / stddev) ** 2)
 
 
-def gaussian_model(x: np.ndarray, comps: Sequence[Component]) -> np.ndarray:
+def gaussian_model(x: npt.NDArray[np.float64], comps: Sequence[Component]) -> npt.NDArray[np.float64]:
     """Build a sum-of-Gaussians model.
 
     Parameters
     ----------
-    x : np.ndarray
+    x : npt.NDArray[np.float64]
         Channel array.
     comps : Sequence[Component]
         Gaussian components.
 
     Returns
     -------
-    np.ndarray
+    npt.NDArray[np.float64]
         Summed model.
     """
     model = np.zeros_like(x, dtype=np.float64)
@@ -51,12 +52,12 @@ def gaussian_model(x: np.ndarray, comps: Sequence[Component]) -> np.ndarray:
     return model
 
 
-def residual_rms(signal: np.ndarray, comps: Sequence[Component]) -> float:
+def residual_rms(signal: npt.NDArray[np.float64], comps: Sequence[Component]) -> float:
     """Root-mean-square residual of the model against *signal*.
 
     Parameters
     ----------
-    signal : np.ndarray
+    signal : npt.NDArray[np.float64]
         Observed signal.
     comps : Sequence[Component]
         Fitted components.

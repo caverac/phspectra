@@ -10,6 +10,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 # --_survey_from_key --------------------------------------------------------
@@ -232,7 +233,7 @@ def test_handle_fits_nan_replacement(splitter: Any) -> None:
     hdul.__exit__ = MagicMock(return_value=False)
     run_id = "fixed-uuid"
 
-    saved_arrays: list[np.ndarray] = []
+    saved_arrays: list[npt.NDArray[np.float64]] = []
 
     def capture_savez(_path: str, **kwargs: Any) -> None:
         saved_arrays.append(kwargs["spectra"].copy())

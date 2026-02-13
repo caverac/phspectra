@@ -20,6 +20,7 @@ from dataclasses import asdict
 
 import click
 import numpy as np
+import numpy.typing as npt
 from benchmarks._console import console
 from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
 from benchmarks._gaussian import gaussian, gaussian_model
@@ -48,7 +49,7 @@ CATEGORY_LABELS: dict[str, str] = {
 def _make_spectrum(
     rng: np.random.Generator,
     components: list[Component],
-) -> np.ndarray:
+) -> npt.NDArray[np.float64]:
     """Build a noisy signal from ground-truth Gaussian components.
 
     Parameters
@@ -60,7 +61,7 @@ def _make_spectrum(
 
     Returns
     -------
-    np.ndarray
+    npt.NDArray[np.float64]
         Synthetic spectrum of length ``N_CHANNELS`` with Gaussian noise
         of standard deviation ``NOISE_SIGMA``.
     """

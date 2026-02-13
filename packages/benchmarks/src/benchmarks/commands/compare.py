@@ -42,7 +42,13 @@ from phspectra._types import GaussianComponent
 @click.option("--beta", default=DEFAULT_BETA, show_default=True)
 @click.option("--seed", default=DEFAULT_SEED, show_default=True)
 @click.option("--output-dir", default=os.path.join(CACHE_DIR, "compare-docker"), show_default=True)
-def compare(n_spectra: int, beta: float, seed: int, output_dir: str) -> None:
+@click.option(
+    "--extra-pixels",
+    default="",
+    show_default=False,
+    help='Force extra pixel coordinates, e.g. "10,20;30,40;50,60".',
+)
+def compare(n_spectra: int, beta: float, seed: int, output_dir: str, extra_pixels: str) -> None:
     """Run phspectra vs GaussPy+ (Docker) on real GRS spectra and save results."""
     os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
@@ -64,6 +70,31 @@ def compare(n_spectra: int, beta: float, seed: int, output_dir: str) -> None:
     # Step 3: Select spectra
     console.print("\nStep 3: Select spectra", style="bold cyan")
     selected, signals = select_spectra(cube, header, catalog, n_spectra, seed)
+
+    # Merge extra pixels
+    if extra_pixels:
+        existing = set(selected)
+        added = 0
+        for pair in extra_pixels.split(";"):
+            pair = pair.strip()
+            if not pair:
+                continue
+            parts = pair.split(",")
+            px, py = int(parts[0]), int(parts[1])
+            if (px, py) in existing:
+                console.print(f"  Extra pixel ({px},{py}) already selected, skipping", style="dim")
+                continue
+            if not (0 <= px < nx and 0 <= py < ny):
+                console.print(f"  Extra pixel ({px},{py}) out of bounds, skipping", style="dim")
+                continue
+            sig = np.nan_to_num(cube[:, py, px].astype(np.float64), nan=0.0)
+            selected.append((px, py))
+            signals = np.vstack([signals, sig[np.newaxis, :]])
+            existing.add((px, py))
+            added += 1
+        if added:
+            console.print(f"  Added {added} extra pixel(s)", style="yellow")
+
     n_select = len(selected)
 
     npz_path = os.path.join(output_dir, "spectra.npz")
@@ -77,7 +108,7 @@ def compare(n_spectra: int, beta: float, seed: int, output_dir: str) -> None:
     for i in range(n_select):
         t0 = time.perf_counter()
         try:
-            comps = fit_gaussians(signals[i], beta=beta, max_components=8, sig_min=4.0)
+            comps = fit_gaussians(signals[i], beta=beta, max_components=8, sig_min=4.5)
         except (LinAlgError, ValueError):
             comps = []
         ph_times.append(time.perf_counter() - t0)

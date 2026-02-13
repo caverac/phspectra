@@ -1,10 +1,52 @@
-"""Shared dataclasses for benchmark results."""
+"""Shared dataclasses and type aliases for benchmark results."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 import numpy as np
+import numpy.typing as npt
+from astropy.io.fits import Header
+
+
+class FitsPrimaryHDU(Protocol):
+    """Structural type for an astropy PrimaryHDU.
+
+    Astropy's own type stubs are incomplete, so Pylance and Pylint
+    cannot resolve ``.header`` and ``.data`` on the real class.  This
+    protocol captures the two attributes we actually use.
+    """
+
+    header: Header
+    data: npt.NDArray[np.float64]
+
+
+class _AngleAttr(Protocol):
+    """An astropy angle-like attribute with a ``.deg`` property."""
+
+    @property
+    def deg(self) -> npt.NDArray[np.float64]: ...
+
+
+class GalacticFrame(Protocol):
+    """Structural type for an astropy Galactic coordinate frame."""
+
+    @property
+    def l(self) -> _AngleAttr: ...  # noqa: E741
+
+    @property
+    def b(self) -> _AngleAttr: ...
+
+
+class ICRSFrame(Protocol):
+    """Structural type for an astropy ICRS coordinate frame."""
+
+    @property
+    def ra(self) -> _AngleAttr: ...
+
+    @property
+    def dec(self) -> _AngleAttr: ...
 
 
 @dataclass
@@ -21,7 +63,7 @@ class ComparisonResult:
     """One spectrum with both decompositions + timing."""
 
     pixel: tuple[int, int]
-    signal: np.ndarray
+    signal: npt.NDArray[np.float64]
     gp_comps: list[Component]
     ph_comps: list[Component]
     ph_rms: float
@@ -53,5 +95,5 @@ class SyntheticSpectrum:
 
     category: str
     index: int
-    signal: np.ndarray
+    signal: npt.NDArray[np.float64]
     components: list[Component]

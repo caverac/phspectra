@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import io
 import os
+from typing import cast
 from urllib.parse import quote
 from urllib.request import urlopen, urlretrieve
 
 import numpy as np
+import numpy.typing as npt
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.io.fits import PrimaryHDU
 from astropy.table import Table
 from astropy.wcs import WCS
 from benchmarks._console import console
@@ -19,12 +22,13 @@ from benchmarks._constants import (
     GAUSSPY_FITS_URL,
     TAP_URL,
 )
+from benchmarks._types import FitsPrimaryHDU, GalacticFrame, ICRSFrame
 
 
 def ensure_fits(
     url: str = GAUSSPY_FITS_URL,
     path: str = FITS_CACHE,
-) -> tuple[fits.Header, np.ndarray]:
+) -> tuple[fits.Header, npt.NDArray[np.float64]]:
     """Download the GRS test field FITS if not cached.
 
     Parameters
@@ -36,7 +40,7 @@ def ensure_fits(
 
     Returns
     -------
-    tuple[fits.Header, np.ndarray]
+    tuple[fits.Header, npt.NDArray[np.float64]]
         FITS header and data cube.
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -44,11 +48,13 @@ def ensure_fits(
         console.print(f"  Using cached FITS: [blue]{path}[/blue]")
     else:
         console.print(f"  Downloading {url} ...")
-        urlretrieve(url, path)  # noqa: S310
+        urlretrieve(url, path)
         console.print(f"  Saved to [blue]{path}[/blue]")
     with fits.open(path) as hdul:
-        header = hdul[0].header.copy()
-        data = hdul[0].data.copy()  # type: ignore[union-attr]
+        primary = cast(FitsPrimaryHDU, list(hdul)[0])
+        assert isinstance(primary, PrimaryHDU)
+        header = primary.header.copy()
+        data = np.asarray(primary.data, dtype=np.float64)
     return header, data
 
 
@@ -66,17 +72,20 @@ def fits_bounds(header: fits.Header) -> tuple[float, float, float, float]:
         Galactic coordinate bounds.
     """
     wcs_cel = WCS(header, naxis=2)
-    ny, nx = header["NAXIS2"], header["NAXIS1"]
+    ny = cast(int, header["NAXIS2"])
+    nx = cast(int, header["NAXIS1"])
     x_corners = np.array([0, nx - 1, 0, nx - 1])
     y_corners = np.array([0, 0, ny - 1, ny - 1])
     lon, lat = wcs_cel.pixel_to_world_values(x_corners, y_corners)
-    ctype1 = header.get("CTYPE1", "").upper()
+    ctype1 = cast(str, header.get("CTYPE1", "")).upper()
     if "GLON" in ctype1:
-        glon, glat = lon, lat
+        glon: npt.NDArray[np.float64] = np.asarray(lon, dtype=np.float64)
+        glat: npt.NDArray[np.float64] = np.asarray(lat, dtype=np.float64)
     else:
         sky = SkyCoord(ra=lon, dec=lat, unit="deg", frame="icrs")
-        gal = sky.galactic
-        glon, glat = gal.l.deg, gal.b.deg
+        gal = cast(GalacticFrame, sky.galactic)
+        glon = np.asarray(gal.l.deg, dtype=np.float64)
+        glat = np.asarray(gal.b.deg, dtype=np.float64)
     pad = 0.01
     return (
         float(np.min(glon)) - pad,
@@ -148,19 +157,21 @@ def match_catalog_pixels(
         Mapping from (x, y) pixel to component count.
     """
     wcs_cel = WCS(header, naxis=2)
-    ny, nx = header["NAXIS2"], header["NAXIS1"]
+    ny = cast(int, header["NAXIS2"])
+    nx = cast(int, header["NAXIS1"])
     cat_glon = np.array(catalog["GLON"], dtype=np.float64)
     cat_glat = np.array(catalog["GLAT"], dtype=np.float64)
-    ctype1 = header.get("CTYPE1", "").upper()
+    ctype1 = cast(str, header.get("CTYPE1", "")).upper()
     if "GLON" in ctype1:
         cat_lon, cat_lat = cat_glon, cat_glat
     else:
         sky = SkyCoord(l=cat_glon, b=cat_glat, unit="deg", frame="galactic")
-        icrs = sky.icrs
-        cat_lon, cat_lat = icrs.ra.deg, icrs.dec.deg
-    pix_x, pix_y = wcs_cel.world_to_pixel_values(cat_lon, cat_lat)
-    pix_x = np.round(pix_x).astype(int)
-    pix_y = np.round(pix_y).astype(int)
+        icrs = cast(ICRSFrame, sky.icrs)
+        cat_lon = np.asarray(icrs.ra.deg, dtype=np.float64)
+        cat_lat = np.asarray(icrs.dec.deg, dtype=np.float64)
+    pix_xf, pix_yf = wcs_cel.world_to_pixel_values(cat_lon, cat_lat)
+    pix_x = np.round(pix_xf).astype(int)
+    pix_y = np.round(pix_yf).astype(int)
     counts: dict[tuple[int, int], int] = {}
     for i in range(len(catalog)):
         x, y = int(pix_x[i]), int(pix_y[i])
@@ -170,17 +181,17 @@ def match_catalog_pixels(
 
 
 def select_spectra(
-    cube: np.ndarray,
+    cube: npt.NDArray[np.float64],
     header: fits.Header,
     catalog: Table,
     n_spectra: int,
     seed: int,
-) -> tuple[list[tuple[int, int]], np.ndarray]:
+) -> tuple[list[tuple[int, int]], npt.NDArray[np.float64]]:
     """Select random spectra that have catalog components.
 
     Parameters
     ----------
-    cube : np.ndarray
+    cube : npt.NDArray[np.float64]
         Data cube (n_channels, ny, nx).
     header : fits.Header
         FITS header.
@@ -193,7 +204,7 @@ def select_spectra(
 
     Returns
     -------
-    tuple[list[tuple[int, int]], np.ndarray]
+    tuple[list[tuple[int, int]], npt.NDArray[np.float64]]
         Selected pixel coordinates and signal array (n_select, n_channels).
     """
     rng = np.random.default_rng(seed)

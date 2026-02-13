@@ -15,6 +15,7 @@ import time
 
 import click
 import numpy as np
+import numpy.typing as npt
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -123,16 +124,16 @@ def performance(n_spectra: int, beta: float, seed: int) -> None:
 
 @docs_figure("performance-benchmark.png")
 def _plot_timing(
-    ph_ms: np.ndarray,
-    gp_ms: np.ndarray,
+    ph_ms: npt.NDArray[np.float64],
+    gp_ms: npt.NDArray[np.float64],
 ) -> Figure:
     """Build overlaid histograms of per-spectrum wall-clock time.
 
     Parameters
     ----------
-    ph_ms : np.ndarray
+    ph_ms : npt.NDArray[np.float64]
         phspectra times in milliseconds.
-    gp_ms : np.ndarray
+    gp_ms : npt.NDArray[np.float64]
         GaussPy+ times in milliseconds.
 
     Returns

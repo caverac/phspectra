@@ -105,7 +105,7 @@ def _decompose_one(
         1-D spectrum array.
     x : npt.NDArray[np.float64]
         Channel index array.
-    errors : np.ndarray
+    errors : npt.NDArray[np.float64]
         Per-channel error array.
 
     Returns
@@ -162,11 +162,11 @@ def _run_batch(
 
     Parameters
     ----------
-    signals : np.ndarray
+    signals : npt.NDArray[np.float64]
         2-D array of spectra ``(n_spectra, n_channels)``.
-    x_values : np.ndarray
+    x_values : npt.NDArray[np.float64]
         Channel index array.
-    errors : np.ndarray
+    errors : npt.NDArray[np.float64]
         Per-channel error array.
 
     Returns

@@ -12,6 +12,7 @@ or:
 from __future__ import annotations
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from phspectra.decompose import estimate_rms, fit_gaussians
@@ -42,14 +43,14 @@ ALL_POSITIONS = (
 class TestGRSSmoke:
     """Sanity checks on real GRS spectra."""
 
-    def test_cube_shape(self, grs_cube: np.ndarray) -> None:
+    def test_cube_shape(self, grs_cube: npt.NDArray[np.float64]) -> None:
         """The cube should be 3-D with a reasonable number of channels."""
         assert grs_cube.ndim == 3
         n_channels = grs_cube.shape[0]
         assert 200 < n_channels < 1000, f"Unexpected channel count: {n_channels}"
 
     @pytest.mark.parametrize("y,x", ALL_POSITIONS)
-    def test_find_peaks(self, grs_cube: np.ndarray, y: int, x: int) -> None:
+    def test_find_peaks(self, grs_cube: npt.NDArray[np.float64], y: int, x: int) -> None:
         """Persistence peak finder should run without error on any position."""
         spectrum = grs_cube[:, y, x]
         spectrum = np.nan_to_num(spectrum, nan=0.0)
@@ -62,7 +63,7 @@ class TestGRSSmoke:
             assert pk.birth > pk.death
 
     @pytest.mark.parametrize("y,x", BRIGHT_POSITIONS)
-    def test_find_peaks_bright(self, grs_cube: np.ndarray, y: int, x: int) -> None:
+    def test_find_peaks_bright(self, grs_cube: npt.NDArray[np.float64], y: int, x: int) -> None:
         """Bright positions should have at least one peak above the noise."""
         spectrum = grs_cube[:, y, x]
         spectrum = np.nan_to_num(spectrum, nan=0.0)
@@ -73,7 +74,7 @@ class TestGRSSmoke:
         assert len(peaks) >= 1, f"No peaks found at (y={y}, x={x})"
 
     @pytest.mark.parametrize("y,x", BRIGHT_POSITIONS)
-    def test_fit_gaussians(self, grs_cube: np.ndarray, y: int, x: int) -> None:
+    def test_fit_gaussians(self, grs_cube: npt.NDArray[np.float64], y: int, x: int) -> None:
         """Gaussian fitting should produce components with positive amplitude and width."""
         spectrum = grs_cube[:, y, x]
         spectrum = np.nan_to_num(spectrum, nan=0.0)
@@ -86,7 +87,7 @@ class TestGRSSmoke:
             assert comp.stddev > 0, f"Non-positive stddev: {comp}"
 
     @pytest.mark.parametrize("y,x", MARGINAL_POSITIONS)
-    def test_fit_gaussians_marginal(self, grs_cube: np.ndarray, y: int, x: int) -> None:
+    def test_fit_gaussians_marginal(self, grs_cube: npt.NDArray[np.float64], y: int, x: int) -> None:
         """Marginal positions may return 0 components after quality validation."""
         spectrum = grs_cube[:, y, x]
         spectrum = np.nan_to_num(spectrum, nan=0.0)

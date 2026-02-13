@@ -5,12 +5,13 @@ from __future__ import annotations
 import time
 
 import numpy as np
+import numpy.typing as npt
 
 from phspectra._types import GaussianComponent
 from phspectra.decompose import fit_gaussians
 
 
-def _make_gaussian(x: np.ndarray, amp: float, mu: float, sig: float) -> np.ndarray:
+def _make_gaussian(x: npt.NDArray[np.float64], amp: float, mu: float, sig: float) -> npt.NDArray[np.float64]:
     return amp * np.exp(-0.5 * ((x - mu) / sig) ** 2)
 
 

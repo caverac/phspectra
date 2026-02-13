@@ -16,10 +16,11 @@ import click
 import numpy as np
 from matplotlib import pyplot as plt
 from numpy.linalg import LinAlgError
+from rich.table import Table
 
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
-from benchmarks._data import ensure_fits, match_catalog_pixels
+from benchmarks._data import ensure_fits
 from benchmarks._gaussian import gaussian_model
 from benchmarks._plotting import configure_axes
 from benchmarks._types import Component
@@ -43,7 +44,7 @@ from phspectra import fit_gaussians
 )
 @click.option(
     "--sig-mins",
-    default="5.0,3.0,2.0",
+    default="4.0,4.5,5.0",
     show_default=True,
     help="Comma-separated sig_min values.",
 )
@@ -59,36 +60,31 @@ def inspect_pixel(
     sig_min_list = [float(s) for s in sig_mins.split(",")]
 
     fits_path = os.path.join(data_dir, "..", "grs-test-field.fits")
-    catalog_path = os.path.join(data_dir, "..", "gausspy-catalog.votable")
     docker_results_path = os.path.join(data_dir, "results.json")
 
     # Load data
-    header, cube = ensure_fits(path=fits_path)
+    _, cube = ensure_fits(path=fits_path)
     n_channels = cube.shape[0]
 
     if not os.path.exists(docker_results_path):
         err_console.print("ERROR: results.json not found, run ``benchmarks compare`` first")
         sys.exit(1)
 
-    # Rebuild pixel selection to find spec_idx
-    from astropy.table import Table
-
-    catalog = Table.read(catalog_path, format="votable")
-    pixel_counts = match_catalog_pixels(catalog, header)
-    eligible = {k: v for k, v in pixel_counts.items() if 1 <= v <= 8}
-    eligible_keys = list(eligible.keys())
-
-    seed = 2026_02_12
-    n_spectra = 400
-    rng = np.random.default_rng(seed)
-    n_select = min(n_spectra, len(eligible_keys))
-    idx = rng.choice(len(eligible_keys), size=n_select, replace=False)
-    selected = [eligible_keys[i] for i in idx]
+    # Read pixel list saved by ``benchmarks compare``
+    ph_results_path = os.path.join(data_dir, "phspectra_results.json")
+    if not os.path.exists(ph_results_path):
+        err_console.print(
+            "ERROR: phspectra_results.json not found, run ``benchmarks compare`` first"
+        )
+        sys.exit(1)
+    with open(ph_results_path, encoding="utf-8") as f:
+        ph_saved = json.load(f)
+    selected = [tuple(p) for p in ph_saved["pixels"]]
 
     try:
         spec_idx = selected.index((px, py))
     except ValueError:
-        err_console.print(f"ERROR: pixel ({px}, {py}) not in the {n_select} selected spectra.")
+        err_console.print(f"ERROR: pixel ({px}, {py}) not in the {len(selected)} selected spectra.")
         nearby = [(x, y) for x, y in selected if abs(x - px) <= 5 and abs(y - py) <= 5]
         if nearby:
             err_console.print(f"Nearby pixels: {nearby}")
@@ -123,7 +119,16 @@ def inspect_pixel(
             except (LinAlgError, ValueError):
                 comps = []
             ph_results[(beta, sig_min)] = [Component(c.amplitude, c.mean, c.stddev) for c in comps]
-            console.print(f"  beta={beta}, sig_min={sig_min}: {len(comps)} components")
+
+    table = Table(title="phspectra decompositions")
+    table.add_column("beta", justify="right")
+    table.add_column("sig_min", justify="right")
+    table.add_column("components", justify="right")
+    for beta in beta_list:
+        for sig_min in sig_min_list:
+            n = len(ph_results[(beta, sig_min)])
+            table.add_row(f"{beta:.2f}", f"{sig_min:.2f}", str(n))
+    console.print(table)
 
     # Zoom range
     all_comps = [gp_comps] + list(ph_results.values())
@@ -138,9 +143,9 @@ def inspect_pixel(
     # Plot
     n_rows, n_cols = len(beta_list), len(sig_min_list)
     fig, axes = plt.subplots(
-        n_rows, n_cols, figsize=(5.5 * n_cols, 4 * n_rows), sharex=True, sharey=True
+        n_rows, n_cols, figsize=(2.5 * n_cols, 2.0 * n_rows), sharex=True, sharey=True
     )
-    fig.subplots_adjust(left=0.07, right=0.97, bottom=0.07, top=0.93, wspace=0.08, hspace=0.18)
+    fig.subplots_adjust(left=0.07, right=0.97, bottom=0.07, top=0.93, wspace=0.05, hspace=0.05)
     if n_rows == 1 and n_cols == 1:
         axes = np.array([[axes]])
     elif n_rows == 1:
@@ -160,8 +165,7 @@ def inspect_pixel(
                 x,
                 gp_model,
                 color="k",
-                linewidth=2.0,
-                linestyle="--",
+                linewidth=1.5,
                 label=f"GP+ ({len(gp_comps)} comp, RMS={gp_rms:.3f})",
             )
 
@@ -172,27 +176,28 @@ def inspect_pixel(
             ax.plot(
                 x,
                 ph_model,
-                color="k",
-                linewidth=2.0,
-                label=f"PH ({len(comps)} comp, RMS={rms:.3f})",
+                color="#1f77b4",
+                linewidth=1.0,
+                linestyle="--",
+                label=f"PHS ({len(comps)} comp, RMS={rms:.3f})",
             )
 
             ax.set_xlim(lo, hi)
             ax.text(
                 0.03,
                 0.05,
-                f"$\\beta$={beta}, sig_min={sig_min}",
+                f"$\\beta$={beta}, $\\sigma_{{\\min}}$={sig_min}",
                 transform=ax.transAxes,
                 va="bottom",
                 ha="left",
             )
-            ax.legend(loc="upper right", frameon=False, fontsize=7)
+            ax.legend(loc="upper right", frameon=False)
             configure_axes(ax)
 
             if i == n_rows - 1:
                 ax.set_xlabel("Channel")
             if j == 0:
-                ax.set_ylabel("T (K)")
+                ax.set_ylabel(r"$T$ (K)")
 
     fig.suptitle(f"Pixel ({px}, {py})")
     plt.show()

@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.request import urlretrieve
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 from astropy.io import fits  # type: ignore[import-untyped]
 
@@ -16,12 +17,12 @@ FITS_PATH = CACHE_DIR / "grs-test_field.fits"
 
 
 @pytest.fixture(scope="session")
-def grs_cube() -> np.ndarray:
+def grs_cube() -> npt.NDArray[np.float64]:
     """Download the GRS test-field FITS cube (cached) and return the data array."""
     if not FITS_PATH.exists():
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         urlretrieve(FITS_URL, FITS_PATH)  # noqa: S310
 
     with fits.open(FITS_PATH) as hdul:
-        data: np.ndarray = np.array(hdul[0].data, dtype=np.float64)  # pylint: disable=no-member
+        data: npt.NDArray[np.float64] = np.array(hdul[0].data, dtype=np.float64)  # pylint: disable=no-member
     return data

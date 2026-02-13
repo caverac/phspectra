@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 from benchmarks._types import Component
 
@@ -23,6 +24,6 @@ def single_component() -> list[Component]:
 
 
 @pytest.fixture()
-def channel_array() -> np.ndarray:
+def channel_array() -> npt.NDArray[np.float64]:
     """Channel array with 424 channels."""
     return np.arange(424, dtype=np.float64)
