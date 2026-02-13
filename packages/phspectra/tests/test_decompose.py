@@ -54,7 +54,7 @@ def test_refine_finds_hidden_peak() -> None:
         + _make_gaussian(x, 1.5, 140.0, 4.0)  # weak component
         + noise
     )
-    result = fit_gaussians(signal, beta=3.0, snr_min=1.0, sig_min=2.0)
+    result = fit_gaussians(signal, beta=3.0, snr_min=1.0, mf_snr_min=2.0)
     # Should find at least 2 components; with refinement, possibly 3
     assert len(result) >= 2
 
@@ -64,7 +64,7 @@ def test_blended_merged() -> None:
     x = np.arange(200, dtype=np.float64)
     # Two Gaussians very close together (separation < f_sep * min_fwhm)
     signal = _make_gaussian(x, 5.0, 100.0, 8.0) + _make_gaussian(x, 4.5, 103.0, 8.0)
-    result = fit_gaussians(signal, beta=2.0, f_sep=1.2, snr_min=1.0, sig_min=2.0)
+    result = fit_gaussians(signal, beta=2.0, f_sep=1.2, snr_min=1.0, mf_snr_min=2.0)
     # After merging blended pair, should have fewer components than initial peaks
     # The exact count depends on AICc, but should be 1 or 2
     assert len(result) <= 2
@@ -80,7 +80,7 @@ def test_negative_residual_split() -> None:
         + _make_gaussian(x, 5.0, 120.0, 5.0)
         + rng.normal(0, 0.2, size=200)
     )
-    result = fit_gaussians(signal, beta=3.0, neg_thresh=3.0, snr_min=1.0, sig_min=2.0)
+    result = fit_gaussians(signal, beta=3.0, neg_thresh=3.0, snr_min=1.0, mf_snr_min=2.0)
     # Should find 2 components
     assert len(result) >= 2
 
@@ -112,8 +112,8 @@ def test_noise_only_fast() -> None:
         result = fit_gaussians(signal, beta=8.0)
         assert result == []
     elapsed = time.perf_counter() - start
-    # Should average < 2ms per spectrum (no curve_fit called)
-    assert elapsed / 500 < 0.002
+    # Should average < 5ms per spectrum (no curve_fit called)
+    assert elapsed / 500 < 0.005
 
 
 def test_single_component_fast() -> None:

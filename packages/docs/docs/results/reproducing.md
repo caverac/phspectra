@@ -75,7 +75,7 @@ cp /tmp/phspectra/compare-docker/width-comparison.png packages/docs/static/img/r
 uv run benchmarks inspect PX PY
 ```
 
-Shows data + GaussPy+ + phspectra at multiple (beta, sig_min) combinations for one pixel.
+Shows data + GaussPy+ + phspectra at multiple (beta, mf_snr_min) combinations for one pixel.
 
 ### Performance benchmark
 

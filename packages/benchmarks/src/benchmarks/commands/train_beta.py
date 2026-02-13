@@ -103,7 +103,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
         for signal, ref in training:
             x = np.arange(len(signal), dtype=np.float64)
             try:
-                guessed_raw = fit_gaussians(signal, beta=beta, max_components=16, sig_min=3.0)
+                guessed_raw = fit_gaussians(signal, beta=beta, max_components=16, mf_snr_min=3.5)
             except (LinAlgError, ValueError):
                 guessed_raw = []
             guessed = [Component(c.amplitude, c.mean, c.stddev) for c in guessed_raw]

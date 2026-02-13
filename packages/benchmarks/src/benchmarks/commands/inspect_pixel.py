@@ -1,6 +1,6 @@
 """``benchmarks inspect`` -- inspect a single GRS pixel interactively.
 
-Decomposes a single GRS pixel with phspectra at several (beta, sig_min)
+Decomposes a single GRS pixel with phspectra at several (beta, mf_snr_min)
 combinations and overlays the results against the GaussPy+ Docker
 decomposition.  Useful for diagnosing why the two methods disagree on a
 particular spectrum.
@@ -43,21 +43,21 @@ from phspectra import fit_gaussians
     help="Comma-separated beta values.",
 )
 @click.option(
-    "--sig-mins",
-    default="4.0,4.5,5.0",
+    "--mf-snr-mins",
+    default="4.0,5.0,6.0",
     show_default=True,
-    help="Comma-separated sig_min values.",
+    help="Comma-separated matched-filter SNR thresholds.",
 )
 def inspect_pixel(
     px: int,
     py: int,
     data_dir: str,
     betas: str,
-    sig_mins: str,
+    mf_snr_mins: str,
 ) -> None:
     """Inspect pixel (PX, PY): spectrum + GP+ + phspectra at multiple betas."""
     beta_list = [float(b) for b in betas.split(",")]
-    sig_min_list = [float(s) for s in sig_mins.split(",")]
+    mf_snr_min_list = [float(s) for s in mf_snr_mins.split(",")]
 
     fits_path = os.path.join(data_dir, "..", "grs-test-field.fits")
     docker_results_path = os.path.join(data_dir, "results.json")
@@ -110,24 +110,26 @@ def inspect_pixel(
     console.print(f"Pixel ({px}, {py}), index {spec_idx}", style="bold cyan")
     console.print(f"GaussPy+: {len(gp_comps)} components, RMS={gp_rms:.4f}")
 
-    # phspectra at multiple (beta, sig_min)
+    # phspectra at multiple (beta, mf_snr_min)
     ph_results: dict[tuple[float, float], list[Component]] = {}
     for beta in beta_list:
-        for sig_min in sig_min_list:
+        for mf_snr_min in mf_snr_min_list:
             try:
-                comps = fit_gaussians(signal, beta=beta, max_components=10, sig_min=sig_min)
+                comps = fit_gaussians(signal, beta=beta, max_components=10, mf_snr_min=mf_snr_min)
             except (LinAlgError, ValueError):
                 comps = []
-            ph_results[(beta, sig_min)] = [Component(c.amplitude, c.mean, c.stddev) for c in comps]
+            ph_results[(beta, mf_snr_min)] = [
+                Component(c.amplitude, c.mean, c.stddev) for c in comps
+            ]
 
     table = Table(title="phspectra decompositions")
     table.add_column("beta", justify="right")
-    table.add_column("sig_min", justify="right")
+    table.add_column("mf_snr_min", justify="right")
     table.add_column("components", justify="right")
     for beta in beta_list:
-        for sig_min in sig_min_list:
-            n = len(ph_results[(beta, sig_min)])
-            table.add_row(f"{beta:.2f}", f"{sig_min:.2f}", str(n))
+        for mf_snr_min in mf_snr_min_list:
+            n = len(ph_results[(beta, mf_snr_min)])
+            table.add_row(f"{beta:.2f}", f"{mf_snr_min:.1f}", str(n))
     console.print(table)
 
     # Zoom range
@@ -141,7 +143,7 @@ def inspect_pixel(
         lo, hi = 0, n_channels
 
     # Plot
-    n_rows, n_cols = len(beta_list), len(sig_min_list)
+    n_rows, n_cols = len(beta_list), len(mf_snr_min_list)
     fig, axes = plt.subplots(
         n_rows, n_cols, figsize=(2.5 * n_cols, 2.0 * n_rows), sharex=True, sharey=True
     )
@@ -154,7 +156,7 @@ def inspect_pixel(
         axes = np.array([[ax] for ax in axes])
 
     for i, beta in enumerate(beta_list):
-        for j, sig_min in enumerate(sig_min_list):
+        for j, mf_snr_min in enumerate(mf_snr_min_list):
             ax = axes[i][j]
 
             # Data
@@ -170,7 +172,7 @@ def inspect_pixel(
             )
 
             # phspectra model
-            ph_comps = ph_results[(beta, sig_min)]
+            ph_comps = ph_results[(beta, mf_snr_min)]
             ph_model = gaussian_model(x, ph_comps)
             rms = float(np.sqrt(np.mean((signal - ph_model) ** 2)))
             ax.plot(
@@ -186,7 +188,7 @@ def inspect_pixel(
             ax.text(
                 0.03,
                 0.05,
-                f"$\\beta$={beta}, $\\sigma_{{\\min}}$={sig_min}",
+                f"$\\beta$={beta}, MF$_{{\\min}}$={mf_snr_min}",
                 transform=ax.transAxes,
                 va="bottom",
                 ha="left",

@@ -18,7 +18,7 @@ from benchmarks._constants import CACHE_DIR
 from benchmarks._gaussian import residual_rms
 from benchmarks._matching import match_pairs
 from benchmarks._plotting import configure_axes, docs_figure, plot_panel
-from benchmarks._types import ComparisonResult, Component
+from benchmarks._types import ComparisonResult, ComparisonSummary, Component
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 
@@ -133,7 +133,7 @@ def _collect_matched_widths(
 
 def _load_results(
     data_dir: str,
-) -> tuple[list[ComparisonResult], dict[str, object]]:
+) -> tuple[list[ComparisonResult], ComparisonSummary]:
     """Load saved comparison data and reconstruct ComparisonResult objects.
 
     Expects ``spectra.npz``, ``phspectra_results.json``, and
@@ -146,7 +146,7 @@ def _load_results(
 
     Returns
     -------
-    tuple[list[ComparisonResult], dict[str, object]]
+    tuple[list[ComparisonResult], ComparisonSummary]
         ``(results, summary)`` where *summary* contains aggregate
         timing and component-count statistics.
     """
@@ -211,12 +211,12 @@ def _load_results(
             )
         )
 
-    summary = {
-        "ph_total_time": ph_data["total_time_s"],
-        "gp_total_time": gp_data["total_time_s"],
-        "ph_mean_n_components": ph_data["mean_n_components"],
-        "gp_mean_n_components": gp_data["mean_n_components"],
-    }
+    summary = ComparisonSummary(
+        ph_total_time=ph_data["total_time_s"],
+        gp_total_time=gp_data["total_time_s"],
+        ph_mean_n_components=ph_data["mean_n_components"],
+        gp_mean_n_components=gp_data["mean_n_components"],
+    )
     return results, summary
 
 
@@ -242,9 +242,25 @@ def _build_rms_hist(results: list[ComparisonResult]) -> Figure:
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
     upper = max(np.percentile(ph_rms_arr, 99), np.percentile(gp_rms_arr, 99))
-    bins = np.linspace(0, upper, 40)
-    ax.hist(ph_rms_arr, bins=bins, alpha=0.7, label="phspectra", color="C0")
-    ax.hist(gp_rms_arr, bins=bins, alpha=0.7, label="GaussPy+", color="C3")
+    bins_ph = np.linspace(0, upper, 40)
+    bins_gp = np.linspace(0, upper, 41)
+    ph_counts, ph_edges, _ = ax.hist(
+        ph_rms_arr,
+        bins=bins_ph,  # type: ignore[arg-type]
+        alpha=0.7,
+        label="PHSpectra",
+        color="k",
+    )
+    gp_counts, gp_edges, _ = ax.hist(
+        gp_rms_arr,
+        bins=bins_gp,  # type: ignore[arg-type]
+        alpha=0.2,
+        label="GaussPy+",
+        color="#4d4d4d",
+    )
+    ax.stairs(ph_counts, ph_edges, color="k", linewidth=1.2)
+    ax.stairs(gp_counts, gp_edges, color="#4d4d4d", linewidth=1.2)
+
     ax.set_xlabel("RMS (K)")
     ax.set_ylabel("Count")
     ax.legend(loc="upper right", frameon=False)
@@ -320,7 +336,7 @@ def _build_disagreements_figure(
 
     for i, (label, r) in enumerate(disagreements):
         plot_panel(axes.ravel()[i], r, f"{label} -- px({r.pixel[0]},{r.pixel[1]})")
-        _style_ax(axes.ravel()[i])
+        configure_axes(axes.ravel()[i])
     for i in range(len(disagreements), 6):
         axes.ravel()[i].set_visible(False)
 
@@ -368,9 +384,21 @@ def _build_width_hist(
         float(np.percentile(log_ratios, 99)),
         50,
     )
-    ax.hist(log_ratios, bins=bins, alpha=0.7, color="C0", edgecolor="white")
-    ax.axvline(0.0, color="k", linestyle="--", linewidth=0.8)
-    ax.set_xlabel(r"$\ln(\sigma_{\mathrm{phspectra}}\;/\;\sigma_{\mathrm{GaussPy+}})$")
+    ax.hist(
+        log_ratios,
+        bins=bins,  # type: ignore[arg-type]
+        alpha=0.7,
+        color="k",
+        edgecolor="white",
+    )
+    ax.axvline(
+        0.0,
+        color="k",
+        linestyle="--",
+        linewidth=0.8,
+    )
+    ax.set_xlim(-1, 1)
+    ax.set_xlabel(r"$\ln(\sigma_{\mathrm{PHSpectra}}\;/\;\sigma_{\mathrm{GaussPy+}})$")
     ax.set_ylabel("Count")
     configure_axes(ax)
 
@@ -393,8 +421,8 @@ def compare_plot(data_dir: str) -> None:
 
     # Summary stats
     n_ph_wins = sum(1 for r in results if r.ph_rms < r.gp_rms)
-    ph_total = summary["ph_total_time"]
-    gp_total = summary["gp_total_time"]
+    ph_total = summary.ph_total_time
+    gp_total = summary.gp_total_time
     speedup = gp_total / ph_total if ph_total > 0 else 0
     console.print(
         f"  RMS wins: phspectra {n_ph_wins}/{n_select}, " f"GP+ {n_select - n_ph_wins}/{n_select}",
@@ -413,7 +441,19 @@ def compare_plot(data_dir: str) -> None:
     # Width comparison
     console.print("\nPlot 2: Width comparison", style="bold cyan")
     ph_widths, gp_widths = _collect_matched_widths(results)
-    console.print(f"  {len(ph_widths)} matched component pairs", style="green")
+    n_pairs = len(ph_widths)
+    ph_w = np.array(ph_widths)
+    gp_w = np.array(gp_widths)
+    n_ph_wider = int(np.sum(ph_w > gp_w))
+    n_gp_wider = int(np.sum(gp_w > ph_w))
+    median_log_ratio = float(np.median(np.log(ph_w / np.maximum(gp_w, 0.1))))
+    console.print(f"  {n_pairs} matched component pairs", style="green")
+    console.print(
+        f"  PH wider: {n_ph_wider}/{n_pairs} ({100 * n_ph_wider / n_pairs:.0f}%), "
+        f"GP+ wider: {n_gp_wider}/{n_pairs} ({100 * n_gp_wider / n_pairs:.0f}%)",
+        style="green",
+    )
+    console.print(f"  Median ln(sigma_PH / sigma_GP+): {median_log_ratio:.3f}", style="green")
     _build_width_hist(ph_widths, gp_widths)
 
     # RMS comparison (saved to docs via decorator)

@@ -146,11 +146,24 @@ def _plot_timing(
     fig, ax = plt.subplots(figsize=(6.5, 5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.92)
 
-    clip = max(np.percentile(ph_ms, 99), np.percentile(gp_ms, 99))
+    clip = max(np.percentile(ph_ms, 99), np.percentile(gp_ms, 99))  # type: ignore[call-overload]
     bins = np.linspace(0, clip, 40)
-    ax.hist(ph_ms, bins=bins, alpha=0.7, color="k", label="phspectra")
-    ax.hist(gp_ms, bins=bins, alpha=0.2, color="k", label="GaussPy+",
-            edgecolor="k")
+    ph_counts, ph_edges, _ = ax.hist(
+        ph_ms,
+        bins=bins,  # type: ignore[arg-type]
+        alpha=0.7,
+        color="k",
+        label="PHSpectra",
+    )
+    gp_counts, gp_edges, _ = ax.hist(
+        gp_ms,
+        bins=bins,  # type: ignore[arg-type]
+        alpha=0.2,
+        color="#4d4d4d",
+        label="GaussPy+",
+    )
+    ax.stairs(ph_counts, ph_edges, color="k", linewidth=1.2)
+    ax.stairs(gp_counts, gp_edges, color="#4d4d4d", linewidth=1.2)
 
     ax.set_xlabel("Time per spectrum (ms)")
     ax.set_ylabel("Count")
@@ -172,7 +185,9 @@ def performance_plot(data_dir: str) -> None:
     gp_path = os.path.join(data_dir, "results.json")
     for path, label in [(ph_path, "phspectra_results.json"), (gp_path, "results.json")]:
         if not os.path.exists(path):
-            err_console.print(f"ERROR: {label} not found in {data_dir}.\nRun ``benchmarks compare`` first.")
+            err_console.print(
+                f"ERROR: {label} not found in {data_dir}.\nRun ``benchmarks compare`` first."
+            )
             sys.exit(1)
 
     console.print("Loading saved comparison data ...", style="bold cyan")

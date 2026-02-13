@@ -21,34 +21,57 @@ F = TypeVar("F", bound=Callable[..., Figure])
 
 
 class AxesGrid1D:
-    """Type hint for a 1-D array of matplotlib Axes.
+    """Structural type for a 1-D array of matplotlib ``Axes``.
 
-    Wraps the ``Any`` return of ``plt.subplots()`` so that
-    ``axes[i]`` is understood as ``Axes`` by type checkers.
+    ``plt.subplots(1, n)`` returns an untyped ndarray of axes.
+    This stub lets type checkers treat indexing, iteration, and
+    length queries as returning ``Axes`` without importing the
+    private numpy generics.
+
+    Only the subset of ndarray methods actually used in the
+    benchmark plotting code is declared here.
     """
 
-    def __getitem__(self, index: int) -> Axes: ...  # noqa: E704
+    def __getitem__(self, index: int) -> Axes:
+        """Return the axes at *index*."""
+        ...
 
-    def __iter__(self) -> Iterator[Axes]: ...  # noqa: E704
+    def __iter__(self) -> Iterator[Axes]:  # type: ignore[empty-body]
+        """Iterate over axes in the grid."""
+        ...
 
-    def __len__(self) -> int: ...  # noqa: E704
+    def __len__(self) -> int:  # type: ignore[empty-body]
+        """Return the number of axes."""
+        ...
 
 
 class AxesGrid2D:
-    """Type hint for a 2-D array of matplotlib Axes.
+    """Structural type for a 2-D array of matplotlib ``Axes``.
 
-    Wraps the ``Any`` return of ``plt.subplots()`` so that
-    ``axes[i, j]`` and ``axes[i][j]`` are understood as ``Axes``
-    by type checkers.
+    ``plt.subplots(m, n)`` with *m*, *n* > 1 returns a 2-D ndarray.
+    This stub provides typed access via ``axes[i, j]``,
+    ``axes[i][j]``, iteration over rows, and ``ravel()``.
+
+    Only the subset of ndarray methods actually used in the
+    benchmark plotting code is declared here.
     """
 
-    def __getitem__(self, index: tuple[int, int] | int) -> Axes: ...  # noqa: E704
+    def __getitem__(self, index: tuple[int, int] | int) -> Axes:  # type: ignore[empty-body]
+        """Return axes at ``(row, col)`` or row *index*."""
+        ...
 
-    def __iter__(self) -> Iterator[AxesGrid1D]: ...  # noqa: E704
+    def __iter__(self) -> Iterator[AxesGrid1D]:  # type: ignore[empty-body]
+        """Iterate over rows, each an ``AxesGrid1D``."""
+        ...
 
-    def __len__(self) -> int: ...  # noqa: E704
+    def __len__(self) -> int:  # type: ignore[empty-body]
+        """Return the number of rows."""
+        ...
 
-    def ravel(self) -> AxesGrid1D: ...  # noqa: E704
+    def ravel(self) -> AxesGrid1D:  # type: ignore[empty-body]
+        """Return a flat 1-D view of all axes."""
+        ...
+
 
 def configure_axes(ax: Axes) -> None:
     """Apply the shared tick style to *ax*.
@@ -161,9 +184,7 @@ def plot_panel(
     n_ch = len(result.signal)
     x = np.arange(n_ch, dtype=np.float64)
 
-    ax.step(
-        x, result.signal, where="mid", color="0.6", linewidth=1.0, alpha=0.7, label="Data"
-    )
+    ax.step(x, result.signal, where="mid", color="0.6", linewidth=1.0, alpha=0.7, label="Data")
 
     ph_model = gaussian_model(x, result.ph_comps) if result.ph_comps else np.zeros(n_ch)
     gp_model = gaussian_model(x, result.gp_comps) if result.gp_comps else np.zeros(n_ch)
@@ -173,7 +194,7 @@ def plot_panel(
         ph_model,
         color="k",
         linewidth=2.0,
-        label=f"phspectra ({len(result.ph_comps)} comp, RMS={result.ph_rms:.3f})",
+        label=f"PHS ({len(result.ph_comps)} comp, RMS={result.ph_rms:.3f})",
     )
     ax.plot(
         x,

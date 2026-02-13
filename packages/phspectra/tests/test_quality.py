@@ -64,7 +64,7 @@ def test_validate_rejects_low_significance() -> None:
     """Narrow weak component below significance threshold should be rejected."""
     # Component with modest amplitude and narrow width -> low significance
     comp = GaussianComponent(amplitude=2.0, mean=50.0, stddev=0.5)
-    result = validate_components([comp], rms=0.5, n_channels=100, snr_min=1.0, sig_min=5.0)
+    result = validate_components([comp], rms=0.5, n_channels=100, snr_min=1.0, mf_snr_min=5.0)
     assert result == []
 
 

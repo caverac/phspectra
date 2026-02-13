@@ -90,6 +90,16 @@ class BetaSweepResult:
 
 
 @dataclass
+class ComparisonSummary:
+    """Aggregate timing and component-count statistics from a comparison run."""
+
+    ph_total_time: float
+    gp_total_time: float
+    ph_mean_n_components: float
+    gp_mean_n_components: float
+
+
+@dataclass
 class SyntheticSpectrum:
     """A synthetic spectrum with known ground-truth components."""
 

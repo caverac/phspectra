@@ -76,7 +76,7 @@ def _fit_components(
             bounds=(lower, upper),
             maxfev=maxfev,
         )
-    except RuntimeError:
+    except (RuntimeError, np.linalg.LinAlgError):
         popt = np.array(p0)
 
     fitted = [
@@ -133,9 +133,9 @@ def _find_residual_peaks(
     residual: NDArray[np.floating],
     rms: float,
     snr_min: float,
-    sig_min: float,
+    mf_snr_min: float,
 ) -> list[GaussianComponent]:
-    """Find peaks in the residual above S/N and significance thresholds."""
+    """Find peaks in the residual above S/N and matched-filter SNR thresholds."""
     threshold = snr_min * rms
     peaks = find_peaks_by_persistence(residual, min_persistence=threshold)
     if not peaks:
@@ -148,7 +148,7 @@ def _find_residual_peaks(
         rms,
         n_channels,
         snr_min=snr_min,
-        sig_min=sig_min,
+        mf_snr_min=mf_snr_min,
     )
 
 
@@ -255,7 +255,7 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
     *,
     rms: float,
     snr_min: float,
-    sig_min: float,
+    mf_snr_min: float,
     neg_thresh: float,
     f_sep: float,
     max_components: int | None,
@@ -264,7 +264,7 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
     changed = False
 
     # Search residual for new peaks
-    new_peaks = _find_residual_peaks(residual, rms, snr_min, sig_min)
+    new_peaks = _find_residual_peaks(residual, rms, snr_min, mf_snr_min)
     if new_peaks:
         candidate = list(components) + new_peaks
         if max_components is not None:
@@ -318,11 +318,11 @@ def fit_gaussians(
     refine: bool = True,
     max_refine_iter: int = 3,
     snr_min: float = 1.5,
-    sig_min: float = 4.0,
+    mf_snr_min: float = 5.0,
     f_sep: float = 1.2,
     neg_thresh: float = 5.0,
 ) -> list[GaussianComponent]:
-    """Fit a sum of Gaussians to *signal* using persistence-detected peaks.
+    r"""Fit a sum of Gaussians to *signal* using persistence-detected peaks.
 
     The persistence threshold is set automatically as ``beta * rms``, where
     *rms* is estimated from the signal via signal-masked MAD estimation.
@@ -330,7 +330,7 @@ def fit_gaussians(
 
     When *refine* is ``True`` (default), an iterative refinement loop applies:
 
-    * Component quality validation (SNR, significance, FWHM)
+    * Component quality validation (SNR, matched-filter SNR, FWHM)
     * Residual peak search (adds missed components)
     * Negative-dip splitting (decomposes blended peaks)
     * Blended-pair merging (removes redundant components)
@@ -357,9 +357,11 @@ def fit_gaussians(
     max_refine_iter:
         Maximum number of refinement iterations.
     snr_min:
-        Minimum signal-to-noise ratio for a component to be valid.
-    sig_min:
-        Minimum significance for a component.
+        Minimum amplitude signal-to-noise ratio for a component to be valid.
+    mf_snr_min:
+        Minimum matched-filter SNR.
+        :math:`\mathrm{SNR}_\mathrm{mf} = (A / \sigma_\mathrm{rms})\,\sqrt{\sigma}\;\pi^{1/4}`.
+        Narrow peaks must have proportionally higher amplitude to pass.
     f_sep:
         Blended-pair separation factor (in units of FWHM).
     neg_thresh:
@@ -401,7 +403,7 @@ def fit_gaussians(
         return components
 
     # --- Step 4: Validation ------------------------------------------------
-    validated = validate_components(components, rms, n_channels, snr_min=snr_min, sig_min=sig_min)
+    validated = validate_components(components, rms, n_channels, snr_min=snr_min, mf_snr_min=mf_snr_min)
     if len(validated) != len(components):
         if not validated:
             return []
@@ -411,7 +413,7 @@ def fit_gaussians(
     current_aicc = aicc(residual, 3 * len(components))
 
     # --- Early exit: nothing to refine? ------------------------------------
-    residual_peaks = _find_residual_peaks(residual, rms, snr_min, sig_min)
+    residual_peaks = _find_residual_peaks(residual, rms, snr_min, mf_snr_min)
     blended = find_blended_pairs(components, f_sep)
     if not residual_peaks and not blended:
         components.sort(key=lambda c: c.mean)
@@ -428,7 +430,7 @@ def fit_gaussians(
             current_aicc,
             rms=rms,
             snr_min=snr_min,
-            sig_min=sig_min,
+            mf_snr_min=mf_snr_min,
             neg_thresh=neg_thresh,
             f_sep=f_sep,
             max_components=max_components,

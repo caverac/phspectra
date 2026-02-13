@@ -127,7 +127,7 @@ flowchart TD
     D --> E["Least-squares fit<br/>(scipy curve_fit)"]
     E --> F{"Refine?"}
     F -- No --> G["Return components"]
-    F -- Yes --> H["Validate components<br/>(SNR, significance, FWHM)"]
+    F -- Yes --> H["Validate components<br/>(SNR, matched-filter SNR, FWHM)"]
     H --> I["Refit if any removed"]
     I --> J["Compute AICc baseline"]
     J --> K["Refinement loop<br/>(up to 3 iterations)"]
@@ -197,7 +197,15 @@ When `refine=True` (default), the fitted components first pass through a **one-t
 - FWHM $< 1$ channel
 - Mean outside spectrum bounds
 - Amplitude $< 1.5 \times \sigma_{\rm rms}$ (SNR floor)
-- Significance $< 5.0$, where significance is defined as $W_i / (\sqrt{2 \cdot \mathrm{FWHM}_i} \cdot \sigma_{\rm rms})$ and $W_i = a_i \cdot \sigma_i \cdot \sqrt{2\pi}$ is the integrated flux
+- Matched-filter SNR $< 5.0$ (see below)
+
+The **matched-filter SNR** is the optimal detection signal-to-noise ratio for a Gaussian component in white noise:
+
+$$
+\mathrm{SNR}_{\rm mf} = \frac{A_i}{\sigma_{\rm rms}} \sqrt{\sigma_i} \; \pi^{1/4}
+$$
+
+This follows from the matched-filter theorem: for a template $h(x) = A \exp(-x^2 / 2\sigma^2)$ in noise with standard deviation $\sigma_{\rm rms}$, the detection SNR is $\|h\|_2 / \sigma_{\rm rms}$, where $\|h\|_2^2 = A^2 \sigma \sqrt{\pi}$. Because SNR$_{\rm mf}$ scales as $\sqrt{\sigma}$, narrow peaks must have proportionally higher amplitude to survive -- this rejects noise spikes (which are tall but have negligible integrated flux) without imposing an ad-hoc minimum width. The amplitude SNR check (`snr_min`) and the matched-filter SNR check (`mf_snr_min`) are complementary: `snr_min` sets a floor for broad components, while `mf_snr_min` catches narrow noise.
 
 If any components are removed, a refit is triggered. The AICc of the validated model then serves as the baseline for the refinement loop.
 

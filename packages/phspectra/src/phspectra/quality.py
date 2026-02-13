@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from phspectra._types import GaussianComponent
 
 _FWHM_FACTOR = 2.0 * math.sqrt(2.0 * math.log(2.0))  # 2.3548
-_SQRT_2PI = math.sqrt(2.0 * math.pi)
+_PI_QUARTER = math.pi**0.25  # ≈ 1.3313
 
 
 def aicc(residuals: NDArray[np.floating], n_params: int) -> float:
@@ -55,19 +55,27 @@ def validate_components(
     n_channels: int,
     *,
     snr_min: float = 1.5,
-    sig_min: float = 5.0,
+    mf_snr_min: float = 5.0,
     fwhm_min_channels: float = 1.0,
 ) -> list[GaussianComponent]:
-    """Discard unphysical or insignificant components (Riener Sect 3.2.1).
+    r"""Discard unphysical or insignificant components.
 
     A component is rejected if **any** of the following hold:
 
     * FWHM < *fwhm_min_channels* (sub-channel width)
     * Mean outside ``[0, n_channels)``
     * Amplitude < ``snr_min * rms`` (below noise)
-    * Significance < *sig_min*:
-      ``W_i / (sqrt(2 * FWHM_i) * rms)``
-      where ``W_i = amplitude * stddev * sqrt(2 pi)``
+    * Matched-filter SNR < *mf_snr_min*:
+
+      .. math::
+
+          \mathrm{SNR}_\mathrm{mf}
+              = \frac{A_i}{\sigma_\mathrm{rms}}\,
+                \sqrt{\sigma_i}\;\pi^{1/4}
+
+      This is the optimal detection SNR for a Gaussian component
+      in white noise. Narrow peaks must have proportionally higher
+      amplitude to survive.
     """
     valid: list[GaussianComponent] = []
     for c in components:
@@ -85,11 +93,10 @@ def validate_components(
         if c.amplitude < snr_min * rms:
             continue
 
-        # Significance test
+        # Matched-filter SNR
         if rms > 0:
-            w_i = c.amplitude * c.stddev * _SQRT_2PI
-            significance = w_i / (math.sqrt(2.0 * fwhm) * rms)
-            if significance < sig_min:
+            mf_snr = (c.amplitude / rms) * math.sqrt(c.stddev) * _PI_QUARTER
+            if mf_snr < mf_snr_min:
                 continue
 
         valid.append(c)

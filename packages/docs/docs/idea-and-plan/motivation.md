@@ -49,10 +49,12 @@ After persistence selects candidate peaks and Gaussians are fitted, each compone
 | Check | Criterion | Default |
 |-------|-----------|---------|
 | **SNR floor** | Amplitude $\geq$ `snr_min` $\times \sigma_\mathrm{rms}$ | 1.5 |
-| **Significance** | Integrated flux per FWHM normalised by noise $\geq$ `sig_min` | 5.0 |
+| **Matched-filter SNR** | $(A_i / \sigma_\mathrm{rms})\,\sqrt{\sigma_i}\;\pi^{1/4} \geq$ `mf_snr_min` | 5.0 |
 | **Minimum width** | FWHM $\geq$ `fwhm_min_channels` | 1.0 channel |
 
-Components that survive validation are kept only if they improve the AICc of the overall model. During iterative refinement (residual peak search, negative-dip splitting, blended-pair merging) the significance threshold relaxes to `sig_min = 4.0`.
+The matched-filter SNR is the optimal detection signal-to-noise for a Gaussian component in white noise. Because it scales as $\sqrt{\sigma}$, narrow peaks must have proportionally higher amplitude to survive -- this rejects noise spikes without an ad-hoc width threshold.
+
+Components that survive validation are kept only if they improve the AICc of the overall model.
 
 These thresholds have sensible physical defaults that work across the datasets we have tested. In practice, $\beta$ is the only parameter that meaningfully affects decomposition results -- the validation thresholds act as safety nets rather than tuning knobs.
 
