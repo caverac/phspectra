@@ -31,11 +31,13 @@ The speed advantage comes from algorithmic differences:
 
 2. **Fewer optimization steps.** GaussPy+ fits all candidate components simultaneously using `scipy.optimize.leastsq`, sometimes iterating multiple times as it adds or removes components. phspectra fits each component in a localized window and performs a single global refinement pass.
 
-3. **No training required.** GaussPy+'s $\alpha$ parameters must be trained per survey (or per survey region), which adds a separate computational cost not reflected in the per-spectrum timing. phspectra's $\beta$ parameter requires no training &mdash; the default value works across surveys.
+3. **No training required.** GaussPy+'s $\alpha$ parameters must be trained per survey (or per survey region), which adds a separate computational cost not reflected in the per-spectrum timing. PHSpectra's $\beta$ parameter requires no training &mdash; the default value works across surveys.
+
+4. **Spread in execution times.** GaussPy+'s execution time varies widely across spectra, due to complex optimization landscapes. PHSpectra's execution time is more consistent, with fewer outliers. 
 
 ### Benchmark details
 
 - **Hardware**: single-core sequential processing for both tools (no parallelization)
-- **phspectra**: native Python 3.14, run directly
+- **PHSpectra**: native Python 3.14, run directly
 - **GaussPy+**: Python 3.10 in Docker (required for compatibility with legacy numpy/scipy), batch decomposition via `GaussPyDecompose`, per-spectrum timing via GaussPy core decomposer
 - **Spectra**: 1000 randomly selected GRS pixels with at least one cataloged component, 424 velocity channels each

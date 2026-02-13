@@ -31,7 +31,7 @@ The real-data benchmark above compares phspectra against GaussPy+ (another algor
 
 All spectra use GRS-realistic parameters: 424 channels with additive Gaussian noise at $\sigma = 0.13$ K. Because the true components are known exactly, $F_1$ measures *true accuracy* rather than agreement with another algorithm.
 
-For each spectrum we sweep $\beta$ from 3.8 to 4.5, decompose with phspectra, and score using Hungarian matching with the [Lindner et al. (2015)](https://arxiv.org/abs/1409.2840) criteria.
+For each spectrum we sweep $\beta$ from 3.8 to 4.5, decompose with PHSpectra, and score using Hungarian matching with the [Lindner et al. (2015)](https://arxiv.org/abs/1409.2840) criteria.
 
 ```python
 uv run benchmarks synthetic --n-per-category 50  # around 20 mins
@@ -75,11 +75,17 @@ This is a known structural limitation of persistence-based peak detection for cl
 
 ### Real data: beta training
 
+```python
+uv run benchmarks download
+uv run benchmarks compare --n-spectra 1000 --extra-pixels 31,40  # takes around 15 mins
+uv run train-beta  # around 40 mins
+```
+
 Sweeping $\beta$ from 3.8 to 4.5 on 1000 GRS spectra shows a nearly flat $F_1$ curve:
 
 ![Beta training on GRS spectra](/img/results/f1-beta-sweep.png)
 
-The optimal $\beta = 4.0$ achieves $F_1$ = 0.847 against GaussPy+ reference decompositions. However, the variation across the entire sweep is only $\Delta F_1 \approx 0.01$ &mdash; the algorithm is remarkably stable.
+Considering these results and the ones from the previous section, I decided to set the default $\beta = 3.8$. However, the variation across the entire sweep is only $\Delta F_1 \approx 0.01$ &mdash; the algorithm is remarkably stable.
 
 Note that the $F_1$ ceiling here does not reflect a limitation of phspectra &mdash; it reflects *disagreement between two different decomposition strategies*. See the [Accuracy](accuracy) section for a detailed analysis of where and why the decompositions differ.
 
@@ -89,10 +95,10 @@ Note that the $F_1$ ceiling here does not reflect a limitation of phspectra &mda
 
 GaussPy requires a trained smoothing parameter $\alpha$ that is sensitive to the noise properties and spectral structure of each survey. The training procedure ([Lindner et al. 2015](https://arxiv.org/abs/1409.2840)) requires labeled decompositions and can produce different optimal values for different regions of the same survey.
 
-In contrast, phspectra's $\beta$ parameter is:
+In contrast, PHSpectra's $\beta$ parameter is:
 
 - **Survey-agnostic**: values in the range $\beta = 3.8$&ndash;$4.0$ work well across both real and synthetic data with fundamentally different noise structures.
 - **Robust to perturbation**: performance degrades gracefully rather than collapsing at non-optimal values. There is no cliff &mdash; the $F_1$ curve is flat.
-- **Physically interpretable**: $\beta$ directly controls the minimum significance (in $\sigma$) for a peak to be considered real. A value of $\beta = 4.0$ means "reject anything less significant than a $4\sigma$ fluctuation," which is a natural and intuitive threshold.
+- **Physically interpretable**: $\beta$ directly controls the minimum significance (in $\sigma$) for a peak to be considered real. A value of $\beta = 3.8$ means "reject anything less significant than a $3.8\sigma$ fluctuation," which is a natural and intuitive threshold.
 
-The default value of $\beta = 4.0$ is recommended for general use.
+The default value of $\beta = 3.8$ is recommended for general use.

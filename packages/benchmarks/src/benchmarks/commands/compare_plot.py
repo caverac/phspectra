@@ -298,7 +298,7 @@ def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
     lim = max(ph_rms_arr.max(), gp_rms_arr.max()) * 1.05
     ax.plot([0, lim], [0, lim], "k--", linewidth=0.8, alpha=0.5)
     ax.set_xlabel("GaussPy+ RMS (K)")
-    ax.set_ylabel("phspectra RMS (K)")
+    ax.set_ylabel("PHSpectra RMS (K)")
     ax.set_aspect("equal")
     ax.legend(
         [f"PH lower: {n_ph_wins}/{n_select}"],

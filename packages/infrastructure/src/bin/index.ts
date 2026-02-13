@@ -35,6 +35,7 @@ new SplitterStack(app, 'PHSSplitter', {
   deploymentEnvironment: env.ENVIRONMENT,
   bucket: dataLake.bucket,
   queue: processing.queue,
+  table: processing.table,
   env: cdkEnv
 })
 

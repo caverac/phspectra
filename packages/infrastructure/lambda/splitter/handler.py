@@ -18,7 +18,7 @@ sqs = boto3.client("sqs")
 BUCKET = os.environ["BUCKET_NAME"]
 QUEUE_URL = os.environ["QUEUE_URL"]
 CHUNK_SIZE = 500
-DEFAULT_BETA = 4.0
+DEFAULT_BETA = 3.8
 
 
 def handler(event: dict[str, object], context: LambdaContext) -> dict[str, object]:

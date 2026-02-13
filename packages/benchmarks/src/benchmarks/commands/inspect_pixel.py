@@ -38,7 +38,7 @@ from phspectra import fit_gaussians
 )
 @click.option(
     "--betas",
-    default="3.50,3.75,4.0",
+    default="3.65,3.80,3.95",
     show_default=True,
     help="Comma-separated beta values.",
 )
@@ -145,7 +145,7 @@ def inspect_pixel(
     # Plot
     n_rows, n_cols = len(beta_list), len(mf_snr_min_list)
     fig, axes = plt.subplots(
-        n_rows, n_cols, figsize=(2.5 * n_cols, 2.0 * n_rows), sharex=True, sharey=True
+        n_rows, n_cols, figsize=(3.2 * n_cols, 2.6 * n_rows), sharex=True, sharey=True
     )
     fig.subplots_adjust(left=0.07, right=0.97, bottom=0.07, top=0.93, wspace=0.05, hspace=0.05)
     if n_rows == 1 and n_cols == 1:

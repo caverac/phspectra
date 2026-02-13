@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 #: Default persistence threshold in units of noise sigma.
-DEFAULT_BETA: float = 4.0
+DEFAULT_BETA: float = 3.8
 
 
 # ---------------------------------------------------------------------------

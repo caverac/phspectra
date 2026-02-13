@@ -11,6 +11,7 @@ from benchmarks.commands.performance import performance, performance_plot
 from benchmarks.commands.synthetic import synthetic
 from benchmarks.commands.train_beta import train_beta
 from benchmarks.commands.persistence_plot import persistence_plot
+from benchmarks.commands.ncomp_rms_plot import ncomp_rms_plot
 from benchmarks.commands.survey_map import survey_map
 
 
@@ -28,4 +29,5 @@ main.add_command(performance)
 main.add_command(performance_plot)
 main.add_command(synthetic)
 main.add_command(persistence_plot)
+main.add_command(ncomp_rms_plot)
 main.add_command(survey_map)

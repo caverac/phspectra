@@ -1,6 +1,7 @@
 import path = require('path')
 
 import * as cdk from 'aws-cdk-lib'
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as logs from 'aws-cdk-lib/aws-logs'
@@ -16,9 +17,17 @@ export interface ProcessingStackProps extends cdk.StackProps {
 
 export class ProcessingStack extends cdk.Stack {
   public readonly queue: sqs.Queue
+  public readonly table: dynamodb.Table
 
   constructor(scope: Construct, id: string, props: ProcessingStackProps) {
     super(scope, id, props)
+
+    this.table = new dynamodb.Table(this, 'RunsTable', {
+      tableName: `phspectra-${props.deploymentEnvironment}-runs`,
+      partitionKey: { name: 'run_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    })
 
     const deadLetterQueue = new sqs.Queue(this, 'DeadLetterQueue', {
       retentionPeriod: cdk.Duration.days(14)
@@ -49,7 +58,8 @@ export class ProcessingStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(5),
       logGroup: workerLogGroup,
       environment: {
-        BUCKET_NAME: props.bucket.bucketName
+        BUCKET_NAME: props.bucket.bucketName,
+        TABLE_NAME: this.table.tableName
       }
     })
 
@@ -61,5 +71,6 @@ export class ProcessingStack extends cdk.Stack {
     )
 
     props.bucket.grantReadWrite(workerFn)
+    this.table.grant(workerFn, 'dynamodb:UpdateItem')
   }
 }

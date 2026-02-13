@@ -1,6 +1,7 @@
 import path = require('path')
 
 import * as cdk from 'aws-cdk-lib'
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as events from 'aws-cdk-lib/aws-events'
 import * as targets from 'aws-cdk-lib/aws-events-targets'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
@@ -14,6 +15,7 @@ export interface SplitterStackProps extends cdk.StackProps {
   deploymentEnvironment: DeploymentEnvironment
   bucket: s3.IBucket
   queue: sqs.IQueue
+  table: dynamodb.ITable
 }
 
 export class SplitterStack extends cdk.Stack {
@@ -40,12 +42,14 @@ export class SplitterStack extends cdk.Stack {
       logGroup: splitterLogGroup,
       environment: {
         BUCKET_NAME: props.bucket.bucketName,
-        QUEUE_URL: props.queue.queueUrl
+        QUEUE_URL: props.queue.queueUrl,
+        TABLE_NAME: props.table.tableName
       }
     })
 
     props.bucket.grantReadWrite(splitterFn)
     props.queue.grantSendMessages(splitterFn)
+    props.table.grant(splitterFn, 'dynamodb:PutItem')
 
     // Rule 1: FITS file uploaded to cubes/ -> auto-process with default beta
     new events.Rule(this, 'FitsUploadRule', {

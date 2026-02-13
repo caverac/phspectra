@@ -40,9 +40,9 @@ from phspectra import fit_gaussians
     show_default=True,
     help="Directory with spectra.npz and results.json from ``compare``.",
 )
-@click.option("--beta-min", default=3.0, show_default=True)
-@click.option("--beta-max", default=6.0, show_default=True)
-@click.option("--beta-steps", default=13, show_default=True)
+@click.option("--beta-min", default=3.8, show_default=True)
+@click.option("--beta-max", default=4.5, show_default=True)
+@click.option("--beta-steps", default=8, show_default=True)
 def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int) -> None:
     """Sweep beta values against GaussPy+ Docker decompositions."""
     output_dir = os.path.join(data_dir, "training-output")
