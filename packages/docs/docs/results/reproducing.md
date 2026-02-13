@@ -47,13 +47,15 @@ uv run benchmarks train-beta
 
 Sweeps beta values against the GaussPy+ Docker decompositions from step 1. Produces `train-beta-docker.png`.
 
-## Step 3: Width comparison
+## Step 3: Persistence diagrams
 
 ```bash
-uv run benchmarks width
+uv run benchmarks persistence-plot
 ```
 
-Matches components between phspectra and GaussPy+ and plots width distributions. Produces `width-comparison.png`.
+Generates the water-level-stages and persistence-diagram illustrations used in the [Persistent Homology](../idea-and-plan/persistent-homology-primer) page. These use a synthetic signal and do not depend on any downloaded data.
+
+Produces: `water-level-stages.png`, `persistence-diagram.png` (saved directly to the docs image directory).
 
 ## Step 4: Copy plots to docs
 
@@ -89,4 +91,4 @@ Runs a timing benchmark comparing phspectra vs GaussPy+ (Docker).
 uv run benchmarks synthetic
 ```
 
-Runs phspectra on synthetic spectra with known ground truth across a grid of beta values. Produces F1 scores, CSV results, and plots.
+Runs phspectra on synthetic spectra with known ground truth across a grid of beta values. Produces $F_1$ scores, CSV results, and plots.

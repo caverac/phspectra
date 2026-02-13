@@ -4,8 +4,8 @@ sidebar_position: 4
 
 # Data Sources
 
-Public spectral-line surveys we can use to develop and benchmark **phspectra**.
-The primary reference dataset comes from the GaussPy+ paper (Riener et al. 2019),
+Public spectral-line surveys we can use to develop and benchmark PHSpectra.
+The primary reference dataset comes from the GaussPy+ paper ([Riener et al. 2019](https://arxiv.org/abs/1906.10506)),
 which provides both raw data and a full Gaussian decomposition catalog for comparison.
 
 ## GRS — Galactic Ring Survey
@@ -52,7 +52,7 @@ The GaussPy+ tutorial uses pixel (y=31, x=40) as a representative spectrum.
 
 ## GaussPy+ full decomposition catalog
 
-Riener et al. (2020a) published a complete Gaussian decomposition of the GRS using GaussPy+.
+[Riener et al. (2020)](https://doi.org/10.1051/0004-6361/201936814) published a complete Gaussian decomposition of the GRS using GaussPy+.
 This catalog provides ground-truth component parameters (amplitude, velocity, FWHM) for
 every spectrum in the survey — ideal for benchmarking.
 
@@ -63,6 +63,16 @@ every spectrum in the survey — ideal for benchmarking.
 | Reference | [Riener et al. 2020, A&A 633, A14](https://doi.org/10.1051/0004-6361/201936814) |
 
 **Access:** [CDS VizieR catalog J/A+A/633/A14](https://cdsarc.cds.unistra.fr/viz-bin/cat/J/A+A/633/A14)
+
+## Downloading with the CLI
+
+The benchmarks CLI downloads both the GRS test field FITS cube and the VizieR decomposition catalog in a single command:
+
+```bash
+uv run benchmarks download
+```
+
+Files are cached in `/tmp/phspectra/` by default (configurable with `--cache-dir`). Use `--force` to re-download. See [Reproducing results](../results/reproducing) for the full benchmark workflow.
 
 ## Other public surveys
 

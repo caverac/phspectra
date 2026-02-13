@@ -92,6 +92,28 @@ def _fit_components(
     return fitted, residual
 
 
+def _estimate_stddev(pk: PersistentPeak) -> float:
+    """Estimate initial Gaussian σ from the peak-to-saddle distance.
+
+    For a Gaussian that equals ``birth`` at the peak and ``death`` at
+    the saddle, the exact relationship is::
+
+        σ = d / √(2 · ln(birth / death))
+
+    where ``d = |peak_index − saddle_index|``.  Falls back to 1.0 when
+    the saddle is unknown (global maximum) or the estimate is degenerate.
+    """
+    if pk.saddle_index < 0 or pk.death <= 0.0:
+        return 1.0
+    d = abs(pk.index - pk.saddle_index)
+    if d == 0:
+        return 1.0
+    ratio = pk.birth / pk.death
+    if ratio <= 1.0:
+        return 1.0
+    return float(d / np.sqrt(2.0 * np.log(ratio)))
+
+
 def _peaks_to_components(
     peaks: list[PersistentPeak],
     signal: NDArray[np.floating],
@@ -101,7 +123,7 @@ def _peaks_to_components(
         GaussianComponent(
             amplitude=max(float(signal[pk.index]), 1e-10),
             mean=float(pk.index),
-            stddev=1.0,
+            stddev=_estimate_stddev(pk),
         )
         for pk in peaks
     ]

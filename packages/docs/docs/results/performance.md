@@ -6,10 +6,10 @@ sidebar_position: 3
 
 ## Speed comparison
 
-We benchmark the wall-clock time for decomposing 1000 real GRS spectra (424 channels each) using both phspectra and GaussPy+ (Riener et al. 2019). Both algorithms are run on the same spectra with their recommended configurations:
+We benchmark the wall-clock time for decomposing 1000 real GRS spectra (424 channels each) using both phspectra and GaussPy+ ([Riener et al. 2019](https://arxiv.org/abs/1906.10506)). Both algorithms are run on the same spectra with their recommended configurations:
 
 - **phspectra**: $\beta = 4.0$ (default), pure Python
-- **GaussPy+**: two-phase decomposition with $\alpha_1 = 2.89$, $\alpha_2 = 6.65$ (trained values from Riener et al. 2019, Sect. 4.1), SNR threshold = 3.0
+- **GaussPy+**: two-phase decomposition with $\alpha_1 = 2.89$, $\alpha_2 = 6.65$ (trained values from [Riener et al. 2019](https://arxiv.org/abs/1906.10506), Sect. 4.1), SNR threshold = 3.0
 
 ### Results
 

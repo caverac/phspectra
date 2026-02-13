@@ -5,7 +5,7 @@ from __future__ import annotations
 import functools
 import io
 from pathlib import Path
-from typing import Any, Callable, Sequence, TypeVar
+from typing import Any, Callable, Iterator, Sequence, TypeVar
 
 import numpy as np
 from benchmarks._console import console
@@ -13,9 +13,41 @@ from benchmarks._constants import DOCS_IMG_DIR
 from benchmarks._gaussian import gaussian_model
 from benchmarks._types import ComparisonResult, Component
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 F = TypeVar("F", bound=Callable[..., Figure])
+
+
+class AxesGrid1D:
+    """Type hint for a 1-D array of matplotlib Axes.
+
+    Wraps the ``Any`` return of ``plt.subplots()`` so that
+    ``axes[i]`` is understood as ``Axes`` by type checkers.
+    """
+
+    def __getitem__(self, index: int) -> Axes: ...  # noqa: E704
+
+    def __iter__(self) -> Iterator[Axes]: ...  # noqa: E704
+
+    def __len__(self) -> int: ...  # noqa: E704
+
+
+class AxesGrid2D:
+    """Type hint for a 2-D array of matplotlib Axes.
+
+    Wraps the ``Any`` return of ``plt.subplots()`` so that
+    ``axes[i, j]`` and ``axes[i][j]`` are understood as ``Axes``
+    by type checkers.
+    """
+
+    def __getitem__(self, index: tuple[int, int] | int) -> Axes: ...  # noqa: E704
+
+    def __iter__(self) -> Iterator[AxesGrid1D]: ...  # noqa: E704
+
+    def __len__(self) -> int: ...  # noqa: E704
+
+    def ravel(self) -> AxesGrid1D: ...  # noqa: E704
 
 SAVEFIG_DEFAULTS: dict[str, int | str] = {
     "dpi": 300,
@@ -98,7 +130,7 @@ def save_figure_if_changed(
 
 
 def plot_panel(
-    ax: object,
+    ax: Axes,
     result: ComparisonResult,
     title: str,
 ) -> None:
@@ -106,31 +138,31 @@ def plot_panel(
 
     Parameters
     ----------
-    ax : matplotlib.axes.Axes
+    ax:
         Target axes.
-    result : ComparisonResult
+    result:
         Comparison data.
-    title : str
+    title:
         Panel title.
     """
     n_ch = len(result.signal)
     x = np.arange(n_ch, dtype=np.float64)
 
-    ax.step(  # type: ignore[attr-defined]
+    ax.step(
         x, result.signal, where="mid", color="0.6", linewidth=1.0, alpha=0.7, label="Data"
     )
 
     ph_model = gaussian_model(x, result.ph_comps) if result.ph_comps else np.zeros(n_ch)
     gp_model = gaussian_model(x, result.gp_comps) if result.gp_comps else np.zeros(n_ch)
 
-    ax.plot(  # type: ignore[attr-defined]
+    ax.plot(
         x,
         ph_model,
         color="k",
         linewidth=2.0,
         label=f"phspectra ({len(result.ph_comps)} comp, RMS={result.ph_rms:.3f})",
     )
-    ax.plot(  # type: ignore[attr-defined]
+    ax.plot(
         x,
         gp_model,
         color="k",
@@ -144,19 +176,19 @@ def plot_panel(
     if all_means:
         lo = max(0, int(min(all_means) - 4 * max(all_stds)) - 10)
         hi = min(n_ch, int(max(all_means) + 4 * max(all_stds)) + 10)
-        ax.set_xlim(lo, hi)  # type: ignore[attr-defined]
+        ax.set_xlim(lo, hi)
 
-    ax.text(  # type: ignore[attr-defined]
+    ax.text(
         0.03,
         0.05,
         title,
-        transform=ax.transAxes,  # type: ignore[attr-defined]
+        transform=ax.transAxes,
         va="bottom",
         ha="left",
     )
-    ax.legend(loc="upper right", frameon=False)  # type: ignore[attr-defined]
-    ax.set_xlabel("Channel")  # type: ignore[attr-defined]
-    ax.set_ylabel("T (K)")  # type: ignore[attr-defined]
+    ax.legend(loc="upper right", frameon=False)
+    ax.set_xlabel("Channel")
+    ax.set_ylabel("T (K)")
 
 
 def zoom_range(

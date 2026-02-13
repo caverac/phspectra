@@ -6,11 +6,11 @@ sidebar_position: 2
 
 ## True accuracy on synthetic data
 
-When ground truth is known exactly (synthetic spectra with prescribed Gaussian components), phspectra achieves an overall **F1 = 0.916**. The only challenging regime is heavily blended multi-component spectra (F1 = 0.849), where any algorithm faces fundamental ambiguity. See the [Beta parameter sensitivity](beta) section for the full breakdown.
+When ground truth is known exactly (synthetic spectra with prescribed Gaussian components), phspectra achieves an overall **$F_1$ = 0.916**. The only challenging regime is heavily blended multi-component spectra ($F_1$ = 0.849), where any algorithm faces fundamental ambiguity. See the [Beta parameter sensitivity](beta) section for the full breakdown.
 
 ## Comparison with GaussPy+
 
-We run both phspectra and GaussPy+ on 1000 randomly selected GRS spectra. GaussPy+ is run in Docker using `GaussPyDecompose` with the trained parameters from Riener et al. (2019): $\alpha_1 = 2.89$, $\alpha_2 = 6.65$, two-phase decomposition, SNR threshold = 3.0.
+We run both phspectra and GaussPy+ on 1000 randomly selected GRS spectra. GaussPy+ is run in Docker using `GaussPyDecompose` with the trained parameters from [Riener et al. (2019)](https://arxiv.org/abs/1906.10506): $\alpha_1 = 2.89$, $\alpha_2 = 6.65$, two-phase decomposition, SNR threshold = 3.0.
 
 ### Fit quality (RMS)
 

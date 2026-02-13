@@ -29,12 +29,17 @@ class PersistentPeak:
         Function value at which this component merged into an older one.
     persistence : float
         ``birth - death`` -- the significance of the peak.
+    saddle_index : int
+        Channel index of the saddle point where this component died
+        (merged into an older component).  For the global maximum,
+        which never dies, this is set to ``-1``.
     """
 
     index: int
     birth: float
     death: float
     persistence: float
+    saddle_index: int = -1
 
 
 def find_peaks_by_persistence(
@@ -123,6 +128,7 @@ def find_peaks_by_persistence(
                         birth=float(birth),
                         death=float(death),
                         persistence=float(persistence),
+                        saddle_index=int(idx),
                     )
                 )
 

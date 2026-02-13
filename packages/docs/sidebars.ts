@@ -5,11 +5,10 @@ const sidebars: SidebarsConfig = {
     'intro',
     {
       type: 'category',
-      label: 'Idea and Plan of Attack',
+      label: 'Preliminaries',
       items: [
         'idea-and-plan/motivation',
         'idea-and-plan/persistent-homology-primer',
-        'idea-and-plan/plan-of-attack',
         'idea-and-plan/data-sources'
       ]
     },
