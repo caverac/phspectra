@@ -16,38 +16,66 @@ uv run benchmarks --help
 uv run benchmarks download
 ```
 
-Downloads and caches the GRS test field FITS cube and VizieR catalog to `/tmp/phspectra/`. That can be changed with the `--cache-dir` option. The FITS cube is large and the GaussPy+ decompositions take a long time to run, so this only needs to be done once.
+Downloads and caches the GRS test field FITS cube and VizieR catalog to `/tmp/phspectra/`. The FITS cube is large and the GaussPy+ decompositions take a long time to run, so this only needs to be done once.
 
 ## Step 1: GaussPy+ comparison (generates all shared data)
 
 ```bash
-uv run benchmarks compare
+uv run benchmarks compare --n-spectra 1000 --extra-pixels 31,40
 ```
 
-Runs phspectra and GaussPy+ (Docker) on 400 real GRS spectra, that number can be changed with the `--num-spectra` option, this runs in serial, so be ready to wait a while. Produces:
+Runs phspectra and GaussPy+ (Docker) on 1000 real GRS spectra (plus any extra pixels requested). This runs in serial, so expect it to take a while. Produces:
 
-- `/tmp/phspectra/compare-docker/spectra.npz` -- the 400 spectra
+- `/tmp/phspectra/compare-docker/spectra.npz` -- the spectra
 - `/tmp/phspectra/compare-docker/results.json` -- GaussPy+ decompositions + timing
-- `/tmp/phspectra/compare-docker/phspectra_results.json` -- phspectra decompositions + timing
+- `/tmp/phspectra/compare-docker/phspectra_results.json` -- PHSpectra decompositions + timing
 - `/tmp/phspectra/compare-docker/comparison_docker.json` -- summary statistics
 
-Then generate the plots:
+## Step 2: Generate plots
+
+All plot commands read from the saved data in `/tmp/phspectra/compare-docker/` and save figures directly to the docs static image directory via the `@docs_figure` decorator. No manual copying is needed.
+
+### Comparison plots (accuracy section)
 
 ```bash
 uv run benchmarks compare-plot
 ```
 
-Produces: `compare-disagreements-docker.png`, `compare-narrower-widths-docker.png`, `compare-rms-docker.png`
+Produces: `rms-distribution.png`, `rms-scatter.png`, `compare-disagreements.png`, `width-comparison.png`
 
-## Step 2: Beta training sweep
+### N components vs RMS
+
+```bash
+uv run benchmarks ncomp-rms-plot
+```
+
+Produces: `ncomp-vs-rms.png`
+
+### Performance histogram
+
+```bash
+uv run benchmarks performance-plot
+```
+
+Produces: `performance-benchmark.png`
+
+## Step 3: Beta training sweep
 
 ```bash
 uv run benchmarks train-beta
 ```
 
-Sweeps beta values against the GaussPy+ Docker decompositions from step 1. Produces `train-beta-docker.png`.
+Sweeps beta values against the GaussPy+ Docker decompositions from step 1. Produces: `f1-beta-sweep.png`
 
-## Step 3: Persistence diagrams
+## Step 4: Synthetic benchmark
+
+```bash
+uv run benchmarks synthetic --n-per-category 50
+```
+
+Runs PHSpectra on 350 synthetic spectra with known ground truth across a grid of beta values. Produces $F_1$ scores, CSV results, and plots: `synthetic-f1.png`, `synthetic-errors.png`
+
+## Step 5: Persistence diagrams
 
 ```bash
 uv run benchmarks persistence-plot
@@ -55,17 +83,7 @@ uv run benchmarks persistence-plot
 
 Generates the water-level-stages and persistence-diagram illustrations used in the [Persistent Homology](../idea-and-plan/persistent-homology-primer) page. These use a synthetic signal and do not depend on any downloaded data.
 
-Produces: `water-level-stages.png`, `persistence-diagram.png` (saved directly to the docs image directory).
-
-## Step 4: Copy plots to docs
-
-```bash
-cp /tmp/phspectra/compare-docker/compare-disagreements-docker.png packages/docs/static/img/results/
-cp /tmp/phspectra/compare-docker/compare-narrower-widths-docker.png packages/docs/static/img/results/
-cp /tmp/phspectra/compare-docker/compare-rms-docker.png packages/docs/static/img/results/
-cp /tmp/phspectra/compare-docker/training-output/train-beta-docker.png packages/docs/static/img/results/train-beta-docker.png
-cp /tmp/phspectra/compare-docker/width-comparison.png packages/docs/static/img/results/width-comparison.png
-```
+Produces: `water-level-stages.png`, `persistence-diagram.png`
 
 ## Additional commands
 
@@ -75,20 +93,12 @@ cp /tmp/phspectra/compare-docker/width-comparison.png packages/docs/static/img/r
 uv run benchmarks inspect PX PY
 ```
 
-Shows data + GaussPy+ + phspectra at multiple (beta, mf_snr_min) combinations for one pixel.
+Shows data + GaussPy+ + PHSpectra at multiple ($\beta$, $\mathrm{MF}_{\min}$) combinations for one pixel.
 
-### Performance benchmark
-
-```bash
-uv run benchmarks performance
-```
-
-Runs a timing benchmark comparing phspectra vs GaussPy+ (Docker).
-
-### Synthetic benchmark
+### Survey map
 
 ```bash
-uv run benchmarks synthetic
+uv run benchmarks survey-map
 ```
 
-Runs phspectra on synthetic spectra with known ground truth across a grid of beta values. Produces $F_1$ scores, CSV results, and plots.
+Generates a 2x2 survey visualisation from full-field decomposition results.

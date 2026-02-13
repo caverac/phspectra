@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from datetime import datetime, timezone
 
 import boto3
 import numpy as np
@@ -14,9 +15,11 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 s3 = boto3.client("s3")
 sqs = boto3.client("sqs")
+dynamodb = boto3.client("dynamodb")
 
 BUCKET = os.environ["BUCKET_NAME"]
 QUEUE_URL = os.environ["QUEUE_URL"]
+TABLE_NAME = os.environ["TABLE_NAME"]
 CHUNK_SIZE = 500
 DEFAULT_BETA = 3.8
 
@@ -165,6 +168,21 @@ def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict[str
                 ),
             )
             messages_sent += 1
+
+    dynamodb.put_item(
+        TableName=TABLE_NAME,
+        Item={
+            "run_id": {"S": run_id},
+            "survey": {"S": survey},
+            "created_at": {"S": datetime.now(timezone.utc).isoformat()},
+            "jobs_total": {"N": str(messages_sent)},
+            "jobs_completed": {"N": "0"},
+            "jobs_failed": {"N": "0"},
+            "beta_values": {"L": [{"N": str(b)} for b in beta_values]},
+            "n_spectra": {"N": str(n_spectra)},
+            "n_chunks": {"N": str(len(chunk_keys))},
+        },
+    )
 
     return {
         "statusCode": 200,

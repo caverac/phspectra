@@ -18,6 +18,7 @@ import pytest
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 os.environ.setdefault("BUCKET_NAME", "test-bucket")
 os.environ.setdefault("QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue")
+os.environ.setdefault("TABLE_NAME", "phspectra-development-runs")
 
 LAMBDA_DIR = Path(__file__).resolve().parent.parent
 

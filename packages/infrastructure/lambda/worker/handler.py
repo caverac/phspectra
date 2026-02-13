@@ -17,8 +17,10 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 from phspectra import estimate_rms, fit_gaussians
 
 s3 = boto3.client("s3")
+dynamodb = boto3.client("dynamodb")
 
 BUCKET = os.environ["BUCKET_NAME"]
+TABLE_NAME = os.environ["TABLE_NAME"]
 
 
 def handler(event: dict[str, object], context: LambdaContext) -> dict[str, object]:
@@ -50,7 +52,53 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     chunk_key: str = msg["chunk_key"]
     survey: str = msg["survey"]
     beta: float = float(msg["beta"])
+    run_id: str = msg["run_id"]
 
+    try:
+        result = _process_chunk(chunk_key, survey, beta)
+    except Exception:
+        _increment_counter(run_id, "jobs_failed")
+        raise
+
+    _increment_counter(run_id, "jobs_completed")
+    return result
+
+
+def _increment_counter(run_id: str, attribute: str) -> None:
+    """Atomically increment a counter on the runs table.
+
+    Parameters
+    ----------
+    run_id : str
+        Partition key of the run record.
+    attribute : str
+        Counter attribute to increment (``jobs_completed`` or ``jobs_failed``).
+    """
+    dynamodb.update_item(
+        TableName=TABLE_NAME,
+        Key={"run_id": {"S": run_id}},
+        UpdateExpression=f"ADD {attribute} :one",
+        ExpressionAttributeValues={":one": {"N": "1"}},
+    )
+
+
+def _process_chunk(chunk_key: str, survey: str, beta: float) -> dict[str, object]:
+    """Download a chunk, decompose spectra, and upload Parquet results.
+
+    Parameters
+    ----------
+    chunk_key : str
+        S3 key of the ``.npz`` chunk.
+    survey : str
+        Survey identifier.
+    beta : float
+        Persistence threshold.
+
+    Returns
+    -------
+    dict[str, object]
+        Response with ``statusCode`` 200 and the output S3 key.
+    """
     # Download chunk
     local_chunk = f"/tmp/{uuid.uuid4().hex}.npz"
     s3.download_file(BUCKET, chunk_key, local_chunk)

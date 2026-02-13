@@ -263,6 +263,46 @@ def test_handle_fits_nan_replacement(splitter: Any) -> None:
     assert not np.isnan(saved_arrays[0]).any()
 
 
+def test_handle_fits_puts_run_record(splitter: Any) -> None:
+    """After fan-out, ``dynamodb.put_item`` is called with correct attributes."""
+    hdul = _make_mock_hdul((4, 10, 10))
+    run_id = "fixed-uuid"
+
+    with (
+        patch.object(splitter.s3, "download_file"),
+        patch.object(splitter, "fits") as mock_fits_mod,
+        patch.object(splitter, "os") as mock_os,
+        patch.object(splitter, "np") as mock_np,
+        patch.object(splitter.s3, "upload_file"),
+        patch.object(splitter.sqs, "send_message"),
+        patch.object(splitter.dynamodb, "put_item") as mock_put,
+        patch.object(
+            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
+        ),
+    ):
+        mock_fits_mod.open.return_value = hdul
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_np.nan_to_num.side_effect = np.nan_to_num
+        mock_np.mgrid = np.mgrid
+        mock_np.savez_compressed = MagicMock()
+        mock_np.float64 = np.float64
+
+        splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[5.0])
+
+    mock_put.assert_called_once()
+    item = mock_put.call_args[1]["Item"]
+    assert item["run_id"] == {"S": run_id}
+    assert item["survey"] == {"S": "grs"}
+    assert item["jobs_total"] == {"N": "1"}
+    assert item["jobs_completed"] == {"N": "0"}
+    assert item["jobs_failed"] == {"N": "0"}
+    assert item["n_spectra"] == {"N": "100"}
+    assert item["n_chunks"] == {"N": "1"}
+    assert item["beta_values"] == {"L": [{"N": "5.0"}]}
+    assert "created_at" in item
+
+
 def test_handle_fits_sqs_message_body(splitter: Any) -> None:
     """SQS message body contains chunk_key, survey, beta, and run_id."""
     hdul = _make_mock_hdul((4, 5, 5))

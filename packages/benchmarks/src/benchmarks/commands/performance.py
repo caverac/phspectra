@@ -198,8 +198,39 @@ def performance_plot(data_dir: str) -> None:
 
     ph_ms = np.array(ph_data["times"]) * 1000
     gp_ms = np.array(gp_data["times"]) * 1000
-    speedup = sum(gp_data["times"]) / max(sum(ph_data["times"]), 1e-9)
-    console.print(f"  {len(ph_ms)} spectra, speedup={speedup:.1f}x")
+    n_spectra = len(ph_ms)
+    ph_total = ph_data["total_time_s"]
+    gp_total = gp_data["total_time_s"]
+    speedup = gp_total / max(ph_total, 1e-9)
+
+    console.print(f"  {n_spectra} spectra", style="green")
+    console.print(
+        f"\n  {'Metric':<30} {'PHSpectra':>12} {'GaussPy+':>12} {'Factor':>8}",
+        style="bold",
+    )
+    console.print(f"  {'─' * 62}")
+    console.print(
+        f"  {'Total time':<30} {ph_total:>10.1f} s {gp_total:>10.1f} s {speedup:>6.1f}x"
+    )
+    console.print(
+        f"  {'Mean per spectrum':<30} {ph_ms.mean():>9.1f} ms {gp_ms.mean():>9.1f} ms {gp_ms.mean() / max(ph_ms.mean(), 1e-9):>6.1f}x"
+    )
+    console.print(
+        f"  {'Median per spectrum':<30} {np.median(ph_ms):>9.1f} ms {np.median(gp_ms):>9.1f} ms"
+    )
+    console.print(
+        f"  {'Std dev per spectrum':<30} {ph_ms.std():>9.1f} ms {gp_ms.std():>9.1f} ms"
+    )
+    console.print(
+        f"  {'P95 per spectrum':<30} {np.percentile(ph_ms, 95):>9.1f} ms {np.percentile(gp_ms, 95):>9.1f} ms"
+    )
+    console.print(
+        f"  {'P99 per spectrum':<30} {np.percentile(ph_ms, 99):>9.1f} ms {np.percentile(gp_ms, 99):>9.1f} ms"
+    )
+    console.print(
+        f"  {'Mean N components':<30} {ph_data['mean_n_components']:>12.2f} {gp_data['mean_n_components']:>12.2f}"
+    )
+    console.print(f"\n  Speedup: [bold yellow]{speedup:.1f}x[/bold yellow]")
 
     _plot_timing(ph_ms, gp_ms)
     console.print("Done.", style="bold green")

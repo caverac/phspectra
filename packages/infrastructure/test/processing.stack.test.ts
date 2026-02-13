@@ -49,6 +49,46 @@ describe('ProcessingStack', () => {
     })
   })
 
+  test('DynamoDB runs table with PAY_PER_REQUEST billing', () => {
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      TableName: 'phspectra-development-runs',
+      BillingMode: 'PAY_PER_REQUEST',
+      KeySchema: [{ AttributeName: 'run_id', KeyType: 'HASH' }],
+      AttributeDefinitions: [{ AttributeName: 'run_id', AttributeType: 'S' }]
+    })
+  })
+
+  test('DynamoDB table has DESTROY removal policy', () => {
+    template.hasResource('AWS::DynamoDB::Table', {
+      DeletionPolicy: 'Delete',
+      UpdateReplacePolicy: 'Delete'
+    })
+  })
+
+  test('Worker has TABLE_NAME environment variable', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'phspectra__worker',
+      Environment: {
+        Variables: Match.objectLike({
+          TABLE_NAME: Match.anyValue()
+        })
+      }
+    })
+  })
+
+  test('Worker has dynamodb:UpdateItem IAM policy', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'dynamodb:UpdateItem',
+            Effect: 'Allow'
+          })
+        ])
+      }
+    })
+  })
+
   test('Worker has bucket read/write IAM policy', () => {
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {

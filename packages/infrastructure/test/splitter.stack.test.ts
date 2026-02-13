@@ -53,6 +53,30 @@ describe('SplitterStack', () => {
     })
   })
 
+  test('Splitter has TABLE_NAME environment variable', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: 'phspectra__splitter',
+      Environment: {
+        Variables: Match.objectLike({
+          TABLE_NAME: Match.anyValue()
+        })
+      }
+    })
+  })
+
+  test('Splitter has dynamodb:PutItem IAM policy', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'dynamodb:PutItem',
+            Effect: 'Allow'
+          })
+        ])
+      }
+    })
+  })
+
   test('has Project=phspectra tag', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Tags: Match.arrayWith([Match.objectLike({ Key: 'Project', Value: 'phspectra' })])

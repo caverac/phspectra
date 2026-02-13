@@ -50,6 +50,7 @@ export function createSplitterTemplate(
     deploymentEnvironment: environment,
     bucket: dataLake.bucket,
     queue: processing.queue,
+    table: processing.table,
     env: { account: '123456789012', region: 'us-east-1' }
   })
   return Template.fromStack(stack)
