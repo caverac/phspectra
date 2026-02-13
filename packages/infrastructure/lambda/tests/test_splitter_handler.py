@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-# ── _survey_from_key ────────────────────────────────────────────────────────
+# --_survey_from_key --------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -29,7 +29,7 @@ def test_survey_from_key(splitter: Any, key: str, expected: str) -> None:
     assert splitter._survey_from_key(key) == expected
 
 
-# ── handler routing ─────────────────────────────────────────────────────────
+# --handler routing ---------------------------------------------------------
 
 
 def test_routes_manifest(splitter: Any, eventbridge_event: Any, lambda_context: MagicMock) -> None:
@@ -68,7 +68,7 @@ def test_json_outside_manifests_prefix(
     assert result["statusCode"] == 400
 
 
-# ── _handle_manifest ────────────────────────────────────────────────────────
+# --_handle_manifest --------------------------------------------------------
 
 
 def test_handle_manifest_parses_and_delegates(splitter: Any) -> None:
@@ -87,7 +87,7 @@ def test_handle_manifest_parses_and_delegates(splitter: Any) -> None:
     mock_fits.assert_called_once_with("cubes/test.fits", survey="grs", beta_values=[1.0, 2.0])
 
 
-# ── _handle_fits ────────────────────────────────────────────────────────────
+# --_handle_fits ------------------------------------------------------------
 
 
 def _make_mock_hdul(shape: tuple[int, ...]) -> MagicMock:
@@ -103,7 +103,7 @@ def _make_mock_hdul(shape: tuple[int, ...]) -> MagicMock:
 
 def test_handle_fits_single_chunk(splitter: Any) -> None:
     """A 3-D cube with <=500 spectra produces exactly 1 chunk and 1 message."""
-    # shape (4, 10, 10) → 100 spectra → 1 chunk
+    # shape (4, 10, 10) -> 100 spectra -> 1 chunk
     hdul = _make_mock_hdul((4, 10, 10))
     run_id = "fixed-uuid"
 
@@ -137,7 +137,7 @@ def test_handle_fits_single_chunk(splitter: Any) -> None:
 
 def test_handle_fits_multiple_chunks(splitter: Any) -> None:
     """A cube with >500 spectra produces the correct number of chunks."""
-    # shape (4, 30, 30) → 900 spectra → ceil(900/500) = 2 chunks
+    # shape (4, 30, 30) -> 900 spectra -> ceil(900/500) = 2 chunks
     hdul = _make_mock_hdul((4, 30, 30))
     run_id = "fixed-uuid"
 
@@ -169,7 +169,7 @@ def test_handle_fits_multiple_chunks(splitter: Any) -> None:
 
 def test_handle_fits_multiple_betas(splitter: Any) -> None:
     """Number of messages equals ``n_chunks * len(beta_values)``."""
-    # 100 spectra → 1 chunk, 3 betas → 3 messages
+    # 100 spectra -> 1 chunk, 3 betas -> 3 messages
     hdul = _make_mock_hdul((4, 10, 10))
     run_id = "fixed-uuid"
 

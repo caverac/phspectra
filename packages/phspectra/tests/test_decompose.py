@@ -73,7 +73,7 @@ def test_negative_residual_split() -> None:
     """A broad component covering two peaks should be split via negative dip."""
     x = np.arange(200, dtype=np.float64)
     rng = np.random.default_rng(55)
-    # Two peaks with a dip between them — might initially fit as one broad Gaussian
+    # Two peaks with a dip between them -- might initially fit as one broad Gaussian
     signal = (
         _make_gaussian(x, 5.0, 80.0, 5.0)
         + _make_gaussian(x, 5.0, 120.0, 5.0)

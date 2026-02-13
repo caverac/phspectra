@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 # ---------------------------------------------------------------------------
-# Environment variables required at module‐level by both handlers
+# Environment variables required at module-level by both handlers
 # ---------------------------------------------------------------------------
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 os.environ.setdefault("BUCKET_NAME", "test-bucket")

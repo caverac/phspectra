@@ -1,4 +1,15 @@
-"""Illustrate the descending water level algorithm."""
+"""``benchmarks persistence-plot`` -- generate persistence homology figures.
+
+Produces two figures for the documentation site:
+
+1. **water-level-stages.png** -- four-panel illustration of the descending
+   threshold on a synthetic three-peak spectrum.
+2. **persistence-diagram.png** -- birth-death scatter plot with the
+   persistence threshold line.
+
+Both are saved to the docs static image directory via the
+``@docs_figure`` decorator.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +20,11 @@ import click
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 import numpy.typing as npt
 
 from benchmarks._console import console
-from benchmarks._plotting import AxesGrid2D, docs_figure
+from benchmarks._plotting import AxesGrid2D, configure_axes, docs_figure
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +38,21 @@ class PersistenceEvent:
 
 
 def _synthetic_signal(n: int = 200) -> npt.NDArray[np.float64]:
-    """Build a clean multi-peak signal for illustration."""
+    """Build a synthetic three-peak signal with additive Gaussian noise.
+
+    The signal contains three Gaussians (amplitudes 2.5, 1.4, 0.7) at
+    channels 60, 100, 140, plus i.i.d. noise with sigma = 0.08.
+
+    Parameters
+    ----------
+    n : int, optional
+        Number of channels, by default 200.
+
+    Returns
+    -------
+    npt.NDArray[np.float64]
+        Noisy 1-D spectrum of length *n*.
+    """
     x = np.arange(n, dtype=np.float64)
     signal = (
         2.5 * np.exp(-0.5 * ((x - 60.0) / 8.0) ** 2)
@@ -40,7 +64,22 @@ def _synthetic_signal(n: int = 200) -> npt.NDArray[np.float64]:
 
 
 def _run_persistence(signal: npt.NDArray[np.float64]) -> list[PersistenceEvent]:
-    """Run the union-find algorithm, recording every birth/death event."""
+    """Compute 0-dimensional persistent homology of a 1-D signal.
+
+    Processes channels in decreasing signal order, tracking connected
+    components with union-find.  Every merge produces a birth-death
+    pair; the global maximum is appended with death = 0.
+
+    Parameters
+    ----------
+    signal : npt.NDArray[np.float64]
+        Input 1-D spectrum.
+
+    Returns
+    -------
+    list[PersistenceEvent]
+        All birth-death events, sorted by decreasing persistence.
+    """
     n = len(signal)
     parent = np.arange(n)
     rank = np.zeros(n, dtype=np.intp)
@@ -105,22 +144,32 @@ def _run_persistence(signal: npt.NDArray[np.float64]) -> list[PersistenceEvent]:
     return events
 
 
-def _configure_axes(ax: Axes) -> None:
-    """Apply the shared tick/grid style."""
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    ax.tick_params(which="minor", length=3, color="gray", direction="in")
-    ax.tick_params(which="major", length=6, direction="in")
-    ax.tick_params(top=True, right=True, which="both")
-
-
 @docs_figure("water-level-stages.png")
 def _plot_water_levels(
     x: npt.NDArray[np.float64],
     signal: npt.NDArray[np.float64],
     top_peaks: list[PersistenceEvent],
 ) -> Figure:
-    """Build the four-panel water level figure."""
+    """Build the four-panel descending water-level illustration.
+
+    Each panel shows the signal with a horizontal water level at a
+    different threshold.  Born peaks are marked with red dots and
+    annotated with their final persistence.
+
+    Parameters
+    ----------
+    x : npt.NDArray[np.float64]
+        Channel indices.
+    signal : npt.NDArray[np.float64]
+        1-D spectrum values.
+    top_peaks : list[PersistenceEvent]
+        The three most persistent peaks, sorted by channel index.
+
+    Returns
+    -------
+    Figure
+        A 2x2 matplotlib figure.
+    """
     levels = [
         top_peaks[0].birth + 0.15,
         top_peaks[0].birth - 0.05,
@@ -131,7 +180,7 @@ def _plot_water_levels(
         "Water above all peaks",
         f"Peak A born (channel {top_peaks[0].index})",
         f"Peak B born (channel {top_peaks[1].index})",
-        "Peak C merges into A — C dies",
+        "Peak C merges into A -- C dies",
     ]
 
     fig: Figure
@@ -165,7 +214,7 @@ def _plot_water_levels(
 
         ax.set_title(label)
         ax.legend(loc="upper right", frameon=False)
-        _configure_axes(ax)
+        configure_axes(ax)
 
     fig.supxlabel("Channel")
     fig.supylabel("Signal value")
@@ -178,7 +227,23 @@ _BETA = 4.0
 
 @docs_figure("persistence-diagram.png")
 def _plot_persistence_diagram(events: list[PersistenceEvent]) -> Figure:
-    """Build the persistence diagram figure."""
+    """Build a birth-death persistence diagram.
+
+    Each event is plotted as a point ``(birth, death)``.  Points are
+    coloured by whether their persistence exceeds the threshold
+    ``pi_min = beta * sigma_rms``.  The diagonal and the threshold
+    line are drawn for reference.
+
+    Parameters
+    ----------
+    events : list[PersistenceEvent]
+        All birth-death events from ``_run_persistence``.
+
+    Returns
+    -------
+    Figure
+        Single-axes matplotlib figure.
+    """
     births = np.array([e.birth for e in events])
     deaths = np.array([e.death for e in events])
     persistences = births - deaths
@@ -216,9 +281,9 @@ def _plot_persistence_diagram(events: list[PersistenceEvent]) -> Figure:
     diag_max = max(births.max(), deaths.max()) * 1.1
     ax.plot([0, diag_max], [0, diag_max], "k--", lw=0.8, alpha=0.4)
 
-    # Threshold line: death = birth - π_min, parallel to the diagonal.
-    # Points below this line have persistence > π_min (signal);
-    # points above have persistence < π_min (noise).
+    # Threshold line: death = birth - pi_min, parallel to the diagonal.
+    # Points below this line have persistence > pi_min (signal);
+    # points above have persistence < pi_min (noise).
     ax.plot(
         [pi_min, diag_max],
         [0, diag_max - pi_min],
@@ -235,7 +300,7 @@ def _plot_persistence_diagram(events: list[PersistenceEvent]) -> Figure:
     ax.set_ylim(-0.1, diag_max)
     ax.set_aspect("equal")
     ax.legend(loc="upper left", frameon=False)
-    _configure_axes(ax)
+    configure_axes(ax)
     return fig
 
 

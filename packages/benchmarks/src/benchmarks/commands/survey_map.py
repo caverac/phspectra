@@ -1,4 +1,4 @@
-"""``benchmarks survey-map`` — 2x2 survey visualisation from full-field decomposition.
+"""``benchmarks survey-map`` -- 2x2 survey visualisation from full-field decomposition.
 
 Panel layout
 ------------
@@ -8,11 +8,11 @@ Panel layout
 | Three velocity bins mapped    | Number of Gaussian components |
 | to R, G, B from the decomp-  | detected per pixel.  Lights   |
 | osed (not raw) Gaussians.     | up at cloud boundaries,       |
-| Sharper than moment-0 RGB     | outflows, and shock fronts —  |
+| Sharper than moment-0 RGB     | outflows, and shock fronts -- |
 | because noise is removed by   | a quantity unique to persist-  |
 | the fit.                      | ent-homology decomposition.   |
 +-------------------------------+-------------------------------+
-| (c) Dominant velocity field   | (d) Amplitude–velocity        |
+| (c) Dominant velocity field   | (d) Amplitude--velocity        |
 |                               |     bivariate colormap         |
 | Centroid velocity of the      |                               |
 | brightest component per       | 2-D perceptual colormap where |
@@ -26,26 +26,14 @@ Panel layout
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import click
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.ticker import AutoMinorLocator
 
 from benchmarks._console import console
-from benchmarks._plotting import docs_figure
-
-
-def _configure_axes(ax: Axes) -> None:
-    """Apply the shared tick/grid style."""
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    ax.tick_params(which="minor", length=3, color="gray", direction="in")
-    ax.tick_params(which="major", length=6, direction="in")
-    ax.tick_params(top=True, right=True, which="both")
+from benchmarks._plotting import configure_axes, docs_figure
 
 
 @docs_figure("survey-map.png")
@@ -61,7 +49,7 @@ def _build_figure() -> Figure:
         "(a) Velocity RGB composite",
         "(b) Topological complexity",
         "(c) Dominant velocity field",
-        r"(d) Amplitude–velocity bivariate",
+        r"(d) Amplitude--velocity bivariate",
     ]
 
     for ax, label in zip(axes.ravel(), labels):
@@ -73,7 +61,7 @@ def _build_figure() -> Figure:
         ax.set_title(label)
         ax.set_xlabel("Galactic longitude (px)")
         ax.set_ylabel("Galactic latitude (px)")
-        _configure_axes(ax)
+        configure_axes(ax)
 
     return fig
 

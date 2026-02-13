@@ -1,4 +1,4 @@
-"""Tests for benchmarks._data (no network — only tests pure functions)."""
+"""Tests for benchmarks._data (no network -- only tests pure functions)."""
 
 from __future__ import annotations
 

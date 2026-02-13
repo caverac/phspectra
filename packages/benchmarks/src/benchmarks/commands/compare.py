@@ -1,4 +1,10 @@
-"""``benchmarks compare`` — phspectra vs GaussPy+ (Docker) on real GRS spectra."""
+"""``benchmarks compare`` -- phspectra vs GaussPy+ (Docker) on real GRS spectra.
+
+Selects random spectra from the GRS test field, decomposes them with
+both phspectra and the GaussPy+ Docker container, and saves component
+parameters, RMS values, and timing to JSON files for downstream
+plotting with ``benchmarks compare-plot``.
+"""
 
 from __future__ import annotations
 

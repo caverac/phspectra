@@ -6,9 +6,9 @@ sidebar_position: 1
 
 ## The problem: spectral line decomposition
 
-Along any line of sight, radio-astronomical spectra — HI 21-cm, ${}^{13}$CO, and other tracers — sample emission from multiple gas clouds at different radial velocities. Within each cloud, random thermal motions (Maxwell–Boltzmann) and small-scale turbulent motions both produce Gaussian velocity distributions. The observed linewidth of a single cloud is $\sigma = \sqrt{\sigma_\mathrm{th}^2 + \sigma_\mathrm{turb}^2}$, where $\sigma_\mathrm{th} = \sqrt{k_B T / m}$ is the thermal broadening and $\sigma_\mathrm{turb}$ captures non-thermal contributions. In the optically thin limit the brightness temperature at each velocity is proportional to the column density of emitting gas, so each cloud contributes a Gaussian profile centred on its bulk velocity. The observed spectrum is therefore a **linear superposition of Gaussians**, one per kinematically distinct component along the line of sight.
+Along any line of sight, radio-astronomical spectra -- HI 21-cm, ${}^{13}$CO, and other tracers -- sample emission from multiple gas clouds at different radial velocities. Within each cloud, random thermal motions (Maxwell-Boltzmann) and small-scale turbulent motions both produce Gaussian velocity distributions. The observed linewidth of a single cloud is $\sigma = \sqrt{\sigma_\mathrm{th}^2 + \sigma_\mathrm{turb}^2}$, where $\sigma_\mathrm{th} = \sqrt{k_B T / m}$ is the thermal broadening and $\sigma_\mathrm{turb}$ captures non-thermal contributions. In the optically thin limit the brightness temperature at each velocity is proportional to the column density of emitting gas, so each cloud contributes a Gaussian profile centred on its bulk velocity. The observed spectrum is therefore a **linear superposition of Gaussians**, one per kinematically distinct component along the line of sight.
 
-Recovering these individual components — their amplitudes, centroid velocities, and widths — is essential for understanding the structure and kinematics of the interstellar medium (ISM). This is a **blind decomposition** problem: given a noisy 1D signal, determine the number of components and fit their parameters without prior knowledge.
+Recovering these individual components -- their amplitudes, centroid velocities, and widths -- is essential for understanding the structure and kinematics of the interstellar medium (ISM). This is a **blind decomposition** problem: given a noisy 1D signal, determine the number of components and fit their parameters without prior knowledge.
 
 ## The current approach: GaussPy
 
@@ -30,7 +30,7 @@ GaussPy+ adds spatial coherence constraints for spectral cubes, but the fundamen
 
 **Persistent homology** offers a fundamentally different approach to peak detection. Instead of smoothing and differentiating, it analyses the **topology** of the function's upper-level sets as a threshold descends from the maximum.
 
-The persistence of a peak — the difference between its birth (height) and death (merge level) — provides a natural measure of significance. Small-persistence features correspond to noise; large-persistence features are real peaks.
+The persistence of a peak -- the difference between its birth (height) and death (merge level) -- provides a natural measure of significance. Small-persistence features correspond to noise; large-persistence features are real peaks.
 
 ### The beta parameter
 
@@ -54,7 +54,7 @@ After persistence selects candidate peaks and Gaussians are fitted, each compone
 
 Components that survive validation are kept only if they improve the AICc of the overall model. During iterative refinement (residual peak search, negative-dip splitting, blended-pair merging) the significance threshold relaxes to `sig_min = 4.0`.
 
-These thresholds have sensible physical defaults that work across the datasets we have tested. In practice, $\beta$ is the only parameter that meaningfully affects decomposition results — the validation thresholds act as safety nets rather than tuning knobs.
+These thresholds have sensible physical defaults that work across the datasets we have tested. In practice, $\beta$ is the only parameter that meaningfully affects decomposition results -- the validation thresholds act as safety nets rather than tuning knobs.
 
 ### Comparison with GaussPy
 
@@ -62,7 +62,7 @@ These thresholds have sensible physical defaults that work across the datasets w
 | --------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
 | **Peak detection**    | TV-regularized 2nd/4th derivative zero-crossings            | Persistent homology (all scales simultaneously)   |
 | **Tuning parameters** | $\alpha_1, \alpha_2$ (regularization strength) + SNR cutoff | $\beta$ (persistence threshold in noise units)    |
-| **Training**          | Supervised gradient descent on synthetic spectra            | Not required — default $\beta = 4.0$ generalizes |
+| **Training**          | Supervised gradient descent on synthetic spectra            | Not required -- default $\beta = 4.0$ generalizes |
 | **Peak significance** | Implicit (via regularization strength)                      | Explicit (topological persistence)                |
 | **Validation**        | SNR threshold (trained)                                     | SNR floor + significance + AICc (fixed defaults)  |
 

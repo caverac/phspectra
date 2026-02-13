@@ -1,4 +1,10 @@
-"""``benchmarks compare-plot`` — generate plots from saved comparison data."""
+"""``benchmarks compare-plot`` -- generate plots from saved comparison data.
+
+Reads the JSON/NPZ outputs of ``benchmarks compare`` and produces four
+figures: RMS distribution histogram, RMS scatter, six-panel disagreement
+cases, and matched-width ratio histogram.  All are saved to the docs
+static image directory via the ``@docs_figure`` decorator.
+"""
 
 from __future__ import annotations
 
@@ -11,17 +17,30 @@ from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._gaussian import residual_rms
 from benchmarks._matching import match_pairs
-from benchmarks._plotting import docs_figure, plot_panel
+from benchmarks._plotting import configure_axes, docs_figure, plot_panel
 from benchmarks._types import ComparisonResult, Component
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
-from matplotlib.ticker import AutoMinorLocator
 
 
 def _select_disagreement_cases(
     results: list[ComparisonResult],
 ) -> list[tuple[str, ComparisonResult]]:
-    """Pick up to 6 interesting disagreement cases."""
+    """Select up to six spectra where phspectra and GaussPy+ disagree.
+
+    Cases are chosen to cover different disagreement types: fewer/more
+    components, lower/higher RMS, different positions, different widths.
+
+    Parameters
+    ----------
+    results : list[ComparisonResult]
+        All comparison results.
+
+    Returns
+    -------
+    list[tuple[str, ComparisonResult]]
+        At most six ``(label, result)`` pairs.
+    """
     cases: list[tuple[str, ComparisonResult]] = []
     used: set[tuple[int, int]] = set()
 
@@ -86,7 +105,22 @@ def _select_disagreement_cases(
 def _collect_matched_widths(
     results: list[ComparisonResult],
 ) -> tuple[list[float], list[float]]:
-    """Collect matched (phspectra, GaussPy+) width pairs across all results."""
+    """Collect matched (phspectra, GaussPy+) width pairs across all results.
+
+    Components are matched using position tolerance from
+    ``match_pairs``.
+
+    Parameters
+    ----------
+    results : list[ComparisonResult]
+        All comparison results.
+
+    Returns
+    -------
+    tuple[list[float], list[float]]
+        ``(ph_widths, gp_widths)`` parallel lists of matched stddev
+        values.
+    """
     ph_widths: list[float] = []
     gp_widths: list[float] = []
     for r in results:
@@ -100,7 +134,22 @@ def _collect_matched_widths(
 def _load_results(
     data_dir: str,
 ) -> tuple[list[ComparisonResult], dict[str, object]]:
-    """Load saved comparison data and reconstruct ComparisonResult objects."""
+    """Load saved comparison data and reconstruct ComparisonResult objects.
+
+    Expects ``spectra.npz``, ``phspectra_results.json``, and
+    ``results.json`` (GaussPy+ Docker output) in *data_dir*.
+
+    Parameters
+    ----------
+    data_dir : str
+        Directory containing the saved benchmark files.
+
+    Returns
+    -------
+    tuple[list[ComparisonResult], dict[str, object]]
+        ``(results, summary)`` where *summary* contains aggregate
+        timing and component-count statistics.
+    """
     spectra_path = os.path.join(data_dir, "spectra.npz")
     ph_path = os.path.join(data_dir, "phspectra_results.json")
     gp_path = os.path.join(data_dir, "results.json")
@@ -171,18 +220,20 @@ def _load_results(
     return results, summary
 
 
-def _style_ax(ax: plt.Axes) -> None:
-    """Apply the shared tick/grid style."""
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    ax.tick_params(which="minor", length=3, color="gray", direction="in")
-    ax.tick_params(which="major", length=6, direction="in")
-    ax.tick_params(top=True, right=True, which="both")
-
-
 @docs_figure("rms-distribution.png")
 def _build_rms_hist(results: list[ComparisonResult]) -> Figure:
-    """Build the RMS distribution histogram."""
+    """Build overlaid histograms of per-spectrum RMS for both methods.
+
+    Parameters
+    ----------
+    results : list[ComparisonResult]
+        All comparison results.
+
+    Returns
+    -------
+    Figure
+        Single-axes matplotlib figure.
+    """
     ph_rms_arr = np.array([r.ph_rms for r in results])
     gp_rms_arr = np.array([r.gp_rms for r in results])
 
@@ -197,14 +248,27 @@ def _build_rms_hist(results: list[ComparisonResult]) -> Figure:
     ax.set_xlabel("RMS (K)")
     ax.set_ylabel("Count")
     ax.legend(loc="upper right", frameon=False)
-    _style_ax(ax)
+    configure_axes(ax)
 
     return fig
 
 
 @docs_figure("rms-scatter.png")
 def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
-    """Build the phspectra vs GaussPy+ RMS scatter plot."""
+    """Build a phspectra-vs-GaussPy+ RMS scatter plot.
+
+    Points below the diagonal indicate phspectra achieves lower RMS.
+
+    Parameters
+    ----------
+    results : list[ComparisonResult]
+        All comparison results.
+
+    Returns
+    -------
+    Figure
+        Single-axes matplotlib figure.
+    """
     ph_rms_arr = np.array([r.ph_rms for r in results])
     gp_rms_arr = np.array([r.gp_rms for r in results])
     n_ph_wins = int(np.sum(ph_rms_arr < gp_rms_arr))
@@ -225,7 +289,7 @@ def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
         loc="upper left",
         frameon=False,
     )
-    _style_ax(ax)
+    configure_axes(ax)
 
     return fig
 
@@ -234,13 +298,28 @@ def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
 def _build_disagreements_figure(
     disagreements: list[tuple[str, ComparisonResult]],
 ) -> Figure:
-    """Build the 6-panel disagreement cases figure."""
+    """Build a 2x3 grid of spectra where the two methods disagree.
+
+    Each panel shows the raw data, phspectra model, and GaussPy+ model
+    with RMS and component counts in the legend.
+
+    Parameters
+    ----------
+    disagreements : list[tuple[str, ComparisonResult]]
+        Up to six ``(label, result)`` pairs from
+        ``_select_disagreement_cases``.
+
+    Returns
+    -------
+    Figure
+        Full-width 2x3 matplotlib figure.
+    """
     fig: Figure
     fig, axes = plt.subplots(2, 3, figsize=(16, 11), sharex=True, sharey=True)
     fig.subplots_adjust(left=0.05, right=0.98, bottom=0.07, top=0.95, wspace=0.08, hspace=0.18)
 
     for i, (label, r) in enumerate(disagreements):
-        plot_panel(axes.ravel()[i], r, f"{label} — px({r.pixel[0]},{r.pixel[1]})")
+        plot_panel(axes.ravel()[i], r, f"{label} -- px({r.pixel[0]},{r.pixel[1]})")
         _style_ax(axes.ravel()[i])
     for i in range(len(disagreements), 6):
         axes.ravel()[i].set_visible(False)
@@ -259,7 +338,23 @@ def _build_width_hist(
     ph_widths: list[float],
     gp_widths: list[float],
 ) -> Figure:
-    """Build the log-width-ratio histogram."""
+    """Build a histogram of log(sigma_ph / sigma_gp) for matched components.
+
+    A distribution centred on zero indicates no systematic width bias
+    between the two methods.
+
+    Parameters
+    ----------
+    ph_widths : list[float]
+        Matched phspectra component standard deviations.
+    gp_widths : list[float]
+        Matched GaussPy+ component standard deviations.
+
+    Returns
+    -------
+    Figure
+        Single-axes matplotlib figure.
+    """
     ph_w = np.array(ph_widths)
     gp_w = np.array(gp_widths)
     log_ratios = np.log(ph_w / np.maximum(gp_w, 0.1))
@@ -277,7 +372,7 @@ def _build_width_hist(
     ax.axvline(0.0, color="k", linestyle="--", linewidth=0.8)
     ax.set_xlabel(r"$\ln(\sigma_{\mathrm{phspectra}}\;/\;\sigma_{\mathrm{GaussPy+}})$")
     ax.set_ylabel("Count")
-    _style_ax(ax)
+    configure_axes(ax)
 
     return fig
 

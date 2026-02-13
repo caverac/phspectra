@@ -20,7 +20,7 @@ def test_aicc_penalizes_extra_params() -> None:
     rng = np.random.default_rng(99)
     n = 200
     residual_2comp = rng.normal(0, 1.0, size=n)
-    # 3-comp residual barely better (0.1% improvement — not enough to justify 3 more params)
+    # 3-comp residual barely better (0.1% improvement -- not enough to justify 3 more params)
     residual_3comp = residual_2comp * 0.999
 
     aicc_2 = aicc(residual_2comp, n_params=6)

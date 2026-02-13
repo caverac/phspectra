@@ -1,4 +1,10 @@
-"""``benchmarks performance`` — timing benchmark: phspectra vs GaussPy+ (Docker)."""
+"""``benchmarks performance`` -- timing benchmark: phspectra vs GaussPy+ (Docker).
+
+Selects spectra from the GRS test field and decomposes them with both
+phspectra and the GaussPy+ Docker container, measuring wall-clock time
+per spectrum.  Results are saved as JSON and a histogram comparing the
+two timing distributions is written to the docs image directory.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.ticker import AutoMinorLocator
 
 from benchmarks._console import console, err_console
 from benchmarks._constants import (
@@ -20,7 +25,7 @@ from benchmarks._constants import (
     DEFAULT_BETA,
     DEFAULT_SEED,
 )
-from benchmarks._plotting import docs_figure
+from benchmarks._plotting import configure_axes, docs_figure
 from benchmarks._data import (
     ensure_catalog,
     ensure_fits,
@@ -116,21 +121,25 @@ def performance(n_spectra: int, beta: float, seed: int) -> None:
     console.print("Done.", style="bold green")
 
 
-def _configure_axes(ax: Axes) -> None:
-    """Apply the shared tick/grid style."""
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    ax.tick_params(which="minor", length=3, color="gray", direction="in")
-    ax.tick_params(which="major", length=6, direction="in")
-    ax.tick_params(top=True, right=True, which="both")
-
-
 @docs_figure("performance-benchmark.png")
 def _plot_timing(
     ph_ms: np.ndarray,
     gp_ms: np.ndarray,
 ) -> Figure:
-    """Single-frame timing distribution histogram."""
+    """Build overlaid histograms of per-spectrum wall-clock time.
+
+    Parameters
+    ----------
+    ph_ms : np.ndarray
+        phspectra times in milliseconds.
+    gp_ms : np.ndarray
+        GaussPy+ times in milliseconds.
+
+    Returns
+    -------
+    Figure
+        Single-axes matplotlib figure.
+    """
     fig: Figure
     ax: Axes
     fig, ax = plt.subplots(figsize=(6.5, 5))
@@ -145,7 +154,7 @@ def _plot_timing(
     ax.set_xlabel("Time per spectrum (ms)")
     ax.set_ylabel("Count")
     ax.legend(loc="upper right", frameon=False)
-    _configure_axes(ax)
+    configure_axes(ax)
     return fig
 
 

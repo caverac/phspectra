@@ -1,4 +1,9 @@
-"""``benchmarks download`` — fetch and cache survey data."""
+"""``benchmarks download`` -- fetch and cache survey data.
+
+Downloads the GRS test-field FITS cube from the GaussPy+ repository and
+the GaussPy+ decomposition catalog from VizieR.  Files are cached
+locally so subsequent commands can run offline.
+"""
 
 from __future__ import annotations
 

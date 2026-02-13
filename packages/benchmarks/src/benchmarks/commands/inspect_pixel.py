@@ -1,4 +1,10 @@
-"""``benchmarks inspect`` — inspect a single GRS pixel with multiple beta/sig_min."""
+"""``benchmarks inspect`` -- inspect a single GRS pixel interactively.
+
+Decomposes a single GRS pixel with phspectra at several (beta, sig_min)
+combinations and overlays the results against the GaussPy+ Docker
+decomposition.  Useful for diagnosing why the two methods disagree on a
+particular spectrum.
+"""
 
 from __future__ import annotations
 
@@ -9,25 +15,16 @@ import sys
 import click
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.ticker import AutoMinorLocator
 from numpy.linalg import LinAlgError
 
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._data import ensure_fits, match_catalog_pixels
 from benchmarks._gaussian import gaussian_model
+from benchmarks._plotting import configure_axes
 from benchmarks._types import Component
 
 from phspectra import fit_gaussians
-
-
-def _style_ax(ax: plt.Axes) -> None:
-    """Apply the shared tick/grid style used by compare-plot figures."""
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    ax.tick_params(which="minor", length=3, color="gray", direction="in")
-    ax.tick_params(which="major", length=6, direction="in")
-    ax.tick_params(top=True, right=True, which="both")
 
 
 @click.command("inspect")
@@ -190,7 +187,7 @@ def inspect_pixel(
                 ha="left",
             )
             ax.legend(loc="upper right", frameon=False, fontsize=7)
-            _style_ax(ax)
+            configure_axes(ax)
 
             if i == n_rows - 1:
                 ax.set_xlabel("Channel")

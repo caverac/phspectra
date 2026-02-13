@@ -4,7 +4,7 @@ sidebar_position: 5
 
 # Reproducing results
 
-All benchmarks are run through the `benchmarks` CLI. Docker must be running for the GaussPy+ comparison. Run them in order — each step depends on the previous one.
+All benchmarks are run through the `benchmarks` CLI. Docker must be running for the GaussPy+ comparison. Run them in order -- each step depends on the previous one.
 
 ```bash
 uv run benchmarks --help
@@ -26,10 +26,10 @@ uv run benchmarks compare
 
 Runs phspectra and GaussPy+ (Docker) on 400 real GRS spectra, that number can be changed with the `--num-spectra` option, this runs in serial, so be ready to wait a while. Produces:
 
-- `/tmp/phspectra/compare-docker/spectra.npz` — the 400 spectra
-- `/tmp/phspectra/compare-docker/results.json` — GaussPy+ decompositions + timing
-- `/tmp/phspectra/compare-docker/phspectra_results.json` — phspectra decompositions + timing
-- `/tmp/phspectra/compare-docker/comparison_docker.json` — summary statistics
+- `/tmp/phspectra/compare-docker/spectra.npz` -- the 400 spectra
+- `/tmp/phspectra/compare-docker/results.json` -- GaussPy+ decompositions + timing
+- `/tmp/phspectra/compare-docker/phspectra_results.json` -- phspectra decompositions + timing
+- `/tmp/phspectra/compare-docker/comparison_docker.json` -- summary statistics
 
 Then generate the plots:
 

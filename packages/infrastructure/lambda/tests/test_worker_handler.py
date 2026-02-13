@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-# ── helpers ─────────────────────────────────────────────────────────────────
+# -- helpers -----------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,11 +30,11 @@ def _make_chunk(n_spectra: int, n_channels: int = 64) -> dict[str, np.ndarray]:
     }
 
 
-# ── handler tests ──────────────────────────────────────────────────────────
+# -- handler tests ----------------------------------------------------------
 
 
 def test_no_components(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
-    """Spectrum with 0 detected components → row has ``n_components=0``."""
+    """Spectrum with 0 detected components -> row has ``n_components=0``."""
     event = sqs_event({"chunk_key": "chunks/run/chunk-0000000.npz", "survey": "grs", "beta": 5.0})
     chunk = _make_chunk(1)
 
@@ -67,7 +67,7 @@ def test_no_components(worker: Any, sqs_event: Any, lambda_context: MagicMock) -
 
 
 def test_with_components(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
-    """1 spectrum, 2 components → correct row values."""
+    """1 spectrum, 2 components -> correct row values."""
     event = sqs_event({"chunk_key": "chunks/run/chunk-0000000.npz", "survey": "grs", "beta": 5.0})
     chunk = _make_chunk(1)
     components = [
@@ -100,7 +100,7 @@ def test_with_components(worker: Any, sqs_event: Any, lambda_context: MagicMock)
 
 
 def test_multiple_spectra(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
-    """3 spectra → all processed, correct count in response."""
+    """3 spectra -> all processed, correct count in response."""
     event = sqs_event({"chunk_key": "chunks/run/chunk-0000000.npz", "survey": "grs", "beta": 5.0})
     chunk = _make_chunk(3)
 

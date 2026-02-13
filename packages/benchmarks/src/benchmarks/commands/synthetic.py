@@ -1,4 +1,13 @@
-"""``benchmarks synthetic`` — synthetic benchmark with known ground truth."""
+"""``benchmarks synthetic`` -- synthetic benchmark with known ground truth.
+
+Generates seven categories of synthetic spectra (single bright/faint/
+narrow/broad, multi separated/blended, crowded), decomposes each with
+phspectra over a grid of beta values, and reports F1, precision, recall,
+and parameter-recovery errors.
+
+Outputs are written to ``/tmp/phspectra/synthetic-benchmark/`` (CSV,
+JSON, and two PNG figures) and to the docs static image directory.
+"""
 
 from __future__ import annotations
 
@@ -8,18 +17,18 @@ import os
 import time
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
-from pathlib import Path
 
 import click
 import numpy as np
 from benchmarks._console import console
-from benchmarks._constants import DOCS_IMG_DIR, MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
+from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
 from benchmarks._gaussian import gaussian, gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score, match_pairs
-from benchmarks._plotting import save_figure_if_changed
+from benchmarks._plotting import AxesGrid1D, SAVEFIG_DEFAULTS, configure_axes, docs_figure
 from benchmarks._types import Component, SyntheticSpectrum
 from matplotlib import pyplot as plt
-from matplotlib.ticker import AutoMinorLocator
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from numpy.linalg import LinAlgError
 
 from phspectra import fit_gaussians
@@ -35,19 +44,26 @@ CATEGORY_LABELS: dict[str, str] = {
     "crowded": "C",
 }
 
-_SAVEFIG_KWARGS: dict[str, int | str] = {
-    "dpi": 300,
-    "bbox_inches": "tight",
-    "facecolor": "white",
-    "edgecolor": "none",
-}
-
 
 def _make_spectrum(
     rng: np.random.Generator,
     components: list[Component],
 ) -> np.ndarray:
-    """Build a noisy signal from ground-truth components."""
+    """Build a noisy signal from ground-truth Gaussian components.
+
+    Parameters
+    ----------
+    rng : np.random.Generator
+        Random number generator for additive noise.
+    components : list[Component]
+        Ground-truth Gaussian parameters (amplitude, mean, stddev).
+
+    Returns
+    -------
+    np.ndarray
+        Synthetic spectrum of length ``N_CHANNELS`` with Gaussian noise
+        of standard deviation ``NOISE_SIGMA``.
+    """
     x = np.arange(N_CHANNELS, dtype=np.float64)
     signal = np.zeros(N_CHANNELS, dtype=np.float64)
     for c in components:
@@ -58,9 +74,6 @@ def _make_spectrum(
 
 def _rand_mean(rng: np.random.Generator) -> float:
     return float(rng.uniform(MEAN_MARGIN, N_CHANNELS - MEAN_MARGIN))
-
-
-# Spectrum generators
 
 
 def _gen_single_bright(rng: np.random.Generator, n: int) -> list[SyntheticSpectrum]:
@@ -174,7 +187,25 @@ GENERATORS = {
 
 
 def _evaluate_one(args: tuple) -> dict:
-    """Evaluate a single (spectrum, beta) pair — picklable for multiprocessing."""
+    """Evaluate a single (spectrum, beta) pair.
+
+    Designed for use with ``ProcessPoolExecutor`` -- all inputs are
+    packed into a single tuple so the function is picklable.
+
+    Parameters
+    ----------
+    args : tuple
+        ``(signal, category, spec_idx, true_comps_raw, beta)`` where
+        *true_comps_raw* is a list of dicts suitable for
+        ``Component(**d)``.
+
+    Returns
+    -------
+    dict
+        Row dict with keys: category, spectrum_idx, beta, f1, precision,
+        recall, n_correct, n_true, n_detected, residual_rms, aicc,
+        and per-parameter mean errors.
+    """
     signal, category, spec_idx, true_comps_raw, beta = args
     true_comps = [Component(**c) for c in true_comps_raw]
     x = np.arange(len(signal), dtype=np.float64)
@@ -334,75 +365,128 @@ def synthetic(
         json.dump(json_data, f, indent=2)
     console.print(f"  JSON: [blue]{json_path}[/blue]")
 
-    _plot_synthetic(csv_rows, categories, optimal_beta, output_dir)
+    _plot_f1_vs_beta(csv_rows, categories, output_dir)
+    _plot_error_boxplots(csv_rows, categories, optimal_beta, output_dir)
     console.print("\nDone.", style="bold green")
 
 
-def _plot_synthetic(
+def _agg_f1(csv_rows: list[dict], beta: float, cat: str | None = None) -> float:
+    """Compute micro-averaged F1 score for a given beta.
+
+    Parameters
+    ----------
+    csv_rows : list[dict]
+        Full benchmark result rows from ``_evaluate_one``.
+    beta : float
+        Beta value to filter on.
+    cat : str or None, optional
+        If given, restrict to this category.
+
+    Returns
+    -------
+    float
+        Micro-averaged F1 score.
+    """
+    subset = [r for r in csv_rows if r["beta"] == beta]
+    if cat:
+        subset = [r for r in subset if r["category"] == cat]
+    if not subset:
+        return 0.0
+    tc = sum(r["n_correct"] for r in subset)
+    tt = sum(r["n_true"] for r in subset)
+    tg = sum(r["n_guessed"] for r in subset)
+    _, _, f1_val = f1_score(tc, tt, tg)
+    return f1_val
+
+
+@docs_figure("synthetic-f1.png")
+def _plot_f1_vs_beta(
     csv_rows: list[dict],
     categories: list[str],
-    optimal_beta: float,
     output_dir: str,
-) -> None:
-    """Generate F1 and error box-whisker plots from synthetic benchmark results."""
+) -> Figure:
+    """Build the F1 vs beta figure for all categories.
 
-    def agg_f1(beta: float, cat: str | None = None) -> float:
-        subset = [r for r in csv_rows if r["beta"] == beta]
-        if cat:
-            subset = [r for r in subset if r["category"] == cat]
-        if not subset:
-            return 0.0
-        tc = sum(r["n_correct"] for r in subset)
-        tt = sum(r["n_true"] for r in subset)
-        tg = sum(r["n_guessed"] for r in subset)
-        _, _, f1_val = f1_score(tc, tt, tg)
-        return f1_val
+    One line per category plus a bold overall line.  A local copy is
+    also saved to *output_dir*.
 
-    def _style_ax(ax: plt.Axes) -> None:
-        ax.xaxis.set_minor_locator(AutoMinorLocator())
-        ax.yaxis.set_minor_locator(AutoMinorLocator())
-        ax.tick_params(which="minor", length=3, color="gray", direction="in")
-        ax.tick_params(which="major", length=6, direction="in")
-        ax.tick_params(top=True, right=True, which="both")
+    Parameters
+    ----------
+    csv_rows : list[dict]
+        Full benchmark result rows.
+    categories : list[str]
+        Ordered list of category keys.
+    output_dir : str
+        Directory for the local PNG copy.
 
+    Returns
+    -------
+    Figure
+        The completed matplotlib figure.
+    """
     betas = sorted(set(r["beta"] for r in csv_rows))
 
-    # Plot 1: F1 vs beta
-    fig1, ax1 = plt.subplots(figsize=(6.5, 5))
-    fig1.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
+    fig: Figure
+    ax: Axes
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
+
     for cat in categories:
-        ax1.plot(
+        ax.plot(
             betas,
-            [agg_f1(b, cat) for b in betas],
+            [_agg_f1(csv_rows, b, cat) for b in betas],
             "o-",
             label=CATEGORY_LABELS[cat],
             markersize=4,
         )
-    ax1.plot(
+    ax.plot(
         betas,
-        [agg_f1(b) for b in betas],
+        [_agg_f1(csv_rows, b) for b in betas],
         "ko-",
         linewidth=2.5,
         markersize=6,
         label="Overall",
     )
-    ax1.set_xlabel(r"$\beta$")
-    ax1.set_ylabel("F1")
-    ax1.legend(loc="lower left", frameon=False)
-    ax1.set_ylim(-0.05, 1.05)
-    _style_ax(ax1)
+    ax.set_xlabel(r"$\beta$")
+    ax.set_ylabel("$F_1$")
+    ax.legend(loc="lower left", frameon=False)
+    ax.set_ylim(-0.05, 1.05)
+    configure_axes(ax)
 
-    f1_path = os.path.join(output_dir, "synthetic-f1.png")
-    fig1.savefig(f1_path, **_SAVEFIG_KWARGS)
-    console.print(f"  Plot: [blue]{f1_path}[/blue]")
-    docs_f1 = Path(DOCS_IMG_DIR) / "synthetic-f1.png"
-    if save_figure_if_changed(fig1, docs_f1, **_SAVEFIG_KWARGS):
-        console.print(f"  Docs: [blue]{docs_f1}[/blue]")
-    else:
-        console.print(f"  Docs: unchanged [dim]{docs_f1}[/dim]")
-    plt.close(fig1)
+    # Local copy for the benchmark output directory.
+    fig.savefig(os.path.join(output_dir, "synthetic-f1.png"), **SAVEFIG_DEFAULTS)
+    return fig
 
-    # Plot 2: Error box-whisker panels (vertical, shared x-axis)
+
+@docs_figure("synthetic-errors.png")
+def _plot_error_boxplots(
+    csv_rows: list[dict],
+    categories: list[str],
+    optimal_beta: float,
+    output_dir: str,
+) -> Figure:
+    """Build box-whisker panels for parameter-recovery errors.
+
+    Three vertically stacked panels (amplitude relative error, position
+    error in channels, width relative error) at the optimal beta, one
+    box per category.
+
+    Parameters
+    ----------
+    csv_rows : list[dict]
+        Full benchmark result rows.
+    categories : list[str]
+        Ordered list of category keys.
+    optimal_beta : float
+        Beta value with the highest overall F1.
+    output_dir : str
+        Directory for the local PNG copy.
+
+    Returns
+    -------
+    Figure
+        The completed matplotlib figure.
+    """
     cat_labels = [CATEGORY_LABELS[c] for c in categories]
     opt_rows = [r for r in csv_rows if r["beta"] == optimal_beta]
 
@@ -411,15 +495,18 @@ def _plot_synthetic(
         ("pos_err_mean", "Position error (channels)"),
         ("width_rel_err_mean", "Width relative error"),
     ]
-    fig2, axes2 = plt.subplots(
+
+    fig: Figure
+    axes: AxesGrid1D
+    fig, axes = plt.subplots(
         len(err_panels),
         1,
         figsize=(6.5, 10),
         sharex=True,
     )
-    fig2.subplots_adjust(left=0.14, right=0.95, bottom=0.08, top=0.97, hspace=0.12)
+    fig.subplots_adjust(left=0.14, right=0.95, bottom=0.08, top=0.97, hspace=0.12)
 
-    for ax, (key, ylabel) in zip(axes2, err_panels):
+    for ax, (key, ylabel) in zip(axes, err_panels):
         box_data = []
         for cat in categories:
             vals = [r[key] for r in opt_rows if r["category"] == cat and r[key] is not None]
@@ -436,16 +523,10 @@ def _plot_synthetic(
             patch.set_facecolor(color)
             patch.set_alpha(0.6)
         ax.set_ylabel(ylabel)
-        _style_ax(ax)
+        configure_axes(ax)
 
-    axes2[-1].set_xlabel("Category")
+    axes[-1].set_xlabel("Category")
 
-    err_path = os.path.join(output_dir, "synthetic-errors.png")
-    fig2.savefig(err_path, **_SAVEFIG_KWARGS)
-    console.print(f"  Plot: [blue]{err_path}[/blue]")
-    docs_err = Path(DOCS_IMG_DIR) / "synthetic-errors.png"
-    if save_figure_if_changed(fig2, docs_err, **_SAVEFIG_KWARGS):
-        console.print(f"  Docs: [blue]{docs_err}[/blue]")
-    else:
-        console.print(f"  Docs: unchanged [dim]{docs_err}[/dim]")
-    plt.close(fig2)
+    # Local copy for the benchmark output directory.
+    fig.savefig(os.path.join(output_dir, "synthetic-errors.png"), **SAVEFIG_DEFAULTS)
+    return fig

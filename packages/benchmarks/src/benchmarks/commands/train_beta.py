@@ -1,4 +1,11 @@
-"""``benchmarks train-beta`` — sweep beta values against GaussPy+ Docker reference."""
+"""``benchmarks train-beta`` -- sweep beta on real GRS data.
+
+Loads spectra and GaussPy+ decompositions from ``benchmarks compare``
+output, then evaluates phspectra at each beta in a user-defined grid.
+Reports F1, precision, and recall per beta and produces a line plot
+saved to both the benchmark output directory and the docs image
+directory.
+"""
 
 from __future__ import annotations
 
@@ -8,28 +15,21 @@ import json
 import os
 import sys
 import time
-from pathlib import Path
 
 import click
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.ticker import AutoMinorLocator
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from numpy.linalg import LinAlgError
 
 from benchmarks._console import console, err_console
-from benchmarks._constants import CACHE_DIR, DOCS_IMG_DIR
+from benchmarks._constants import CACHE_DIR
 from benchmarks._gaussian import gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score
-from benchmarks._plotting import save_figure_if_changed
+from benchmarks._plotting import SAVEFIG_DEFAULTS, configure_axes, docs_figure
 from benchmarks._types import BetaSweepResult, Component
 from phspectra import fit_gaussians
-
-_SAVEFIG_KWARGS: dict[str, int | str] = {
-    "dpi": 300,
-    "bbox_inches": "tight",
-    "facecolor": "white",
-    "edgecolor": "none",
-}
 
 
 @click.command("train-beta")
@@ -167,35 +167,44 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     console.print(f"  JSON: [blue]{json_path}[/blue]")
 
     # Plot
+    _plot_beta_sweep(results, output_dir)
+
+    console.print("\nDone.", style="bold green")
+
+
+@docs_figure("f1-beta-sweep.png")
+def _plot_beta_sweep(results: list[BetaSweepResult], output_dir: str) -> Figure:
+    """Build the F1/precision/recall vs beta figure.
+
+    Parameters
+    ----------
+    results : list[BetaSweepResult]
+        One entry per beta value, carrying F1, precision, and recall.
+    output_dir : str
+        Directory for the local copy of the figure.
+
+    Returns
+    -------
+    Figure
+        The completed matplotlib figure (saved by the ``@docs_figure``
+        decorator).
+    """
     betas = [r.beta for r in results]
+
+    fig: Figure
+    ax: Axes
     fig, ax = plt.subplots(figsize=(6.5, 5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.92)
 
-    ax.plot(betas, [r.f1 for r in results], "-k", lw=1.5, label="F1")
+    ax.plot(betas, [r.f1 for r in results], "-k", lw=1.5, label="$F_1$")
     ax.plot(betas, [r.precision for r in results], "--k", lw=1.5, label="Precision")
     ax.plot(betas, [r.recall for r in results], "-.k", lw=1.5, label="Recall")
     ax.set_xlabel(r"$\beta$")
     ax.set_ylabel("Score")
     ax.set_ylim(-0.02, 1.05)
     ax.legend(loc="lower left", frameon=False)
+    configure_axes(ax)
 
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
-    ax.tick_params(which="minor", length=3, color="gray", direction="in")
-    ax.tick_params(which="major", length=6, direction="in")
-    ax.tick_params(top=True, right=True, which="both")
-
-    # Save to data dir (alongside CSV/JSON)
-    plot_path = os.path.join(output_dir, "f1-beta-sweep.png")
-    fig.savefig(plot_path, **_SAVEFIG_KWARGS)
-    console.print(f"  Plot: [blue]{plot_path}[/blue]")
-
-    # Save to docs
-    docs_path = Path(DOCS_IMG_DIR) / "f1-beta-sweep.png"
-    if save_figure_if_changed(fig, docs_path, **_SAVEFIG_KWARGS):
-        console.print(f"  Docs: [blue]{docs_path}[/blue]")
-    else:
-        console.print(f"  Docs: unchanged [dim]{docs_path}[/dim]")
-    plt.close(fig)
-
-    console.print("\nDone.", style="bold green")
+    # Local copy for the benchmark output directory.
+    fig.savefig(os.path.join(output_dir, "f1-beta-sweep.png"), **SAVEFIG_DEFAULTS)
+    return fig

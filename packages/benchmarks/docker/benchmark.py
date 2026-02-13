@@ -1,4 +1,4 @@
-"""GaussPy+ performance benchmark — runs inside Docker.
+"""GaussPy+ performance benchmark -- runs inside Docker.
 
 Loads real GRS spectra from a mounted .npz file, decomposes them with
 GaussPy+ in batch mode, then times each spectrum individually for the

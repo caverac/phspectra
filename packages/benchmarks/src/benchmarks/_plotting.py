@@ -15,6 +15,7 @@ from benchmarks._types import ComparisonResult, Component
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.ticker import AutoMinorLocator
 
 F = TypeVar("F", bound=Callable[..., Figure])
 
@@ -48,6 +49,18 @@ class AxesGrid2D:
     def __len__(self) -> int: ...  # noqa: E704
 
     def ravel(self) -> AxesGrid1D: ...  # noqa: E704
+
+def configure_axes(ax: Axes) -> None:
+    """Apply the shared tick style to *ax*.
+
+    Sets minor/major tick locators and draws inward ticks on all four sides.
+    """
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    ax.tick_params(which="minor", length=3, color="gray", direction="in")
+    ax.tick_params(which="major", length=6, direction="in")
+    ax.tick_params(top=True, right=True, which="both")
+
 
 SAVEFIG_DEFAULTS: dict[str, int | str] = {
     "dpi": 300,

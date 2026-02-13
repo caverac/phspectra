@@ -117,7 +117,7 @@ def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict[str
 
     os.remove(local_path)
 
-    # FITS cubes are typically (n_channels, ny, nx) — reshape to (n_spectra, n_channels)
+    # FITS cubes are typically (n_channels, ny, nx) -- reshape to (n_spectra, n_channels)
     if data.ndim == 3:
         n_channels, ny, nx = data.shape
         spectra = data.reshape(n_channels, -1).T  # (n_spectra, n_channels)

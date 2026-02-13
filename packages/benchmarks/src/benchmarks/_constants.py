@@ -38,7 +38,7 @@ DEFAULT_MAX_COMPONENTS = 10
 # Synthetic benchmark parameters
 
 N_CHANNELS = 424
-NOISE_SIGMA = 0.13  # K — GRS-realistic
+NOISE_SIGMA = 0.13  # K -- GRS-realistic
 MEAN_MARGIN = 10  # keep means within [MEAN_MARGIN, N_CHANNELS - MEAN_MARGIN]
 
 # F1 matching criteria (Lindner et al. 2015, Eq. 7)

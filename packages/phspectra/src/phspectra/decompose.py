@@ -93,14 +93,14 @@ def _fit_components(
 
 
 def _estimate_stddev(pk: PersistentPeak) -> float:
-    """Estimate initial Gaussian σ from the peak-to-saddle distance.
+    """Estimate initial Gaussian sigma from the peak-to-saddle distance.
 
     For a Gaussian that equals ``birth`` at the peak and ``death`` at
     the saddle, the exact relationship is::
 
-        σ = d / √(2 · ln(birth / death))
+        sigma = d / sqrt(2 * ln(birth / death))
 
-    where ``d = |peak_index − saddle_index|``.  Falls back to 1.0 when
+    where ``d = |peak_index - saddle_index|``.  Falls back to 1.0 when
     the saddle is unknown (global maximum) or the estimate is degenerate.
     """
     if pk.saddle_index < 0 or pk.death <= 0.0:

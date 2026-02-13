@@ -8,7 +8,7 @@ Running phspectra on full survey cubes (2.3M+ spectra per cube, multiple $\beta$
 
 ## Architecture
 
-The pipeline is fully event-driven. Uploading a FITS cube or a JSON manifest to S3 triggers the entire flow automatically — no orchestrator, no polling, no manual steps.
+The pipeline is fully event-driven. Uploading a FITS cube or a JSON manifest to S3 triggers the entire flow automatically -- no orchestrator, no polling, no manual steps.
 
 ```mermaid
 flowchart TB
@@ -19,12 +19,12 @@ flowchart TB
 
     subgraph split["Fan-out"]
         EB["EventBridge"]
-        SP["Splitter Lambda<br/>ARM64 · 2 GB · 15 min"]
+        SP["Splitter Lambda<br/>ARM64, 2 GB, 15 min"]
         SQS["SQS Queue"]
     end
 
     subgraph work["Parallel processing"]
-        W["Worker Lambdas<br/>ARM64 · 512 MB · 5 min<br/>up to 500 concurrent"]
+        W["Worker Lambdas<br/>ARM64, 512 MB, 5 min<br/>up to 500 concurrent"]
     end
 
     subgraph store["Storage and analytics"]
@@ -37,7 +37,7 @@ flowchart TB
     M --> EB
     EB --> SP
     SP -- "writes .npz chunks" --> S3C["S3 chunks/"]
-    SP -- "one message per<br/>(chunk, β) pair" --> SQS
+    SP -- "one message per<br/>(chunk, beta) pair" --> SQS
     SQS --> W
     W -- "reads chunk" --> S3C
     W -- "writes Parquet" --> S3
@@ -52,9 +52,9 @@ flowchart TB
 | **EventBridge**     | Watches the S3 bucket for new objects. A `.fits` file in `cubes/` triggers decomposition with the default $\beta = 5.0$. A `.json` file in `manifests/` triggers a full beta sweep.                                     |
 | **Splitter Lambda** | Reads the FITS cube with `astropy`, reshapes the data into a flat array of spectra, groups them into chunks of 500, writes each chunk as a compressed `.npz` file, and sends one SQS message per (chunk, $\beta$) pair. |
 | **SQS Queue**       | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection.                                             |
-| **Worker Lambda**   | Reads a single `.npz` chunk from S3, runs `fit_gaussians(spectrum, beta=β)` on each spectrum, builds a PyArrow table, and writes the result as a Snappy-compressed Parquet file to the output prefix.                   |
+| **Worker Lambda**   | Reads a single `.npz` chunk from S3, runs `fit_gaussians(spectrum, beta=b)` on each spectrum, builds a PyArrow table, and writes the result as a Snappy-compressed Parquet file to the output prefix.                   |
 | **S3 (Parquet)**    | Results are written in Hive-style partitioning: `decompositions/survey={name}/beta={value}/`. This layout enables Athena to read only the partitions relevant to a query.                                               |
-| **Glue + Athena**   | The Glue table uses partition projection — no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys and $\beta$ values immediately after the workers finish writing.                            |
+| **Glue + Athena**   | The Glue table uses partition projection -- no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys and $\beta$ values immediately after the workers finish writing.                            |
 
 ## S3 bucket layout
 
@@ -62,15 +62,15 @@ A single bucket holds all data:
 
 ```
 phspectra-{env}-data/
-├── cubes/                          # Input FITS files
-├── manifests/                      # Beta sweep JSON manifests
-├── chunks/{run-id}/chunk-*.npz     # Temporary spectrum chunks (7-day TTL)
-├── decompositions/                 # Results (Parquet, Hive-partitioned)
-│   └── survey={name}/beta={value}/chunk-*.parquet
-└── athena-results/                 # Athena query output (7-day TTL)
+|-- cubes/                          # Input FITS files
+|-- manifests/                      # Beta sweep JSON manifests
+|-- chunks/{run-id}/chunk-*.npz     # Temporary spectrum chunks (7-day TTL)
+|-- decompositions/                 # Results (Parquet, Hive-partitioned)
+|   +-- survey={name}/beta={value}/chunk-*.parquet
++-- athena-results/                 # Athena query output (7-day TTL)
 ```
 
-The `chunks/` and `athena-results/` prefixes have a 7-day lifecycle rule — intermediate data is cleaned up automatically.
+The `chunks/` and `athena-results/` prefixes have a 7-day lifecycle rule -- intermediate data is cleaned up automatically.
 
 ## How to use it
 
@@ -125,7 +125,7 @@ Partition keys (encoded in the S3 path, not in the Parquet files): `survey` (str
 
 Two named queries are deployed with the stack and accessible from the Athena console under the `phspectra-{env}` workgroup.
 
-**Beta component-count comparison** — Compare how the number of fitted components varies with $\beta$ across a survey:
+**Beta component-count comparison** --Compare how the number of fitted components varies with $\beta$ across a survey:
 
 ```sql
 SELECT
@@ -142,7 +142,7 @@ ORDER BY beta;
 
 This is the primary query for choosing the optimal $\beta$: look for the value where the component count stabilises.
 
-**RMS distribution sanity check** — Verify noise estimation across surveys:
+**RMS distribution sanity check** --Verify noise estimation across surveys:
 
 ```sql
 SELECT
@@ -159,7 +159,7 @@ ORDER BY survey;
 
 ### Custom queries
 
-Since the data is standard Parquet on S3, you can query it with any tool that speaks Parquet — not just Athena. For example, loading a single partition into a pandas DataFrame:
+Since the data is standard Parquet on S3, you can query it with any tool that speaks Parquet -- not just Athena. For example, loading a single partition into a pandas DataFrame:
 
 ```python
 import pandas as pd
@@ -189,7 +189,7 @@ sequenceDiagram
     participant EB as EventBridge
     participant Sp as Splitter Lambda
     participant Q as SQS Queue
-    participant W as Worker Lambda (×N)
+    participant W as Worker Lambda (xN)
 
     U->>S3: PUT cubes/grs.fits
     S3->>EB: Object Created event
@@ -282,4 +282,4 @@ The stack name and all resource names include the environment: `phspectra-develo
 | GRS test field, 6 $\beta$ values (7,200 spectra)  | 18                 | < $0.01        |
 | Full GRS survey, 6 $\beta$ values (13.8M spectra) | ~27,600            | ~$13           |
 
-The dominant cost is Lambda compute. S3 storage for Parquet results is negligible (a few cents per GB-month). Athena charges \$5/TB scanned — a typical query over one survey and one $\beta$ value scans well under 1 GB.
+The dominant cost is Lambda compute. S3 storage for Parquet results is negligible (a few cents per GB-month). Athena charges \$5/TB scanned -- a typical query over one survey and one $\beta$ value scans well under 1 GB.
