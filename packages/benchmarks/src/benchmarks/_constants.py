@@ -20,9 +20,9 @@ CATALOG_CACHE = os.path.join(CACHE_DIR, "gausspy-catalog.votable")
 
 # Documentation site paths
 
-DOCS_IMG_DIR = str(
-    Path(__file__).resolve().parent.parent.parent.parent / "docs" / "static" / "img" / "results"
-)
+_DOCS_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "docs"
+DOCS_DIR = str(_DOCS_ROOT / "docs")
+DOCS_IMG_DIR = str(_DOCS_ROOT / "static" / "img" / "results")
 
 # Docker settings
 

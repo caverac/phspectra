@@ -64,11 +64,6 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     n_spectra, n_channels = signals.shape
     console.print(f"  {n_spectra} spectra, {n_channels} channels each")
 
-    # TODO(temporary): limit to 10 spectra for fast testing — remove before merging
-    signals = signals[:10]
-    n_spectra = len(signals)
-    console.print(f"  [bold red]TEMPORARY: limited to {n_spectra} spectra[/bold red]")
-
     # Load GaussPy+ Docker decompositions
     console.print("\nStep 2: Load GaussPy+ Docker decompositions", style="bold cyan")
     with open(results_path, encoding="utf-8") as f:
@@ -148,7 +143,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     )
 
     # Save CSV
-    csv_path = os.path.join(output_dir, "beta_sweep_docker.csv")
+    csv_path = os.path.join(output_dir, "f1-beta-sweep.csv")
     fieldnames = [f.name for f in dataclasses.fields(BetaSweepResult)]
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -158,7 +153,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     console.print(f"  CSV: [blue]{csv_path}[/blue]")
 
     # Save JSON
-    json_path = os.path.join(output_dir, "beta_sweep_docker.json")
+    json_path = os.path.join(output_dir, "f1-beta-sweep.json")
     payload = {
         "n_spectra": n_train,
         "beta_grid": beta_grid,
@@ -179,12 +174,10 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     ax.plot(betas, [r.f1 for r in results], "-k", lw=1.5, label="F1")
     ax.plot(betas, [r.precision for r in results], "--k", lw=1.5, label="Precision")
     ax.plot(betas, [r.recall for r in results], "-.k", lw=1.5, label="Recall")
-    ax.axvline(best.beta, color="k", linestyle=":", lw=0.8, alpha=0.5)
-
     ax.set_xlabel(r"$\beta$")
     ax.set_ylabel("Score")
     ax.set_ylim(-0.02, 1.05)
-    ax.legend(loc="center left", frameon=False)
+    ax.legend(loc="lower left", frameon=False)
 
     ax.xaxis.set_minor_locator(AutoMinorLocator())
     ax.yaxis.set_minor_locator(AutoMinorLocator())

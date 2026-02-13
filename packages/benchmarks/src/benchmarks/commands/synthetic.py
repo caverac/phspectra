@@ -8,20 +8,39 @@ import os
 import time
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
+from pathlib import Path
 
 import click
 import numpy as np
-from matplotlib import pyplot as plt
-
 from benchmarks._console import console
-from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
+from benchmarks._constants import DOCS_IMG_DIR, MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
 from benchmarks._gaussian import gaussian, gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score, match_pairs
+from benchmarks._plotting import save_figure_if_changed
 from benchmarks._types import Component, SyntheticSpectrum
+from matplotlib import pyplot as plt
+from matplotlib.ticker import AutoMinorLocator
 from numpy.linalg import LinAlgError
 
 from phspectra import fit_gaussians
 from phspectra.quality import aicc
+
+CATEGORY_LABELS: dict[str, str] = {
+    "single_bright": "SB",
+    "single_faint": "SF",
+    "single_narrow": "SN",
+    "single_broad": "SBd",
+    "multi_separated": "MS",
+    "multi_blended": "MB",
+    "crowded": "C",
+}
+
+_SAVEFIG_KWARGS: dict[str, int | str] = {
+    "dpi": 300,
+    "bbox_inches": "tight",
+    "facecolor": "white",
+    "edgecolor": "none",
+}
 
 
 def _make_spectrum(
@@ -216,7 +235,7 @@ def _evaluate_one(args: tuple) -> dict:
 @click.option("--beta-min", default=3.8, show_default=True)
 @click.option("--beta-max", default=4.5, show_default=True)
 @click.option("--beta-steps", default=7, show_default=True)
-@click.option("--seed", default=2025_02_12, show_default=True)
+@click.option("--seed", default=2026_02_12, show_default=True)
 def synthetic(
     n_per_category: int,
     beta_min: float,
@@ -315,8 +334,17 @@ def synthetic(
         json.dump(json_data, f, indent=2)
     console.print(f"  JSON: [blue]{json_path}[/blue]")
 
-    # Plot
-    fig, axes = plt.subplots(2, 3, figsize=(16, 10))
+    _plot_synthetic(csv_rows, categories, optimal_beta, output_dir)
+    console.print("\nDone.", style="bold green")
+
+
+def _plot_synthetic(
+    csv_rows: list[dict],
+    categories: list[str],
+    optimal_beta: float,
+    output_dir: str,
+) -> None:
+    """Generate F1 and error box-whisker plots from synthetic benchmark results."""
 
     def agg_f1(beta: float, cat: str | None = None) -> float:
         subset = [r for r in csv_rows if r["beta"] == beta]
@@ -330,33 +358,94 @@ def synthetic(
         _, _, f1_val = f1_score(tc, tt, tg)
         return f1_val
 
+    def _style_ax(ax: plt.Axes) -> None:
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
+        ax.tick_params(which="minor", length=3, color="gray", direction="in")
+        ax.tick_params(which="major", length=6, direction="in")
+        ax.tick_params(top=True, right=True, which="both")
+
     betas = sorted(set(r["beta"] for r in csv_rows))
+
+    # Plot 1: F1 vs beta
+    fig1, ax1 = plt.subplots(figsize=(6.5, 5))
+    fig1.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
     for cat in categories:
-        axes[0, 0].plot(betas, [agg_f1(b, cat) for b in betas], "o-", label=cat, markersize=4)
-    axes[0, 0].plot(
-        betas, [agg_f1(b) for b in betas], "ko-", linewidth=2.5, markersize=6, label="overall"
+        ax1.plot(
+            betas,
+            [agg_f1(b, cat) for b in betas],
+            "o-",
+            label=CATEGORY_LABELS[cat],
+            markersize=4,
+        )
+    ax1.plot(
+        betas,
+        [agg_f1(b) for b in betas],
+        "ko-",
+        linewidth=2.5,
+        markersize=6,
+        label="Overall",
     )
-    axes[0, 0].axvline(optimal_beta, color="grey", linestyle=":", alpha=0.5)
-    axes[0, 0].set_xlabel(r"$\beta$")
-    axes[0, 0].set_ylabel("F1")
-    axes[0, 0].set_title("F1 vs beta")
-    axes[0, 0].legend(fontsize=7, loc="lower left")
-    axes[0, 0].set_ylim(-0.05, 1.05)
-    axes[0, 0].grid(True, alpha=0.3)
+    ax1.set_xlabel(r"$\beta$")
+    ax1.set_ylabel("F1")
+    ax1.legend(loc="lower left", frameon=False)
+    ax1.set_ylim(-0.05, 1.05)
+    _style_ax(ax1)
 
-    # Remaining panels omitted for brevity — key data is in CSV/JSON
-    for i in range(1, 6):
-        row, col = divmod(i, 3)
-        axes[row, col].set_visible(False)
+    f1_path = os.path.join(output_dir, "synthetic-f1.png")
+    fig1.savefig(f1_path, **_SAVEFIG_KWARGS)
+    console.print(f"  Plot: [blue]{f1_path}[/blue]")
+    docs_f1 = Path(DOCS_IMG_DIR) / "synthetic-f1.png"
+    if save_figure_if_changed(fig1, docs_f1, **_SAVEFIG_KWARGS):
+        console.print(f"  Docs: [blue]{docs_f1}[/blue]")
+    else:
+        console.print(f"  Docs: unchanged [dim]{docs_f1}[/dim]")
+    plt.close(fig1)
 
-    fig.suptitle(
-        f"Synthetic benchmark — {n_total} spectra, optimal beta={optimal_beta}",
-        fontsize=13,
+    # Plot 2: Error box-whisker panels (vertical, shared x-axis)
+    cat_labels = [CATEGORY_LABELS[c] for c in categories]
+    opt_rows = [r for r in csv_rows if r["beta"] == optimal_beta]
+
+    err_panels = [
+        ("amp_rel_err_mean", "Amplitude relative error"),
+        ("pos_err_mean", "Position error (channels)"),
+        ("width_rel_err_mean", "Width relative error"),
+    ]
+    fig2, axes2 = plt.subplots(
+        len(err_panels),
+        1,
+        figsize=(6.5, 10),
+        sharex=True,
     )
-    fig.tight_layout()
-    plot_path = os.path.join(output_dir, "synthetic-benchmark.png")
-    fig.savefig(plot_path, dpi=150)
-    console.print(f"  Plot: [blue]{plot_path}[/blue]")
-    plt.close(fig)
+    fig2.subplots_adjust(left=0.14, right=0.95, bottom=0.08, top=0.97, hspace=0.12)
 
-    console.print("\nDone.", style="bold green")
+    for ax, (key, ylabel) in zip(axes2, err_panels):
+        box_data = []
+        for cat in categories:
+            vals = [r[key] for r in opt_rows if r["category"] == cat and r[key] is not None]
+            box_data.append(vals)
+        bp = ax.boxplot(
+            box_data,
+            labels=cat_labels,
+            patch_artist=True,
+            widths=0.5,
+            medianprops={"color": "k", "linewidth": 1.5},
+        )
+        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        for patch, color in zip(bp["boxes"], colors):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.6)
+        ax.set_ylabel(ylabel)
+        _style_ax(ax)
+
+    axes2[-1].set_xlabel("Category")
+
+    err_path = os.path.join(output_dir, "synthetic-errors.png")
+    fig2.savefig(err_path, **_SAVEFIG_KWARGS)
+    console.print(f"  Plot: [blue]{err_path}[/blue]")
+    docs_err = Path(DOCS_IMG_DIR) / "synthetic-errors.png"
+    if save_figure_if_changed(fig2, docs_err, **_SAVEFIG_KWARGS):
+        console.print(f"  Docs: [blue]{docs_err}[/blue]")
+    else:
+        console.print(f"  Docs: unchanged [dim]{docs_err}[/dim]")
+    plt.close(fig2)

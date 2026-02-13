@@ -70,7 +70,7 @@ def inspect_pixel(
     eligible = {k: v for k, v in pixel_counts.items() if 1 <= v <= 8}
     eligible_keys = list(eligible.keys())
 
-    seed = 2025_02_12
+    seed = 2026_02_12
     n_spectra = 400
     rng = np.random.default_rng(seed)
     n_select = min(n_spectra, len(eligible_keys))

@@ -10,6 +10,9 @@ import time
 import click
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.ticker import AutoMinorLocator
 
 from benchmarks._console import console, err_console
 from benchmarks._constants import (
@@ -17,6 +20,7 @@ from benchmarks._constants import (
     DEFAULT_BETA,
     DEFAULT_SEED,
 )
+from benchmarks._plotting import docs_figure
 from benchmarks._data import (
     ensure_catalog,
     ensure_fits,
@@ -104,55 +108,73 @@ def performance(n_spectra: int, beta: float, seed: int) -> None:
     console.print(f"  JSON: [blue]{json_path}[/blue]")
 
     # Plot
-    ph_arr = np.array(ph_times) * 1000
-    gp_arr = np.array(gp_times) * 1000
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-    bins = np.linspace(0, max(np.percentile(ph_arr, 99), np.percentile(gp_arr, 99)), 40)
-    axes[0].hist(ph_arr, bins=bins, alpha=0.7, label="phspectra", color="C0")
-    axes[0].hist(gp_arr, bins=bins, alpha=0.7, label="GaussPy+", color="C3")
-    axes[0].set_xlabel("Time per spectrum (ms)")
-    axes[0].set_ylabel("Count")
-    axes[0].set_title("Timing distribution")
-    axes[0].legend()
-    axes[0].grid(True, alpha=0.3)
-
-    bp = axes[1].boxplot([ph_arr, gp_arr], tick_labels=["phspectra", "GaussPy+"], patch_artist=True)
-    bp["boxes"][0].set_facecolor("C0")
-    bp["boxes"][0].set_alpha(0.7)
-    bp["boxes"][1].set_facecolor("C3")
-    bp["boxes"][1].set_alpha(0.7)
-    axes[1].set_ylabel("Time per spectrum (ms)")
-    axes[1].set_title("Timing box plot")
-    axes[1].grid(True, alpha=0.3, axis="y")
-
-    rects = axes[2].bar(
-        ["phspectra", "GaussPy+"], [t_ph_total, gp_total], color=["C0", "C3"], alpha=0.8
-    )
-    axes[2].set_ylabel("Total time (s)")
-    axes[2].set_title(f"Total wall time ({len(ph_times)} spectra)\nSpeedup: {speedup:.1f}x")
-    axes[2].grid(True, alpha=0.3, axis="y")
-    for rect, val in zip(rects, [t_ph_total, gp_total]):
-        axes[2].text(
-            rect.get_x() + rect.get_width() / 2,
-            rect.get_height(),
-            f"{val:.1f}s",
-            ha="center",
-            va="bottom",
-            fontsize=10,
-        )
-
-    fig.suptitle(
-        f"Performance: phspectra vs GaussPy+ — {len(ph_times)} real GRS spectra",
-        fontsize=13,
-    )
-    fig.tight_layout()
-    plot_path = os.path.join(output_dir, "performance-benchmark.png")
-    fig.savefig(plot_path, dpi=150)
-    console.print(f"  Plot: [blue]{plot_path}[/blue]")
-    plt.close(fig)
+    _plot_timing(np.array(ph_times) * 1000, np.array(gp_times) * 1000)
 
     console.print(
         f"\nSpeedup: [bold yellow]{speedup:.1f}x[/bold yellow]",
     )
+    console.print("Done.", style="bold green")
+
+
+def _configure_axes(ax: Axes) -> None:
+    """Apply the shared tick/grid style."""
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    ax.tick_params(which="minor", length=3, color="gray", direction="in")
+    ax.tick_params(which="major", length=6, direction="in")
+    ax.tick_params(top=True, right=True, which="both")
+
+
+@docs_figure("performance-benchmark.png")
+def _plot_timing(
+    ph_ms: np.ndarray,
+    gp_ms: np.ndarray,
+) -> Figure:
+    """Single-frame timing distribution histogram."""
+    fig: Figure
+    ax: Axes
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.92)
+
+    clip = max(np.percentile(ph_ms, 99), np.percentile(gp_ms, 99))
+    bins = np.linspace(0, clip, 40)
+    ax.hist(ph_ms, bins=bins, alpha=0.7, color="k", label="phspectra")
+    ax.hist(gp_ms, bins=bins, alpha=0.2, color="k", label="GaussPy+",
+            edgecolor="k")
+
+    ax.set_xlabel("Time per spectrum (ms)")
+    ax.set_ylabel("Count")
+    ax.legend(loc="upper right", frameon=False)
+    _configure_axes(ax)
+    return fig
+
+
+@click.command("performance-plot")
+@click.option(
+    "--data-dir",
+    default=os.path.join(CACHE_DIR, "compare-docker"),
+    show_default=True,
+    help="Directory containing phspectra_results.json and results.json.",
+)
+def performance_plot(data_dir: str) -> None:
+    """Generate performance plot from saved comparison data."""
+    ph_path = os.path.join(data_dir, "phspectra_results.json")
+    gp_path = os.path.join(data_dir, "results.json")
+    for path, label in [(ph_path, "phspectra_results.json"), (gp_path, "results.json")]:
+        if not os.path.exists(path):
+            err_console.print(f"ERROR: {label} not found in {data_dir}.\nRun ``benchmarks compare`` first.")
+            sys.exit(1)
+
+    console.print("Loading saved comparison data ...", style="bold cyan")
+    with open(ph_path, encoding="utf-8") as f:
+        ph_data = json.load(f)
+    with open(gp_path, encoding="utf-8") as f:
+        gp_data = json.load(f)
+
+    ph_ms = np.array(ph_data["times"]) * 1000
+    gp_ms = np.array(gp_data["times"]) * 1000
+    speedup = sum(gp_data["times"]) / max(sum(ph_data["times"]), 1e-9)
+    console.print(f"  {len(ph_ms)} spectra, speedup={speedup:.1f}x")
+
+    _plot_timing(ph_ms, gp_ms)
     console.print("Done.", style="bold green")

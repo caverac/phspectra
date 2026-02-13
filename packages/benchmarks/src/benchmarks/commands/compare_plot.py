@@ -7,14 +7,15 @@ import os
 
 import click
 import numpy as np
-from matplotlib import pyplot as plt
-
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._gaussian import residual_rms
 from benchmarks._matching import match_pairs
-from benchmarks._plotting import plot_panel
+from benchmarks._plotting import docs_figure, plot_panel
 from benchmarks._types import ComparisonResult, Component
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.ticker import AutoMinorLocator
 
 
 def _select_disagreement_cases(
@@ -82,22 +83,18 @@ def _select_disagreement_cases(
     return cases[:6]
 
 
-def _select_narrower_width_cases(
+def _collect_matched_widths(
     results: list[ComparisonResult],
-    n: int = 6,
-) -> list[tuple[float, ComparisonResult]]:
-    """Select up to *n* cases where GP+ fits wider than phspectra."""
-    scored: list[tuple[float, ComparisonResult]] = []
+) -> tuple[list[float], list[float]]:
+    """Collect matched (phspectra, GaussPy+) width pairs across all results."""
+    ph_widths: list[float] = []
+    gp_widths: list[float] = []
     for r in results:
         pairs = match_pairs(r.gp_comps, r.ph_comps)
-        if not pairs:
-            continue
-        ratios = [gc.stddev / max(pc.stddev, 0.1) for gc, pc in pairs]
-        avg_ratio = float(np.mean(ratios))
-        if avg_ratio > 1.3:
-            scored.append((avg_ratio, r))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return scored[:n]
+        for gc, pc in pairs:
+            gp_widths.append(gc.stddev)
+            ph_widths.append(pc.stddev)
+    return ph_widths, gp_widths
 
 
 def _load_results(
@@ -174,6 +171,117 @@ def _load_results(
     return results, summary
 
 
+def _style_ax(ax: plt.Axes) -> None:
+    """Apply the shared tick/grid style."""
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    ax.tick_params(which="minor", length=3, color="gray", direction="in")
+    ax.tick_params(which="major", length=6, direction="in")
+    ax.tick_params(top=True, right=True, which="both")
+
+
+@docs_figure("rms-distribution.png")
+def _build_rms_hist(results: list[ComparisonResult]) -> Figure:
+    """Build the RMS distribution histogram."""
+    ph_rms_arr = np.array([r.ph_rms for r in results])
+    gp_rms_arr = np.array([r.gp_rms for r in results])
+
+    fig: Figure
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
+
+    upper = max(np.percentile(ph_rms_arr, 99), np.percentile(gp_rms_arr, 99))
+    bins = np.linspace(0, upper, 40)
+    ax.hist(ph_rms_arr, bins=bins, alpha=0.7, label="phspectra", color="C0")
+    ax.hist(gp_rms_arr, bins=bins, alpha=0.7, label="GaussPy+", color="C3")
+    ax.set_xlabel("RMS (K)")
+    ax.set_ylabel("Count")
+    ax.legend(loc="upper right", frameon=False)
+    _style_ax(ax)
+
+    return fig
+
+
+@docs_figure("rms-scatter.png")
+def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
+    """Build the phspectra vs GaussPy+ RMS scatter plot."""
+    ph_rms_arr = np.array([r.ph_rms for r in results])
+    gp_rms_arr = np.array([r.gp_rms for r in results])
+    n_ph_wins = int(np.sum(ph_rms_arr < gp_rms_arr))
+    n_select = len(results)
+
+    fig: Figure
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
+
+    ax.scatter(gp_rms_arr, ph_rms_arr, s=8, alpha=0.5, color="0.3")
+    lim = max(ph_rms_arr.max(), gp_rms_arr.max()) * 1.05
+    ax.plot([0, lim], [0, lim], "k--", linewidth=0.8, alpha=0.5)
+    ax.set_xlabel("GaussPy+ RMS (K)")
+    ax.set_ylabel("phspectra RMS (K)")
+    ax.set_aspect("equal")
+    ax.legend(
+        [f"PH lower: {n_ph_wins}/{n_select}"],
+        loc="upper left",
+        frameon=False,
+    )
+    _style_ax(ax)
+
+    return fig
+
+
+@docs_figure("compare-disagreements.png")
+def _build_disagreements_figure(
+    disagreements: list[tuple[str, ComparisonResult]],
+) -> Figure:
+    """Build the 6-panel disagreement cases figure."""
+    fig: Figure
+    fig, axes = plt.subplots(2, 3, figsize=(16, 11), sharex=True, sharey=True)
+    fig.subplots_adjust(left=0.05, right=0.98, bottom=0.07, top=0.95, wspace=0.08, hspace=0.18)
+
+    for i, (label, r) in enumerate(disagreements):
+        plot_panel(axes.ravel()[i], r, f"{label} — px({r.pixel[0]},{r.pixel[1]})")
+        _style_ax(axes.ravel()[i])
+    for i in range(len(disagreements), 6):
+        axes.ravel()[i].set_visible(False)
+
+    # Only label outer axes
+    for ax in axes[:, 1:].ravel():
+        ax.set_ylabel("")
+    for ax in axes[0, :].ravel():
+        ax.set_xlabel("")
+
+    return fig
+
+
+@docs_figure("width-comparison.png")
+def _build_width_hist(
+    ph_widths: list[float],
+    gp_widths: list[float],
+) -> Figure:
+    """Build the log-width-ratio histogram."""
+    ph_w = np.array(ph_widths)
+    gp_w = np.array(gp_widths)
+    log_ratios = np.log(ph_w / np.maximum(gp_w, 0.1))
+
+    fig: Figure
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
+
+    bins = np.linspace(
+        float(np.percentile(log_ratios, 1)),
+        float(np.percentile(log_ratios, 99)),
+        50,
+    )
+    ax.hist(log_ratios, bins=bins, alpha=0.7, color="C0", edgecolor="white")
+    ax.axvline(0.0, color="k", linestyle="--", linewidth=0.8)
+    ax.set_xlabel(r"$\ln(\sigma_{\mathrm{phspectra}}\;/\;\sigma_{\mathrm{GaussPy+}})$")
+    ax.set_ylabel("Count")
+    _style_ax(ax)
+
+    return fig
+
+
 @click.command("compare-plot")
 @click.option(
     "--data-dir",
@@ -181,18 +289,8 @@ def _load_results(
     show_default=True,
     help="Directory containing spectra.npz, results.json, and phspectra_results.json.",
 )
-@click.option(
-    "--output-dir",
-    default=None,
-    show_default=True,
-    help="Directory for plot PNGs (defaults to --data-dir).",
-)
-def compare_plot(data_dir: str, output_dir: str | None) -> None:
+def compare_plot(data_dir: str) -> None:
     """Generate comparison plots from saved phspectra vs GaussPy+ data."""
-    if output_dir is None:
-        output_dir = data_dir
-    os.makedirs(output_dir, exist_ok=True)
-
     console.print("Loading comparison data...", style="bold cyan")
     results, summary = _load_results(data_dir)
     n_select = len(results)
@@ -212,82 +310,21 @@ def compare_plot(data_dir: str, output_dir: str | None) -> None:
         style="green",
     )
 
-    # Disagreements
+    # Disagreements (saved to docs via decorator)
     console.print("\nPlot 1: Disagreement cases", style="bold cyan")
     disagreements = _select_disagreement_cases(results)
-    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
-    for i, (label, r) in enumerate(disagreements):
-        plot_panel(axes.ravel()[i], r, f"{label} — px({r.pixel[0]},{r.pixel[1]})")
-    for i in range(len(disagreements), 6):
-        axes.ravel()[i].set_visible(False)
-    fig.suptitle(
-        f"phspectra vs GaussPy+ (Docker) — disagreement cases (N={n_select})",
-        fontsize=13,
-    )
-    fig.tight_layout()
-    path = os.path.join(output_dir, "compare-disagreements-docker.png")
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    console.print(f"  Saved [blue]{path}[/blue]")
+    _build_disagreements_figure(disagreements)
 
-    # Narrower widths
-    console.print("Plot 2: Narrower width cases", style="bold cyan")
-    narrower = _select_narrower_width_cases(results)
-    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
-    for i, (ratio, r) in enumerate(narrower):
-        plot_panel(
-            axes.ravel()[i],
-            r,
-            f"GP+/PH width ratio={ratio:.1f}x — px({r.pixel[0]},{r.pixel[1]})",
-        )
-    for i in range(len(narrower), 6):
-        axes.ravel()[i].set_visible(False)
-    fig.suptitle(
-        f"phspectra predicts narrower widths than GaussPy+ (Docker, N={n_select})",
-        fontsize=13,
-    )
-    fig.tight_layout()
-    path = os.path.join(output_dir, "compare-narrower-widths-docker.png")
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    console.print(f"  Saved [blue]{path}[/blue]")
+    # Width comparison
+    console.print("\nPlot 2: Width comparison", style="bold cyan")
+    ph_widths, gp_widths = _collect_matched_widths(results)
+    console.print(f"  {len(ph_widths)} matched component pairs", style="green")
+    _build_width_hist(ph_widths, gp_widths)
 
-    # RMS histogram
-    console.print("Plot 3: RMS comparison", style="bold cyan")
-    ph_rms_arr = np.array([r.ph_rms for r in results])
-    gp_rms_arr = np.array([r.gp_rms for r in results])
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
-    bins = np.linspace(0, max(np.percentile(ph_rms_arr, 99), np.percentile(gp_rms_arr, 99)), 40)
-    axes[0].hist(ph_rms_arr, bins=bins, alpha=0.7, label="phspectra", color="C0")
-    axes[0].hist(gp_rms_arr, bins=bins, alpha=0.7, label="GaussPy+", color="C3")
-    axes[0].set_xlabel("RMS (K)")
-    axes[0].set_ylabel("Count")
-    axes[0].set_title("RMS distribution")
-    axes[0].legend(fontsize=8)
-    axes[0].grid(True, alpha=0.3)
-    axes[1].scatter(gp_rms_arr, ph_rms_arr, s=8, alpha=0.5, color="0.3")
-    lim = max(ph_rms_arr.max(), gp_rms_arr.max()) * 1.05
-    axes[1].plot([0, lim], [0, lim], "k--", linewidth=0.8, alpha=0.5)
-    axes[1].set_xlabel("GaussPy+ RMS (K)")
-    axes[1].set_ylabel("phspectra RMS (K)")
-    axes[1].set_title(f"PH lower RMS: {n_ph_wins}/{n_select}")
-    axes[1].set_aspect("equal")
-    axes[1].grid(True, alpha=0.3)
-    diff = gp_rms_arr - ph_rms_arr
-    axes[2].hist(diff, bins=40, alpha=0.8, color="C2", edgecolor="white")
-    axes[2].axvline(0, color="k", linestyle="--", linewidth=0.8)
-    axes[2].set_xlabel("RMS(GP+) - RMS(PH) (K)")
-    axes[2].set_ylabel("Count")
-    axes[2].set_title("RMS difference (positive = phspectra wins)")
-    axes[2].grid(True, alpha=0.3)
-    fig.suptitle(
-        f"RMS comparison: phspectra vs GaussPy+ (Docker) — {n_select} spectra",
-        fontsize=13,
-    )
-    fig.tight_layout()
-    path = os.path.join(output_dir, "compare-rms-docker.png")
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    console.print(f"  Saved [blue]{path}[/blue]")
+    # RMS comparison (saved to docs via decorator)
+    console.print("\nPlot 3: RMS distribution", style="bold cyan")
+    _build_rms_hist(results)
+    console.print("Plot 4: RMS scatter", style="bold cyan")
+    _build_rms_scatter(results)
 
     console.print("\nDone.", style="bold green")

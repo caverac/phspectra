@@ -17,7 +17,7 @@ We evaluated $\beta$ on two independent benchmarks:
 
 Sweeping $\beta$ from 3.8 to 4.5 on 200 GRS spectra shows a nearly flat F1 curve:
 
-![Beta training on GRS spectra](/img/results/train-beta.png)
+![Beta training on GRS spectra](/img/results/f1-beta-sweep.png)
 
 The optimal $\beta = 4.0$ achieves F1 = 0.847 against GaussPy+ reference decompositions. However, the variation across the entire sweep is only $\Delta$F1 $\approx$ 0.01 &mdash; the algorithm is remarkably stable.
 
@@ -29,47 +29,47 @@ The real-data benchmark above compares phspectra against GaussPy+ (another algor
 
 **Test design.** We generate 350 spectra across seven categories of increasing difficulty:
 
-| Category | Components | Amplitudes (K) | Widths $\sigma$ (ch) | Constraint |
-|---|---|---|---|---|
-| `single_bright` | 1 | 1.0&ndash;5.0 | 3&ndash;10 | SNR > 7 |
-| `single_faint` | 1 | 0.3&ndash;0.8 | 3&ndash;10 | SNR 2&ndash;6 |
-| `single_narrow` | 1 | 1.0&ndash;5.0 | 1&ndash;2.5 | Sub-resolution widths |
-| `single_broad` | 1 | 0.5&ndash;3.0 | 10&ndash;20 | Extended features |
-| `multi_separated` | 2&ndash;3 | 0.5&ndash;4.0 | 2&ndash;8 | Separation > $4\sigma$ |
-| `multi_blended` | 2&ndash;3 | 0.5&ndash;4.0 | 3&ndash;8 | Separation $1.5$&ndash;$3\sigma$ |
-| `crowded` | 4&ndash;5 | 0.3&ndash;3.0 | 2&ndash;6 | Mixed separations |
+| Category | Label | Components | Amplitudes (K) | Widths $\sigma$ (ch) | Constraint |
+|---|---|---|---|---|---|
+| Single Bright | SB | 1 | 1.0&ndash;5.0 | 3&ndash;10 | SNR > 7 |
+| Single Faint | SF | 1 | 0.3&ndash;0.8 | 3&ndash;10 | SNR 2&ndash;6 |
+| Single Narrow | SN | 1 | 1.0&ndash;5.0 | 1&ndash;2.5 | Sub-resolution widths |
+| Single Broad | SBd | 1 | 0.5&ndash;3.0 | 10&ndash;20 | Extended features |
+| Multi Separated | MS | 2&ndash;3 | 0.5&ndash;4.0 | 2&ndash;8 | Separation > $4\sigma$ |
+| Multi Blended | MB | 2&ndash;3 | 0.5&ndash;4.0 | 3&ndash;8 | Separation $1.5$&ndash;$3\sigma$ |
+| Crowded | C | 4&ndash;5 | 0.3&ndash;3.0 | 2&ndash;6 | Mixed separations |
 
 All spectra use GRS-realistic parameters: 424 channels with additive Gaussian noise at $\sigma = 0.13$ K. Because the true components are known exactly, F1 measures *true accuracy* rather than agreement with another algorithm.
 
 For each spectrum we sweep $\beta$ from 3.8 to 4.5, decompose with phspectra, and score using Hungarian matching with the Lindner et al. (2015) criteria.
 
-**Results.** The top-left panel below shows F1 vs $\beta$ for each category and overall:
+**Results.** The figure below shows F1 vs $\beta$ for each category and overall:
 
-![Synthetic benchmark](/img/results/synthetic-benchmark.png)
+![Synthetic F1 vs beta](/img/results/synthetic-f1.png)
 
 The key observations:
 
-1. **F1 varies by only 0.003** across the full $\beta$ sweep (0.947 at $\beta=3.8$ to 0.944 at $\beta=4.5$). This confirms that $\beta$ sensitivity is negligible on ground-truth data.
+1. **F1 varies by only 0.005** across the full $\beta$ sweep (0.916 at $\beta=3.8$ to 0.911 at $\beta=4.5$). This confirms that $\beta$ sensitivity is negligible on ground-truth data.
 
-2. **The difficulty gradient is exactly as expected.** Isolated bright components are solved perfectly (F1 = 1.0), while blended multi-component spectra are the hardest (F1 = 0.819). This validates that the benchmark categories genuinely span the difficulty spectrum.
+2. **The difficulty gradient follows expectations.** Multi-component separated spectra score highest (F1 = 0.965), while blended multi-component spectra are the hardest (F1 = 0.849). This validates that the benchmark categories genuinely span the difficulty spectrum.
 
-3. **Precision and recall are both high** (top-center panel). The algorithm neither hallucinates spurious components nor misses real ones across the tested range.
+3. **Parameter recovery is accurate.** The error plots below show amplitude relative error, position error (in channels), and width relative error across the $\beta$ sweep:
 
-4. **Component count error is near zero** (top-right panel) for all single-component categories. The `multi_blended` and `crowded` categories show slight undercounting at higher $\beta$, consistent with the algorithm conservatively merging ambiguous overlapping features.
+![Synthetic errors](/img/results/synthetic-errors.png)
 
-5. **Parameter recovery is accurate** (bottom row). At the optimal $\beta$, position errors are sub-channel for bright isolated components, and amplitude and width relative errors are small across all categories.
+Position errors are sub-channel for most categories, and amplitude and width relative errors are small and stable across the tested $\beta$ range.
 
 The per-category F1 at the optimal $\beta$:
 
-| Category | F1 |
-|---|---|
-| Single bright | 1.000 |
-| Single narrow | 1.000 |
-| Single broad | 0.990 |
-| Multi-component (separated) | 0.996 |
-| Single faint | 0.980 |
-| Crowded (4&ndash;5 components) | 0.945 |
-| Multi-component (blended) | 0.819 |
+| Category | Label | F1 |
+|---|---|---|
+| Multi Separated | MS | 0.965 |
+| Single Broad | SBd | 0.935 |
+| Crowded | C | 0.933 |
+| Single Bright | SB | 0.926 |
+| Single Narrow | SN | 0.909 |
+| Single Faint | SF | 0.863 |
+| Multi Blended | MB | 0.849 |
 
 ## Why this matters
 
@@ -77,7 +77,7 @@ GaussPy requires a trained smoothing parameter $\alpha$ that is sensitive to the
 
 In contrast, phspectra's $\beta$ parameter is:
 
-- **Survey-agnostic**: the same value ($\beta = 4.0$) works well across both real and synthetic data with fundamentally different noise structures.
+- **Survey-agnostic**: values in the range $\beta = 3.8$&ndash;$4.0$ work well across both real and synthetic data with fundamentally different noise structures.
 - **Robust to perturbation**: performance degrades gracefully rather than collapsing at non-optimal values. There is no cliff &mdash; the F1 curve is flat.
 - **Physically interpretable**: $\beta$ directly controls the minimum significance (in $\sigma$) for a peak to be considered real. A value of $\beta = 4.0$ means "reject anything less significant than a $4\sigma$ fluctuation," which is a natural and intuitive threshold.
 
