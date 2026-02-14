@@ -31,6 +31,7 @@ packages = ["src/benchmarks"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["docker"]
+addopts = "--cov --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["benchmarks"]

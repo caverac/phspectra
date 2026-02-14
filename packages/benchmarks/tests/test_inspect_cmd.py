@@ -180,6 +180,23 @@ def test_inspect_single_beta_multi_mf(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
 
 
+def test_inspect_multi_beta_multi_mf(tmp_path: Path) -> None:
+    """CLI NxM axes branch: multiple betas and multiple mf_snr_mins."""
+    data_dir = _setup_inspect_dir(tmp_path)
+    fake = _make_fake_ensure_fits(tmp_path / "grs-test-field.fits")
+
+    with (
+        patch("benchmarks.commands.inspect_pixel.ensure_fits", side_effect=fake),
+        patch("benchmarks.commands.inspect_pixel.plt.show"),
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["inspect", "1", "1", "--data-dir", str(data_dir), "--betas", "3.8,4.0", "--mf-snr-mins", "4.0,5.0"],
+        )
+    assert result.exit_code == 0, result.output
+
+
 def test_inspect_no_components(tmp_path: Path) -> None:
     """CLI should handle zero components (full zoom range)."""
     data_dir = tmp_path / "compare-docker"

@@ -28,6 +28,7 @@ packages = ["src/train_gui"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["train_gui"]

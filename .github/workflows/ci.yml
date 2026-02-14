@@ -136,16 +136,24 @@ jobs:
         run: uv sync --group test-lambda
 
       - name: Test phspectra
-        run: uv run python -m pytest packages/phspectra/tests/ -v
+        working-directory: packages/phspectra
+        run: uv run python -m pytest tests/ -v
 
       - name: Test benchmarks
-        run: uv run python -m pytest packages/benchmarks/tests/ -v
+        working-directory: packages/benchmarks
+        run: uv run python -m pytest tests/ -v
 
       - name: Test train-gui
-        run: uv run python -m pytest packages/train-gui/tests/ -v
+        working-directory: packages/train-gui
+        run: uv run python -m pytest tests/ -v
 
       - name: Test infrastructure lambdas
-        run: uv run python -m pytest packages/infrastructure/lambda/tests/ -v
+        run: >-
+          uv run --group test-lambda python -m pytest packages/infrastructure/lambda/tests/ -v
+          --cov=splitter_handler
+          --cov=worker_handler
+          --cov-report=term-missing
+          --cov-fail-under=100
 
   # ===========================================================================
   # JS/TS Jobs (run in parallel)
