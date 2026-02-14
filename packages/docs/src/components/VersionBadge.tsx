@@ -1,6 +1,5 @@
-import type { ReactElement } from 'react'
-
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext'
+import type { ReactElement } from 'react'
 
 export default function VersionBadge(): ReactElement {
   const { siteConfig } = useDocusaurusContext()

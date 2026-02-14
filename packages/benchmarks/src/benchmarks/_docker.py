@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from benchmarks._console import console, err_console
 from benchmarks._constants import DOCKER_IMAGE
@@ -42,7 +43,7 @@ def build_image(context: str | None = None, image: str = DOCKER_IMAGE) -> None:
     console.print("  Docker image built.", style="green")
 
 
-def run_gausspyplus(data_dir: str, image: str = DOCKER_IMAGE) -> dict:
+def run_gausspyplus(data_dir: str, image: str = DOCKER_IMAGE) -> dict[str, Any]:
     """Run GaussPy+ benchmark in Docker with data dir mounted.
 
     Parameters
@@ -73,4 +74,5 @@ def run_gausspyplus(data_dir: str, image: str = DOCKER_IMAGE) -> dict:
         err_console.print(f"  Docker FAILED (exit {result.returncode})")
         sys.exit(1)
     with open(os.path.join(data_dir, "results.json"), encoding="utf-8") as f:
-        return json.load(f)
+        parsed: dict[str, Any] = json.load(f)
+    return parsed

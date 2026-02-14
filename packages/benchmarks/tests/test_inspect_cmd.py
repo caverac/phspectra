@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 from unittest.mock import patch
 
 import numpy as np
+import numpy.typing as npt
 from astropy.io import fits
 from benchmarks.cli import main
 from click.testing import CliRunner
 
 
-def _make_fake_ensure_fits(fits_path: Path) -> Callable:
+def _make_fake_ensure_fits(fits_path: Path) -> Callable[..., Any]:
     """Create a fake ensure_fits that loads from a test FITS file."""
 
-    def _inner(**_kwargs: str) -> tuple:
+    def _inner(**_kwargs: str) -> tuple[fits.Header, npt.NDArray[np.float64]]:
         header = fits.getheader(str(fits_path))
         data = np.asarray(fits.getdata(str(fits_path)), dtype=np.float64)
         return header, data
@@ -24,7 +25,7 @@ def _make_fake_ensure_fits(fits_path: Path) -> Callable:
     return _inner
 
 
-def _fake_ensure_fits_empty(**_kwargs: str) -> tuple:
+def _fake_ensure_fits_empty(**_kwargs: str) -> tuple[fits.Header, npt.NDArray[np.float64]]:
     """Return a minimal empty header and cube."""
     return fits.Header(), np.zeros((10, 3, 4))
 
@@ -194,7 +195,7 @@ def test_inspect_no_components(tmp_path: Path) -> None:
     fits.PrimaryHDU(data=data, header=hdr).writeto(str(tmp_path / "grs-test-field.fits"), overwrite=True)
     ph = {"pixels": [[1, 1]], "amplitudes_fit": [[]], "means_fit": [[]], "stddevs_fit": [[]]}
     (data_dir / "phspectra_results.json").write_text(json.dumps(ph))
-    gp = {"amplitudes_fit": [[]], "means_fit": [[]], "stddevs_fit": [[]]}
+    gp: dict[str, list[list[object]]] = {"amplitudes_fit": [[]], "means_fit": [[]], "stddevs_fit": [[]]}
     (data_dir / "results.json").write_text(json.dumps(gp))
 
     fake = _make_fake_ensure_fits(tmp_path / "grs-test-field.fits")

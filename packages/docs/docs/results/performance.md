@@ -19,12 +19,12 @@ We benchmark the wall-clock time for decomposing 1001 real GRS spectra (424 chan
 
 ### Results
 
-| Metric | PHSpectra | GaussPy+ | Factor |
-|---|---|---|---|
-| Total time (1001 spectra) | 131.7 s | 737.8 s | **5.6&times;** |
-| Mean per spectrum | 131.6 ms | 737.1 ms | 5.6&times; |
-| Median per spectrum | 89.3 ms | 699.5 ms | 7.8&times; |
-| Mean components detected | 2.44 | 2.38 | &mdash; |
+| Metric                    | PHSpectra | GaussPy+ | Factor         |
+| ------------------------- | --------- | -------- | -------------- |
+| Total time (1001 spectra) | 131.7 s   | 737.8 s  | **5.6&times;** |
+| Mean per spectrum         | 131.6 ms  | 737.1 ms | 5.6&times;     |
+| Median per spectrum       | 89.3 ms   | 699.5 ms | 7.8&times;     |
+| Mean components detected  | 2.44      | 2.38     | &mdash;        |
 
 PHSpectra is **5.6&times; faster** than GaussPy+ on identical real survey data.
 
@@ -40,7 +40,7 @@ The speed advantage comes from algorithmic differences:
 
 3. **No training required.** GaussPy+'s $\alpha$ parameters must be trained per survey (or per survey region), which adds a separate computational cost not reflected in the per-spectrum timing. PHSpectra's $\beta$ parameter requires no training &mdash; the default value works across surveys.
 
-4. **Spread in execution times.** GaussPy+'s execution time varies widely across spectra, due to complex optimization landscapes. PHSpectra's execution time is more consistent, with fewer outliers. 
+4. **Spread in execution times.** GaussPy+'s execution time varies widely across spectra, due to complex optimization landscapes. PHSpectra's execution time is more consistent, with fewer outliers.
 
 ### Benchmark details
 

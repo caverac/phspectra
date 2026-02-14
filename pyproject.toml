@@ -94,6 +94,7 @@ explicit_package_bases = true
 mypy_path = [
     "packages/phspectra/src",
     "packages/benchmarks/src",
+    "packages/benchmarks/docker",
     "packages/infrastructure/lambda",
 ]
 
@@ -125,7 +126,6 @@ ignore_missing_imports = true
 reportMissingTypeStubs = false
 
 [tool.pytest.ini_options]
-testpaths = ["packages/phspectra/tests", "packages/infrastructure/lambda/tests", "packages/benchmarks/tests"]
 markers = [
     "slow: marks tests that require network access and optional dependencies (deselect with '-m \"not slow\"')",
 ]

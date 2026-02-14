@@ -45,7 +45,7 @@ def _plot_timing(
     fig, ax = plt.subplots(figsize=(6.5, 5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.92)
 
-    clip = max(np.percentile(ph_ms, 99), np.percentile(gp_ms, 99))  # type: ignore[call-overload]
+    clip = max(np.percentile(ph_ms, 99), np.percentile(gp_ms, 99))
     bins = np.linspace(0, clip, 40)
     ph_counts, ph_edges, _ = ax.hist(
         ph_ms,

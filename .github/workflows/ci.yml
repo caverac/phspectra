@@ -134,8 +134,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --group test-lambda
 
-      - name: Run tests
-        run: uv run python -m pytest -m "not slow" -v
+      - name: Test phspectra
+        run: uv run python -m pytest packages/phspectra/tests/ -v
+
+      - name: Test benchmarks
+        run: uv run python -m pytest packages/benchmarks/tests/ -v
+
+      - name: Test infrastructure lambdas
+        run: uv run python -m pytest packages/infrastructure/lambda/tests/ -v
 
   # ===========================================================================
   # JS/TS Jobs (run in parallel)

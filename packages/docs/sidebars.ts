@@ -15,12 +15,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Results',
-      items: [
-        'results/beta',
-        'results/accuracy',
-        'results/performance',
-        'results/reproducing'
-      ]
+      items: ['results/beta', 'results/accuracy', 'results/performance', 'results/reproducing']
     },
     {
       type: 'category',

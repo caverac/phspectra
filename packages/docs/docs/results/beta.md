@@ -19,17 +19,17 @@ The real-data benchmark above compares phspectra against GaussPy+ (another algor
 
 **Test design.** We generate 350 spectra across seven categories of increasing difficulty:
 
-| Category | Label | Components | Amplitudes (K) | Widths $\sigma$ (ch) | Constraint |
-|---|---|---|---|---|---|
-| Single Bright | SB | 1 | 1.0&ndash;5.0 | 3&ndash;10 | SNR > 7 |
-| Single Faint | SF | 1 | 0.3&ndash;0.8 | 3&ndash;10 | SNR 2&ndash;6 |
-| Single Narrow | SN | 1 | 1.0&ndash;5.0 | 1&ndash;2.5 | Sub-resolution widths |
-| Single Broad | SBd | 1 | 0.5&ndash;3.0 | 10&ndash;20 | Extended features |
-| Multi Separated | MS | 2&ndash;3 | 0.5&ndash;4.0 | 2&ndash;8 | Separation > $4\sigma$ |
-| Multi Blended | MB | 2&ndash;3 | 0.5&ndash;4.0 | 3&ndash;8 | Separation $1.5$&ndash;$3\sigma$ |
-| Crowded | C | 4&ndash;5 | 0.3&ndash;3.0 | 2&ndash;6 | Mixed separations |
+| Category        | Label | Components | Amplitudes (K) | Widths $\sigma$ (ch) | Constraint                       |
+| --------------- | ----- | ---------- | -------------- | -------------------- | -------------------------------- |
+| Single Bright   | SB    | 1          | 1.0&ndash;5.0  | 3&ndash;10           | SNR > 7                          |
+| Single Faint    | SF    | 1          | 0.3&ndash;0.8  | 3&ndash;10           | SNR 2&ndash;6                    |
+| Single Narrow   | SN    | 1          | 1.0&ndash;5.0  | 1&ndash;2.5          | Sub-resolution widths            |
+| Single Broad    | SBd   | 1          | 0.5&ndash;3.0  | 10&ndash;20          | Extended features                |
+| Multi Separated | MS    | 2&ndash;3  | 0.5&ndash;4.0  | 2&ndash;8            | Separation > $4\sigma$           |
+| Multi Blended   | MB    | 2&ndash;3  | 0.5&ndash;4.0  | 3&ndash;8            | Separation $1.5$&ndash;$3\sigma$ |
+| Crowded         | C     | 4&ndash;5  | 0.3&ndash;3.0  | 2&ndash;6            | Mixed separations                |
 
-All spectra use GRS-realistic parameters: 424 channels with additive Gaussian noise at $\sigma = 0.13$ K. Because the true components are known exactly, $F_1$ measures *true accuracy* rather than agreement with another algorithm.
+All spectra use GRS-realistic parameters: 424 channels with additive Gaussian noise at $\sigma = 0.13$ K. Because the true components are known exactly, $F_1$ measures _true accuracy_ rather than agreement with another algorithm.
 
 For each spectrum we sweep $\beta$ from 3.8 to 4.5, decompose with PHSpectra, and score using Hungarian matching with the [Lindner et al. (2015)](https://arxiv.org/abs/1409.2840) criteria.
 
@@ -55,21 +55,21 @@ All three panels are tightly centred on zero for most categories. Position recov
 
 The per-category $F_1$ at the optimal $\beta = 3.8$:
 
-| Category | Label | $F_1$ |
-|---|---|---|
-| Multi Separated | MS | 0.988 |
-| Single Bright | SB | 0.987 |
-| Single Broad | SBd | 0.987 |
-| Single Narrow | SN | 0.968 |
-| Crowded | C | 0.949 |
-| Multi Blended | MB | 0.862 |
-| Single Faint | SF | 0.860 |
+| Category        | Label | $F_1$ |
+| --------------- | ----- | ----- |
+| Multi Separated | MS    | 0.988 |
+| Single Bright   | SB    | 0.987 |
+| Single Broad    | SBd   | 0.987 |
+| Single Narrow   | SN    | 0.968 |
+| Crowded         | C     | 0.949 |
+| Multi Blended   | MB    | 0.862 |
+| Single Faint    | SF    | 0.860 |
 
 ### Limitation: tightly blended components
 
 The Multi Blended (MB) category consistently scores lowest across all $\beta$ values. The root cause is structural:
 
-**Persistence merges close peaks.** Persistent homology identifies peaks by their *prominence*: a feature must rise above its surrounding valley to register as a separate birth&ndash;death pair. When two Gaussians are separated by less than $\sim 2\sigma$, their sum looks like a single broad peak to the filtration &mdash; the weaker component appears as a shoulder rather than a distinct local maximum. In these cases the persistence diagram contains only one high-persistence feature where the ground truth has two, and the algorithm never gets a chance to fit the missing component.
+**Persistence merges close peaks.** Persistent homology identifies peaks by their _prominence_: a feature must rise above its surrounding valley to register as a separate birth&ndash;death pair. When two Gaussians are separated by less than $\sim 2\sigma$, their sum looks like a single broad peak to the filtration &mdash; the weaker component appears as a shoulder rather than a distinct local maximum. In these cases the persistence diagram contains only one high-persistence feature where the ground truth has two, and the algorithm never gets a chance to fit the missing component.
 
 This is a known structural limitation of persistence-based peak detection for closely blended lines, shared with any prominence-based method. For spectra where components are separated by $> 3\sigma$, the algorithm performs well (MS category $F_1 = 0.988$); for separations below $\sim 2\sigma$, the merged persistence feature is the binding constraint.
 
@@ -87,9 +87,7 @@ Sweeping $\beta$ from 3.8 to 4.5 on 1000 GRS spectra shows a nearly flat $F_1$ c
 
 Considering these results and the ones from the previous section, I decided to set the default $\beta = 3.8$. However, the variation across the entire sweep is only $\Delta F_1 \approx 0.01$ &mdash; the algorithm is remarkably stable.
 
-Note that the $F_1$ ceiling here does not reflect a limitation of phspectra &mdash; it reflects *disagreement between two different decomposition strategies*. See the [Accuracy](accuracy) section for a detailed analysis of where and why the decompositions differ.
-
-
+Note that the $F_1$ ceiling here does not reflect a limitation of phspectra &mdash; it reflects _disagreement between two different decomposition strategies_. See the [Accuracy](accuracy) section for a detailed analysis of where and why the decompositions differ.
 
 ## Why this matters
 

@@ -46,11 +46,11 @@ where $\sigma_{\rm rms}$ is estimated robustly from the data itself using signal
 
 After persistence selects candidate peaks and Gaussians are fitted, each component must pass three additional quality checks before it is accepted:
 
-| Check | Criterion | Default |
-|-------|-----------|---------|
-| **SNR floor** | Amplitude $\geq$ `snr_min` $\times \sigma_\mathrm{rms}$ | 1.5 |
-| **Matched-filter SNR** | $(A_i / \sigma_\mathrm{rms})\,\sqrt{\sigma_i}\;\pi^{1/4} \geq$ `mf_snr_min` | 5.0 |
-| **Minimum width** | FWHM $\geq$ `fwhm_min_channels` | 1.0 channel |
+| Check                  | Criterion                                                                   | Default     |
+| ---------------------- | --------------------------------------------------------------------------- | ----------- |
+| **SNR floor**          | Amplitude $\geq$ `snr_min` $\times \sigma_\mathrm{rms}$                     | 1.5         |
+| **Matched-filter SNR** | $(A_i / \sigma_\mathrm{rms})\,\sqrt{\sigma_i}\;\pi^{1/4} \geq$ `mf_snr_min` | 5.0         |
+| **Minimum width**      | FWHM $\geq$ `fwhm_min_channels`                                             | 1.0 channel |
 
 The matched-filter SNR is the optimal detection signal-to-noise for a Gaussian component in white noise. Because it scales as $\sqrt{\sigma}$, narrow peaks must have proportionally higher amplitude to survive -- this rejects noise spikes without an ad-hoc width threshold.
 

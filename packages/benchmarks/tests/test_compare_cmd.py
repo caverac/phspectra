@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import numpy.typing as npt
 from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
@@ -14,7 +15,7 @@ from click.testing import CliRunner
 from numpy.linalg import LinAlgError
 
 
-def _make_header_and_cube() -> tuple[fits.Header, np.ndarray]:
+def _make_header_and_cube() -> tuple[fits.Header, npt.NDArray[np.float64]]:
     """Return a minimal header and cube for testing."""
     nx, ny, nz = 4, 3, 50
     hdr = fits.Header()
@@ -41,7 +42,7 @@ def _make_catalog(header: fits.Header) -> Table:
     return Table({"GLON": [float(lon)], "GLAT": [float(lat)]})
 
 
-def _gp_results_for(n_spectra: int) -> dict:
+def _gp_results_for(n_spectra: int) -> dict[str, object]:
     """Build a fake GaussPy+ results dict."""
     return {
         "amplitudes_fit": [[1.0]] * n_spectra,

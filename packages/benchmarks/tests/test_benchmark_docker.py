@@ -133,7 +133,7 @@ class TestDecomposeOne:
                 _x: npt.NDArray[np.float64],
                 _signal: npt.NDArray[np.float64],
                 _errors: npt.NDArray[np.float64],
-            ) -> dict[str, object]:
+            ) -> dict[str, float | list[float] | None]:
                 """Return a fixed 3-component result."""
                 return {"N_components": 3}
 
@@ -159,7 +159,7 @@ class TestDecomposeOne:
                 _x: npt.NDArray[np.float64],
                 _signal: npt.NDArray[np.float64],
                 _errors: npt.NDArray[np.float64],
-            ) -> dict[str, object]:
+            ) -> dict[str, float | list[float] | None]:
                 """Raise RuntimeError to simulate a failure."""
                 raise RuntimeError("decomposition failed")
 

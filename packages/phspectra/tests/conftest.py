@@ -8,7 +8,7 @@ from urllib.request import urlretrieve
 import numpy as np
 import numpy.typing as npt
 import pytest
-from astropy.io import fits  # type: ignore[import-untyped]
+from astropy.io import fits
 
 FITS_URL = "https://github.com/mriener/gausspyplus/raw/master/gausspyplus/data/grs-test_field.fits"
 

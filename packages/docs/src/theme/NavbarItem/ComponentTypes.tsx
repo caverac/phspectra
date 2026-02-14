@@ -1,6 +1,5 @@
-import ComponentTypes from '@theme-original/NavbarItem/ComponentTypes'
-
 import VersionBadge from '@site/src/components/VersionBadge'
+import ComponentTypes from '@theme-original/NavbarItem/ComponentTypes'
 
 export default {
   ...ComponentTypes,

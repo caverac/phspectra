@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any
 
 import click
 import numpy as np
+import numpy.typing as npt
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._plotting import configure_axes, docs_figure
@@ -21,9 +23,9 @@ from matplotlib.figure import Figure
 
 
 def _compute_rms_and_ncomp(
-    signals: np.ndarray,
-    data: dict,
-) -> tuple[np.ndarray, np.ndarray]:
+    signals: npt.NDArray[np.float64],
+    data: dict[str, Any],
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.intp]]:
     """Compute per-spectrum residual RMS and component counts.
 
     Parameters
@@ -57,7 +59,7 @@ def _compute_rms_and_ncomp(
     return rms, ncomp
 
 
-def _annotate_panel(ax: Axes, rms: np.ndarray, ncomp: np.ndarray) -> None:
+def _annotate_panel(ax: Axes, rms: npt.NDArray[np.float64], ncomp: npt.NDArray[np.intp]) -> None:
     """Add mean-component annotations to the left and right of the threshold.
 
     Parameters
@@ -95,10 +97,10 @@ def _annotate_panel(ax: Axes, rms: np.ndarray, ncomp: np.ndarray) -> None:
 
 @docs_figure("ncomp-vs-rms.png")
 def _build_ncomp_rms(
-    ph_rms: np.ndarray,
-    ph_ncomp: np.ndarray,
-    gp_rms: np.ndarray,
-    gp_ncomp: np.ndarray,
+    ph_rms: npt.NDArray[np.float64],
+    ph_ncomp: npt.NDArray[np.intp],
+    gp_rms: npt.NDArray[np.float64],
+    gp_ncomp: npt.NDArray[np.intp],
 ) -> Figure:
     """Build stacked scatter panels of N components vs residual RMS.
 

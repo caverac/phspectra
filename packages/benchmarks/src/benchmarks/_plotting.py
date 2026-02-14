@@ -32,7 +32,7 @@ class AxesGrid1D:
     benchmark plotting code is declared here.
     """
 
-    def __getitem__(self, index: int) -> Axes:
+    def __getitem__(self, index: int) -> Axes:  # type: ignore[empty-body]
         """Return the axes at *index*."""
 
     def __iter__(self) -> Iterator[Axes]:  # type: ignore[empty-body]

@@ -54,7 +54,7 @@ flowchart TB
 | **SQS Queue**       | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection.                                             |
 | **Worker Lambda**   | Reads a single `.npz` chunk from S3, runs `fit_gaussians(spectrum, beta=b)` on each spectrum, builds a PyArrow table, and writes the result as a Snappy-compressed Parquet file to the output prefix.                   |
 | **S3 (Parquet)**    | Results are written in Hive-style partitioning: `decompositions/survey={name}/beta={value}/`. This layout enables Athena to read only the partitions relevant to a query.                                               |
-| **Glue + Athena**   | The Glue table uses partition projection -- no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys and $\beta$ values immediately after the workers finish writing.                            |
+| **Glue + Athena**   | The Glue table uses partition projection -- no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys and $\beta$ values immediately after the workers finish writing.                           |
 
 ## S3 bucket layout
 

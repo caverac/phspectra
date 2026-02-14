@@ -116,7 +116,7 @@ def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict[str
     s3.download_file(BUCKET, key, local_path)
 
     with fits.open(local_path) as hdul:
-        data = hdul[0].data  # type: ignore # pylint: disable=no-member
+        data = hdul[0].data  # pylint: disable=no-member
 
     os.remove(local_path)
 

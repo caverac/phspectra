@@ -6,13 +6,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import numpy.typing as npt
 from astropy.io import fits
 from astropy.table import Table
 from benchmarks.cli import main
 from click.testing import CliRunner
 
 
-def _fake_ensure_fits(_url: str, _path: str) -> tuple:
+def _fake_ensure_fits(_url: str, _path: str) -> tuple[fits.Header, npt.NDArray[np.float64]]:
     """Return a minimal header and cube."""
     hdr = fits.Header()
     hdr["NAXIS1"] = 4
@@ -22,7 +23,7 @@ def _fake_ensure_fits(_url: str, _path: str) -> tuple:
     return hdr, data
 
 
-def _fake_fits_bounds(_header: fits.Header) -> tuple:
+def _fake_fits_bounds(_header: fits.Header) -> tuple[float, float, float, float]:
     """Return fixed galactic bounds."""
     return (29.0, 31.0, -1.0, 1.0)
 

@@ -1,7 +1,4 @@
-import {
-  DeploymentEnvironmentSchema,
-  EnvironmentVariablesSchema
-} from 'utils/types'
+import { DeploymentEnvironmentSchema, EnvironmentVariablesSchema } from 'utils/types'
 
 describe('DeploymentEnvironmentSchema', () => {
   test.each(['development', 'staging', 'production'])('accepts "%s"', (env) => {
