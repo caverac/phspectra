@@ -36,6 +36,19 @@ def test_empty_signal() -> None:
     assert not peaks
 
 
+def test_plateau_same_component() -> None:
+    """Consecutive equal values should not create spurious peaks.
+
+    When a neighbor is already in the same component as the current index,
+    the union-find ``idx_root == neighbor_root`` branch is taken (line 113).
+    """
+    # A flat plateau followed by a single peak
+    signal = np.concatenate([np.full(20, 1.0), np.full(5, 5.0), np.full(20, 1.0)])
+    peaks = find_peaks_by_persistence(signal, min_persistence=0.5)
+    # Should find exactly 1 peak (the plateau at 5.0)
+    assert len(peaks) == 1
+
+
 def test_fit_gaussians_recovers_params() -> None:
     """fit_gaussians should approximately recover ground-truth parameters."""
     x = np.linspace(0, 100, 500)

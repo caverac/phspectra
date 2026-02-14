@@ -64,11 +64,11 @@ These thresholds have sensible physical defaults that work across the datasets w
 | --------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
 | **Peak detection**    | TV-regularized 2nd/4th derivative zero-crossings            | Persistent homology (all scales simultaneously)   |
 | **Tuning parameters** | $\alpha_1, \alpha_2$ (regularization strength) + SNR cutoff | $\beta$ (persistence threshold in noise units)    |
-| **Training**          | Supervised gradient descent on synthetic spectra            | Not required -- default $\beta = 4.0$ generalizes |
+| **Training**          | Supervised gradient descent on synthetic spectra            | Not required -- default $\beta = 3.8$ generalizes |
 | **Peak significance** | Implicit (via regularization strength)                      | Explicit (topological persistence)                |
 | **Validation**        | SNR threshold (trained)                                     | SNR floor + significance + AICc (fixed defaults)  |
 
-$\beta = 4$ (a 4$\sigma$ persistence cut) is the default. Training $\beta$ on a labeled dataset is a simple 1-D optimization and automatically covers all scales.
+$\beta = 3.8$ (a $3.8\sigma$ persistence cut) is the default. Training $\beta$ on a labeled dataset is a simple 1-D optimization and automatically covers all scales.
 
 ## Why this matters
 

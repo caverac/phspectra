@@ -115,6 +115,7 @@ def test_handle_fits_single_chunk(splitter: Any) -> None:
         patch.object(splitter, "np") as mock_np,
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
+        patch.object(splitter.dynamodb, "put_item"),
         patch.object(
             splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
         ),
@@ -149,6 +150,7 @@ def test_handle_fits_multiple_chunks(splitter: Any) -> None:
         patch.object(splitter, "np") as mock_np,
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
+        patch.object(splitter.dynamodb, "put_item"),
         patch.object(
             splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
         ),
@@ -181,6 +183,7 @@ def test_handle_fits_multiple_betas(splitter: Any) -> None:
         patch.object(splitter, "np") as mock_np,
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
+        patch.object(splitter.dynamodb, "put_item"),
         patch.object(
             splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
         ),
@@ -245,6 +248,7 @@ def test_handle_fits_nan_replacement(splitter: Any) -> None:
         patch.object(splitter, "np") as mock_np,
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
+        patch.object(splitter.dynamodb, "put_item"),
         patch.object(
             splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
         ),
@@ -321,6 +325,7 @@ def test_handle_fits_sqs_message_body(splitter: Any) -> None:
         patch.object(splitter, "np") as mock_np,
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message", side_effect=capture_send),
+        patch.object(splitter.dynamodb, "put_item"),
         patch.object(
             splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
         ),

@@ -135,9 +135,9 @@ def test_multiple_spectra(worker: Any, sqs_event: Any, lambda_context: MagicMock
 @pytest.mark.parametrize(
     ("survey", "beta", "expected_prefix"),
     [
-        ("grs", 5.0, "decompositions/survey=grs/beta=5.0/"),
-        ("vgps", 1.5, "decompositions/survey=vgps/beta=1.5/"),
-        ("ngc1234", 10.0, "decompositions/survey=ngc1234/beta=10.0/"),
+        ("grs", 5.0, "decompositions/survey=grs/beta=5.00/"),
+        ("vgps", 1.5, "decompositions/survey=vgps/beta=1.50/"),
+        ("ngc1234", 10.0, "decompositions/survey=ngc1234/beta=10.00/"),
     ],
     ids=["grs-default", "vgps-custom", "ngc-large-beta"],
 )

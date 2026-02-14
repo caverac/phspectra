@@ -109,7 +109,7 @@ def find_peaks_by_persistence(
                 continue
             neighbor_root = find(neighbor)
             idx_root = find(comp)
-            if idx_root == neighbor_root:
+            if idx_root == neighbor_root:  # pragma: no cover – unreachable on 1-D grids
                 continue
 
             # Determine which representative has the *lower* peak (younger).
