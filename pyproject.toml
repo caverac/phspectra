@@ -8,17 +8,19 @@ requires-python = ">=3.11"
 package = false
 
 [tool.uv.workspace]
-members = ["packages/phspectra", "packages/benchmarks"]
+members = ["packages/phspectra", "packages/benchmarks", "packages/train-gui"]
 
 [tool.uv.sources]
 phspectra = { workspace = true }
 benchmarks = { workspace = true }
+train-gui = { workspace = true }
 
 
 [dependency-groups]
 dev = [
     "phspectra",
     "benchmarks",
+    "train-gui",
     "pytest>=8.0",
     "mypy>=1.15",
     "black>=24.0.0",
@@ -98,6 +100,7 @@ mypy_path = [
     "packages/benchmarks/src",
     "packages/benchmarks/docker",
     "packages/infrastructure/lambda",
+    "packages/train-gui/src",
 ]
 
 [[tool.mypy.overrides]]

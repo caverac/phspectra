@@ -1,0 +1,1274 @@
+[
+  {
+    "components": [
+      {
+        "amplitude": 0.497038,
+        "mean": 2.986,
+        "source": "gausspyplus",
+        "stddev": 1.4218
+      },
+      {
+        "amplitude": 0.424377260326746,
+        "mean": 184.02529920378979,
+        "source": "phspectra",
+        "stddev": 0.6593632367229082
+      },
+      {
+        "amplitude": 0.4376700073205267,
+        "mean": 190.62138741047244,
+        "source": "phspectra",
+        "stddev": 6.739977688587843
+      },
+      {
+        "amplitude": 0.5471770192548656,
+        "mean": 58.74109918147465,
+        "source": "manual",
+        "stddev": 0.9239334361711126
+      },
+      {
+        "amplitude": 0.6442298219683572,
+        "mean": 423.99999999999994,
+        "source": "phspectra",
+        "stddev": 1.0224522917928212
+      }
+    ],
+    "pixel": [8, 43],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.337324,
+        "mean": 62.2952,
+        "source": "gausspyplus",
+        "stddev": 2.9602
+      },
+      {
+        "amplitude": 0.227732,
+        "mean": 183.1333,
+        "source": "gausspyplus",
+        "stddev": 32.0968
+      }
+    ],
+    "pixel": [22, 50],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.873064,
+        "mean": 186.3861,
+        "source": "gausspyplus",
+        "stddev": 5.2499
+      },
+      {
+        "amplitude": 0.69862,
+        "mean": 163.3733,
+        "source": "gausspyplus",
+        "stddev": 5.3193
+      }
+    ],
+    "pixel": [64, 25],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.302764,
+        "mean": 189.8668,
+        "source": "gausspyplus",
+        "stddev": 18.7824
+      },
+      {
+        "amplitude": 0.40905269187521737,
+        "mean": 25.97780266604684,
+        "source": "phspectra",
+        "stddev": 1.1980342498825236
+      },
+      {
+        "amplitude": 0.2201937831067942,
+        "mean": 70.78860852722372,
+        "source": "manual",
+        "stddev": 4.435056016158393
+      }
+    ],
+    "pixel": [26, 2],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.289137,
+        "mean": 64.9645,
+        "source": "gausspyplus",
+        "stddev": 3.9986
+      },
+      {
+        "amplitude": 0.307318,
+        "mean": 191.5841,
+        "source": "gausspyplus",
+        "stddev": 23.0088
+      },
+      {
+        "amplitude": 0.567344,
+        "mean": 176.0457,
+        "source": "gausspyplus",
+        "stddev": 1.3224
+      }
+    ],
+    "pixel": [23, 1],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.32433081687707777,
+        "mean": 171.20870741424582,
+        "source": "phspectra",
+        "stddev": 0.9586637635173378
+      },
+      {
+        "amplitude": 0.38529140187805017,
+        "mean": 179.7813427513841,
+        "source": "phspectra",
+        "stddev": 4.128735239610002
+      },
+      {
+        "amplitude": 1.031813181671313,
+        "mean": 194.70432853770473,
+        "source": "phspectra",
+        "stddev": 4.719025889567579
+      }
+    ],
+    "pixel": [38, 12],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.711794,
+        "mean": 182.4468,
+        "source": "gausspyplus",
+        "stddev": 7.4896
+      },
+      {
+        "amplitude": 1.234818,
+        "mean": 229.8156,
+        "source": "gausspyplus",
+        "stddev": 5.5967
+      },
+      {
+        "amplitude": 1.363363,
+        "mean": 162.2681,
+        "source": "gausspyplus",
+        "stddev": 7.544
+      }
+    ],
+    "pixel": [50, 35],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.383176,
+        "mean": 190.3321,
+        "source": "gausspyplus",
+        "stddev": 8.9752
+      },
+      {
+        "amplitude": 0.334855,
+        "mean": 65.5188,
+        "source": "gausspyplus",
+        "stddev": 5.3186
+      }
+    ],
+    "pixel": [55, 59],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 1.372556,
+        "mean": 186.2074,
+        "source": "gausspyplus",
+        "stddev": 8.4835
+      },
+      {
+        "amplitude": 0.615282,
+        "mean": 165.5602,
+        "source": "gausspyplus",
+        "stddev": 3.8339
+      },
+      {
+        "amplitude": 0.2526997926837931,
+        "mean": 126.92244177691417,
+        "source": "phspectra",
+        "stddev": 1.2522671089024242
+      }
+    ],
+    "pixel": [50, 20],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.432767,
+        "mean": 61.3011,
+        "source": "gausspyplus",
+        "stddev": 2.4466
+      },
+      {
+        "amplitude": 0.456636,
+        "mean": 185.3271,
+        "source": "gausspyplus",
+        "stddev": 4.9143
+      },
+      {
+        "amplitude": 0.5598,
+        "mean": 238.25,
+        "source": "gausspyplus",
+        "stddev": 5.2474
+      }
+    ],
+    "pixel": [5, 39],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.2968878119207892,
+        "mean": 63.96138855996926,
+        "source": "phspectra",
+        "stddev": 2.9621187774379982
+      },
+      {
+        "amplitude": 0.17290022260618496,
+        "mean": 154.5443638209148,
+        "source": "phspectra",
+        "stddev": 6.046566400180635
+      },
+      {
+        "amplitude": 0.7044084759567297,
+        "mean": 182.81759246445256,
+        "source": "phspectra",
+        "stddev": 2.4228455741914994
+      },
+      {
+        "amplitude": 0.35226283744807596,
+        "mean": 192.07356774322645,
+        "source": "phspectra",
+        "stddev": 2.394322714437154
+      }
+    ],
+    "pixel": [59, 56],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.376705,
+        "mean": 1.9693,
+        "source": "gausspyplus",
+        "stddev": 9.4132
+      },
+      {
+        "amplitude": 0.424093,
+        "mean": 55.7731,
+        "source": "gausspyplus",
+        "stddev": 2.5537
+      },
+      {
+        "amplitude": 0.456629,
+        "mean": 191.7169,
+        "source": "gausspyplus",
+        "stddev": 7.3008
+      }
+    ],
+    "pixel": [8, 41],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.4813,
+        "mean": 192.0136,
+        "source": "gausspyplus",
+        "stddev": 8.4847
+      }
+    ],
+    "pixel": [9, 41],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.12969348665031882,
+        "mean": 70.76624633258967,
+        "source": "phspectra",
+        "stddev": 10.960744860368509
+      },
+      {
+        "amplitude": 0.448974,
+        "mean": 154.8198,
+        "source": "gausspyplus",
+        "stddev": 5.4859
+      },
+      {
+        "amplitude": 0.25806113008102244,
+        "mean": 224.72838818364485,
+        "source": "phspectra",
+        "stddev": 2.9513386022794146
+      },
+      {
+        "amplitude": 0.27129600473774873,
+        "mean": 240.687519492233,
+        "source": "phspectra",
+        "stddev": 3.4124781728430174
+      },
+      {
+        "amplitude": 0.22330721152962188,
+        "mean": 179.5222344283701,
+        "source": "manual",
+        "stddev": 6.202599238696005
+      }
+    ],
+    "pixel": [56, 49],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.41998,
+        "mean": 66.5004,
+        "source": "gausspyplus",
+        "stddev": 8.0271
+      },
+      {
+        "amplitude": 0.35809,
+        "mean": 183.3463,
+        "source": "gausspyplus",
+        "stddev": 4.8606
+      }
+    ],
+    "pixel": [53, 57],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.4911990568665394,
+        "mean": 36.34931087898987,
+        "source": "phspectra",
+        "stddev": 0.5180790445261636
+      },
+      {
+        "amplitude": 0.263719,
+        "mean": 184.3374,
+        "source": "gausspyplus",
+        "stddev": 12.2201
+      }
+    ],
+    "pixel": [62, 4],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.304164,
+        "mean": 205.7532,
+        "source": "gausspyplus",
+        "stddev": 32.2145
+      }
+    ],
+    "pixel": [18, 34],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.756578,
+        "mean": 194.0305,
+        "source": "gausspyplus",
+        "stddev": 4.6667
+      },
+      {
+        "amplitude": 0.568449,
+        "mean": 3.6536,
+        "source": "gausspyplus",
+        "stddev": 2.2814
+      },
+      {
+        "amplitude": 0.413828,
+        "mean": 246.4462,
+        "source": "gausspyplus",
+        "stddev": 5.5651
+      },
+      {
+        "amplitude": 0.547292,
+        "mean": 215.5975,
+        "source": "gausspyplus",
+        "stddev": 1.8243
+      }
+    ],
+    "pixel": [15, 33],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.461452,
+        "mean": 186.762,
+        "source": "gausspyplus",
+        "stddev": 5.3286
+      },
+      {
+        "amplitude": 0.287957,
+        "mean": 238.7777,
+        "source": "gausspyplus",
+        "stddev": 12.3662
+      }
+    ],
+    "pixel": [17, 10],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.737447,
+        "mean": 180.1665,
+        "source": "gausspyplus",
+        "stddev": 3.1565
+      },
+      {
+        "amplitude": 0.584427,
+        "mean": 178.459,
+        "source": "gausspyplus",
+        "stddev": 16.7364
+      },
+      {
+        "amplitude": 0.78542,
+        "mean": 236.9234,
+        "source": "gausspyplus",
+        "stddev": 10.1722
+      }
+    ],
+    "pixel": [18, 23],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 1.132399,
+        "mean": 186.7004,
+        "source": "gausspyplus",
+        "stddev": 13.8603
+      },
+      {
+        "amplitude": 0.4004263512206722,
+        "mean": 70.97934778063448,
+        "source": "phspectra",
+        "stddev": 0.6999909623673587
+      }
+    ],
+    "pixel": [45, 16],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.3322689445406714,
+        "mean": 17.757510547619727,
+        "source": "phspectra",
+        "stddev": 0.9385196491312628
+      },
+      {
+        "amplitude": 0.20491242419813974,
+        "mean": 57.924297178113,
+        "source": "phspectra",
+        "stddev": 3.5781275326406017
+      },
+      {
+        "amplitude": 0.3162728134166386,
+        "mean": 130.05879365833718,
+        "source": "phspectra",
+        "stddev": 1.090709190581943
+      },
+      {
+        "amplitude": 0.800054,
+        "mean": 167.6682,
+        "source": "gausspyplus",
+        "stddev": 6.8311
+      },
+      {
+        "amplitude": 0.606784,
+        "mean": 176.0442,
+        "source": "gausspyplus",
+        "stddev": 1.5309
+      },
+      {
+        "amplitude": 0.717997,
+        "mean": 221.0526,
+        "source": "gausspyplus",
+        "stddev": 3.6464
+      }
+    ],
+    "pixel": [52, 42],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.27674213202882025,
+        "mean": 79.86992944724307,
+        "source": "phspectra",
+        "stddev": 3.5454080520573457
+      },
+      {
+        "amplitude": 0.2690128027829532,
+        "mean": 193.75699560692703,
+        "source": "phspectra",
+        "stddev": 16.91814108532994
+      },
+      {
+        "amplitude": 0.4743728596372735,
+        "mean": 421.562062084293,
+        "source": "phspectra",
+        "stddev": 1.9477393887406471
+      }
+    ],
+    "pixel": [28, 3],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.889664,
+        "mean": 87.814,
+        "source": "gausspyplus",
+        "stddev": 0.5709
+      },
+      {
+        "amplitude": 0.449593,
+        "mean": 186.9031,
+        "source": "gausspyplus",
+        "stddev": 11.3025
+      },
+      {
+        "amplitude": 0.351795,
+        "mean": 232.8736,
+        "source": "gausspyplus",
+        "stddev": 11.1767
+      }
+    ],
+    "pixel": [5, 6],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.84234,
+        "mean": 179.3467,
+        "source": "gausspyplus",
+        "stddev": 3.18
+      },
+      {
+        "amplitude": 0.512318,
+        "mean": 227.0969,
+        "source": "gausspyplus",
+        "stddev": 14.7943
+      },
+      {
+        "amplitude": 0.473855,
+        "mean": 190.6599,
+        "source": "gausspyplus",
+        "stddev": 7.8726
+      },
+      {
+        "amplitude": 0.404454,
+        "mean": 156.7133,
+        "source": "gausspyplus",
+        "stddev": 6.8556
+      }
+    ],
+    "pixel": [26, 23],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.734913,
+        "mean": 195.5494,
+        "source": "gausspyplus",
+        "stddev": 4.2242
+      },
+      {
+        "amplitude": 0.390024,
+        "mean": 241.9445,
+        "source": "gausspyplus",
+        "stddev": 16.716
+      },
+      {
+        "amplitude": 0.239041,
+        "mean": 179.0289,
+        "source": "gausspyplus",
+        "stddev": 8.9318
+      }
+    ],
+    "pixel": [16, 33],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.226418,
+        "mean": 201.828,
+        "source": "gausspyplus",
+        "stddev": 37.9838
+      }
+    ],
+    "pixel": [25, 12],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.651524,
+        "mean": 185.0956,
+        "source": "gausspyplus",
+        "stddev": 0.8949
+      },
+      {
+        "amplitude": 0.249395,
+        "mean": 189.4098,
+        "source": "gausspyplus",
+        "stddev": 11.64
+      },
+      {
+        "amplitude": 0.408257,
+        "mean": 242.8052,
+        "source": "gausspyplus",
+        "stddev": 9.0955
+      }
+    ],
+    "pixel": [9, 37],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.24762397141166353,
+        "mean": 58.6168263043316,
+        "source": "phspectra",
+        "stddev": 6.024593028793597
+      }
+    ],
+    "pixel": [48, 59],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.4107970664074856,
+        "mean": 167.2210191127522,
+        "source": "phspectra",
+        "stddev": 13.91042750315902
+      },
+      {
+        "amplitude": 0.7755851267862431,
+        "mean": 174.8857808741478,
+        "source": "phspectra",
+        "stddev": 2.0133182133902383
+      },
+      {
+        "amplitude": 0.598402,
+        "mean": 221.4908,
+        "source": "gausspyplus",
+        "stddev": 4.0781
+      }
+    ],
+    "pixel": [46, 42],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.222454,
+        "mean": 199.1067,
+        "source": "gausspyplus",
+        "stddev": 16.9029
+      }
+    ],
+    "pixel": [11, 57],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.14468203240636224,
+        "mean": 59.42328363346234,
+        "source": "phspectra",
+        "stddev": 7.813105161722393
+      },
+      {
+        "amplitude": 0.382764,
+        "mean": 172.1056,
+        "source": "gausspyplus",
+        "stddev": 15.8087
+      },
+      {
+        "amplitude": 0.69588,
+        "mean": 175.3331,
+        "source": "gausspyplus",
+        "stddev": 1.2201
+      },
+      {
+        "amplitude": 0.788378,
+        "mean": 221.7256,
+        "source": "gausspyplus",
+        "stddev": 3.5283
+      }
+    ],
+    "pixel": [44, 42],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.570531,
+        "mean": 183.3633,
+        "source": "gausspyplus",
+        "stddev": 4.8047
+      },
+      {
+        "amplitude": 0.755362,
+        "mean": 217.8633,
+        "source": "gausspyplus",
+        "stddev": 0.7345
+      },
+      {
+        "amplitude": 0.326053,
+        "mean": 241.0195,
+        "source": "gausspyplus",
+        "stddev": 9.2594
+      },
+      {
+        "amplitude": 0.6208137635775542,
+        "mean": 254.85257865354353,
+        "source": "phspectra",
+        "stddev": 0.49493952335387176
+      }
+    ],
+    "pixel": [7, 6],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.604787,
+        "mean": 0.0,
+        "source": "gausspyplus",
+        "stddev": 1.0865
+      },
+      {
+        "amplitude": 0.418648,
+        "mean": 43.375,
+        "source": "gausspyplus",
+        "stddev": 2.1707
+      },
+      {
+        "amplitude": 0.30964187411823413,
+        "mean": 163.48285893115806,
+        "source": "phspectra",
+        "stddev": 3.2629129444570437
+      },
+      {
+        "amplitude": 0.24947729930947762,
+        "mean": 194.7948524811925,
+        "source": "phspectra",
+        "stddev": 10.163324461214188
+      },
+      {
+        "amplitude": 0.3424928495544259,
+        "mean": 230.22292446907912,
+        "source": "phspectra",
+        "stddev": 8.699988954734557
+      }
+    ],
+    "pixel": [23, 44],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.5868145591733401,
+        "mean": 178.77518787383454,
+        "source": "phspectra",
+        "stddev": 2.3261290663023404
+      },
+      {
+        "amplitude": 0.41079819729289535,
+        "mean": 190.03479405255618,
+        "source": "phspectra",
+        "stddev": 14.238613348775594
+      }
+    ],
+    "pixel": [65, 11],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.39971895259745904,
+        "mean": 44.80065316203126,
+        "source": "phspectra",
+        "stddev": 0.7095283148460441
+      },
+      {
+        "amplitude": 0.530591,
+        "mean": 190.6839,
+        "source": "gausspyplus",
+        "stddev": 9.8795
+      }
+    ],
+    "pixel": [46, 6],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.792321,
+        "mean": 4.2577,
+        "source": "gausspyplus",
+        "stddev": 2.6421
+      },
+      {
+        "amplitude": 0.247312,
+        "mean": 63.7542,
+        "source": "gausspyplus",
+        "stddev": 7.2176
+      },
+      {
+        "amplitude": 0.428045,
+        "mean": 244.3316,
+        "source": "gausspyplus",
+        "stddev": 3.7408
+      },
+      {
+        "amplitude": 0.519452,
+        "mean": 161.791,
+        "source": "gausspyplus",
+        "stddev": 3.6919
+      },
+      {
+        "amplitude": 0.698394,
+        "mean": 175.9999,
+        "source": "gausspyplus",
+        "stddev": 1.2411
+      },
+      {
+        "amplitude": 0.510668,
+        "mean": 183.3997,
+        "source": "gausspyplus",
+        "stddev": 2.038
+      }
+    ],
+    "pixel": [7, 40],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.307490253692437,
+        "mean": 157.63223844126878,
+        "source": "phspectra",
+        "stddev": 2.6701827395223345
+      },
+      {
+        "amplitude": 0.44859845053038605,
+        "mean": 196.25566325133994,
+        "source": "phspectra",
+        "stddev": 27.46481978685043
+      }
+    ],
+    "pixel": [29, 21],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.753986,
+        "mean": 189.8002,
+        "source": "gausspyplus",
+        "stddev": 8.8868
+      },
+      {
+        "amplitude": 0.3398492047444357,
+        "mean": 35.122973954565005,
+        "source": "phspectra",
+        "stddev": 1.1045887372562215
+      },
+      {
+        "amplitude": 0.29135917130448447,
+        "mean": 228.03450265988138,
+        "source": "phspectra",
+        "stddev": 3.390579798689923
+      },
+      {
+        "amplitude": 0.37683976713331935,
+        "mean": 419.8876144607411,
+        "source": "phspectra",
+        "stddev": 0.7011500070404207
+      }
+    ],
+    "pixel": [42, 9],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.448234,
+        "mean": 184.143,
+        "source": "gausspyplus",
+        "stddev": 2.5338
+      },
+      {
+        "amplitude": 0.588399,
+        "mean": 200.2863,
+        "source": "gausspyplus",
+        "stddev": 0.9165
+      }
+    ],
+    "pixel": [16, 59],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.464075,
+        "mean": 232.8817,
+        "source": "gausspyplus",
+        "stddev": 2.786
+      },
+      {
+        "amplitude": 0.5299337780864387,
+        "mean": 100.33606327502754,
+        "source": "manual",
+        "stddev": 0.9425741489872398
+      }
+    ],
+    "pixel": [28, 39],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 1.109183,
+        "mean": 182.6145,
+        "source": "gausspyplus",
+        "stddev": 6.6165
+      },
+      {
+        "amplitude": 0.769937,
+        "mean": 160.3302,
+        "source": "gausspyplus",
+        "stddev": 5.4577
+      },
+      {
+        "amplitude": 0.456482,
+        "mean": 234.1152,
+        "source": "gausspyplus",
+        "stddev": 5.4479
+      }
+    ],
+    "pixel": [46, 29],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.692077,
+        "mean": 184.9652,
+        "source": "gausspyplus",
+        "stddev": 10.8571
+      }
+    ],
+    "pixel": [64, 11],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.7447219994392839,
+        "mean": 208.07738762009203,
+        "source": "phspectra",
+        "stddev": 16.54596266326611
+      },
+      {
+        "amplitude": 1.4669840097909477,
+        "mean": 243.93637872205662,
+        "source": "phspectra",
+        "stddev": 7.837762518429215
+      },
+      {
+        "amplitude": 0.355509,
+        "mean": 41.6303,
+        "source": "gausspyplus",
+        "stddev": 3.498
+      },
+      {
+        "amplitude": 0.419861,
+        "mean": 57.0614,
+        "source": "gausspyplus",
+        "stddev": 1.7984
+      }
+    ],
+    "pixel": [2, 14],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.488259,
+        "mean": 199.6499,
+        "source": "gausspyplus",
+        "stddev": 20.2002
+      }
+    ],
+    "pixel": [25, 34],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.3139663038533846,
+        "mean": 9.91690312478343,
+        "source": "phspectra",
+        "stddev": 0.6206747322378112
+      },
+      {
+        "amplitude": 0.6356,
+        "mean": 239.4404,
+        "source": "gausspyplus",
+        "stddev": 2.4341
+      },
+      {
+        "amplitude": 0.882636,
+        "mean": 185.6701,
+        "source": "gausspyplus",
+        "stddev": 5.5792
+      },
+      {
+        "amplitude": 0.437986,
+        "mean": 180.282,
+        "source": "gausspyplus",
+        "stddev": 18.4437
+      }
+    ],
+    "pixel": [43, 25],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.3122578860255193,
+        "mean": 65.13112557421906,
+        "source": "phspectra",
+        "stddev": 0.9306410180110783
+      },
+      {
+        "amplitude": 0.30964221194936964,
+        "mean": 138.69089928259717,
+        "source": "phspectra",
+        "stddev": 0.8263800423600817
+      },
+      {
+        "amplitude": 0.84207,
+        "mean": 184.4282,
+        "source": "gausspyplus",
+        "stddev": 5.0994
+      },
+      {
+        "amplitude": 0.22990446159774552,
+        "mean": 163.86142942430254,
+        "source": "phspectra",
+        "stddev": 3.3947227114708407
+      },
+      {
+        "amplitude": 0.18267725405650553,
+        "mean": 209.70864137030932,
+        "source": "phspectra",
+        "stddev": 5.871379622145285
+      },
+      {
+        "amplitude": 0.2777531327343436,
+        "mean": 312.2711585722086,
+        "source": "phspectra",
+        "stddev": 1.0309457640014872
+      }
+    ],
+    "pixel": [69, 27],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 1.955904,
+        "mean": 164.2409,
+        "source": "gausspyplus",
+        "stddev": 4.0913
+      },
+      {
+        "amplitude": 1.638901,
+        "mean": 184.6285,
+        "source": "gausspyplus",
+        "stddev": 6.2233
+      }
+    ],
+    "pixel": [59, 24],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.292041,
+        "mean": 57.7241,
+        "source": "gausspyplus",
+        "stddev": 8.7004
+      },
+      {
+        "amplitude": 0.66263,
+        "mean": 188.5281,
+        "source": "gausspyplus",
+        "stddev": 5.4312
+      },
+      {
+        "amplitude": 1.312055,
+        "mean": 231.249,
+        "source": "gausspyplus",
+        "stddev": 2.8116
+      }
+    ],
+    "pixel": [30, 44],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.421784,
+        "mean": 1.707,
+        "source": "gausspyplus",
+        "stddev": 4.375
+      },
+      {
+        "amplitude": 0.390481,
+        "mean": 194.283,
+        "source": "gausspyplus",
+        "stddev": 10.8554
+      },
+      {
+        "amplitude": 0.47545,
+        "mean": 247.4555,
+        "source": "gausspyplus",
+        "stddev": 8.1992
+      }
+    ],
+    "pixel": [13, 36],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.937317,
+        "mean": 228.0743,
+        "source": "gausspyplus",
+        "stddev": 5.4569
+      },
+      {
+        "amplitude": 0.502221,
+        "mean": 168.5161,
+        "source": "gausspyplus",
+        "stddev": 16.5969
+      },
+      {
+        "amplitude": 0.321402,
+        "mean": 173.8091,
+        "source": "gausspyplus",
+        "stddev": 4.9436
+      }
+    ],
+    "pixel": [45, 37],
+    "survey": "GRS"
+  },
+  {
+    "components": [
+      {
+        "amplitude": 0.90939,
+        "mean": 19.2955,
+        "source": "gausspyplus",
+        "stddev": 1.0447
+      },
+      {
+        "amplitude": 0.370552,
+        "mean": 44.4173,
+        "source": "gausspyplus",
+        "stddev": 2.7039
+      },
+      {
+        "amplitude": 0.379719,
+        "mean": 65.941,
+        "source": "gausspyplus",
+        "stddev": 2.3746
+      },
+      {
+        "amplitude": 0.868302,
+        "mean": 129.4787,
+        "source": "gausspyplus",
+        "stddev": 0.8814
+      },
+      {
+        "amplitude": 0.623825,
+        "mean": 182.6425,
+        "source": "gausspyplus",
+        "stddev": 4.9964
+      },
+      {
+        "amplitude": 0.767164,
+        "mean": 210.2106,
+        "source": "gausspyplus",
+        "stddev": 8.6117
+      },
+      {
+        "amplitude": 0.956506,
+        "mean": 231.6535,
+        "source": "gausspyplus",
+        "stddev": 5.3049
+      },
+      {
+        "amplitude": 1.388244,
+        "mean": 246.2099,
+        "source": "gausspyplus",
+        "stddev": 5.9191
+      },
+      {
+        "amplitude": 0.733433,
+        "mean": 266.1244,
+        "source": "gausspyplus",
+        "stddev": 0.7961
+      },
+      {
+        "amplitude": 0.775454,
+        "mean": 318.2058,
+        "source": "gausspyplus",
+        "stddev": 0.8796
+      },
+      {
+        "amplitude": 0.454184,
+        "mean": 359.0869,
+        "source": "gausspyplus",
+        "stddev": 2.338
+      }
+    ],
+    "pixel": [2, 15],
+    "survey": "GRS"
+  }
+]
