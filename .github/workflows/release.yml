@@ -4,9 +4,17 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
+  PYTHON_VERSION: '3.11'
+
 jobs:
   # ===========================================================================
-  # Root monorepo release (GitHub Release + CHANGELOG)
+  # Stage 1: Releases (run in parallel)
   # ===========================================================================
 
   root-release:
@@ -25,7 +33,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Enable Corepack
         run: corepack enable
@@ -37,10 +45,6 @@ jobs:
         run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ===========================================================================
-  # phspectra Python package release (PyPI + GitHub Release)
-  # ===========================================================================
 
   phspectra-release:
     name: phspectra Release
@@ -61,7 +65,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync
@@ -84,3 +88,80 @@ jobs:
       #   uses: pypa/gh-action-pypi-publish@release/v1
       #   with:
       #     packages-dir: packages/phspectra/dist/
+
+  # ===========================================================================
+  # Stage 2: Deploy docs (after releases, so version badge is up to date)
+  # ===========================================================================
+
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    needs: [root-release, phspectra-release]
+    if: ${{ !cancelled() && !contains(github.event.head_commit.message, '[skip ci]') }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build docs
+        run: yarn workspace @phspectra/docs build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/docs/build/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ===========================================================================
+  # Stage 2: Deploy infrastructure (parallel with docs, after releases)
+  # ===========================================================================
+
+  deploy-infra:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [root-release, phspectra-release]
+    if: ${{ !cancelled() && !contains(github.event.head_commit.message, '[skip ci]') }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Deploy CDK
+        run: yarn workspace @phspectra/infrastructure deploy

@@ -18,6 +18,12 @@ export default {
       }
     ],
     [
+      '@semantic-release/exec',
+      {
+        prepareCmd: 'npx prettier --write CHANGELOG.md'
+      }
+    ],
+    [
       '@semantic-release/npm',
       {
         npmPublish: false

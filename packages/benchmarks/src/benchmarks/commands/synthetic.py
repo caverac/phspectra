@@ -540,7 +540,7 @@ def _plot_error_boxplots(
             box_data.append(vals)
         bp = ax.boxplot(
             box_data,
-            labels=cat_labels,  # type: ignore[call-arg]
+            tick_labels=cat_labels,
             patch_artist=True,
             widths=0.5,
             medianprops={"color": "k", "linewidth": 1.5},

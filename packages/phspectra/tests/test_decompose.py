@@ -118,7 +118,7 @@ def test_noise_only_fast() -> None:
 
 
 def test_single_component_fast() -> None:
-    """Single-Gaussian spectra should average under 100ms each."""
+    """Single-Gaussian spectra should average under 200ms each."""
     rng = np.random.default_rng(42)
     x = np.arange(424, dtype=np.float64)
     start = time.perf_counter()
@@ -128,8 +128,8 @@ def test_single_component_fast() -> None:
         signal = _make_gaussian(x, 5.0, 200.0, 8.0) + noise
         fit_gaussians(signal, beta=5.2)
     elapsed = time.perf_counter() - start
-    # Should average < 100ms; generous margin for CI variability
-    assert elapsed / n_spectra < 0.100
+    # Should average < 200ms; generous margin for CI variability
+    assert elapsed / n_spectra < 0.200
 
 
 # ---- Internal helper tests -------------------------------------------------

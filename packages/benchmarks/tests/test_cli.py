@@ -30,6 +30,7 @@ def test_cli_lists_commands() -> None:
         "persistence-plot",
         "ncomp-rms-plot",
         "survey-map",
+        "pipeline",
     ]:
         assert cmd in result.output, f"Missing command: {cmd}"
 

@@ -78,7 +78,7 @@ This is a known structural limitation of persistence-based peak detection for cl
 ```python
 uv run benchmarks download
 uv run benchmarks compare --n-spectra 1000 --extra-pixels 31,40  # takes around 15 mins
-uv run train-beta  # around 40 mins
+uv run benchmarks train-beta --training-set packages/train-gui/data/training_set.json
 ```
 
 Sweeping $\beta$ from 3.8 to 4.5 on 1000 GRS spectra shows a nearly flat $F_1$ curve:
@@ -87,7 +87,20 @@ Sweeping $\beta$ from 3.8 to 4.5 on 1000 GRS spectra shows a nearly flat $F_1$ c
 
 Considering these results and the ones from the previous section, I decided to set the default $\beta = 3.8$. However, the variation across the entire sweep is only $\Delta F_1 \approx 0.01$ &mdash; the algorithm is remarkably stable.
 
-Note that the $F_1$ ceiling here does not reflect a limitation of phspectra &mdash; it reflects _disagreement between two different decomposition strategies_. See the [Accuracy](accuracy) section for a detailed analysis of where and why the decompositions differ.
+#### Interpreting precision and recall
+
+The figure shows a large gap between recall ($\approx 0.9$) and precision ($\approx 0.4$). The training set here consists of hand-curated decompositions from real GRS spectra, so these metrics are measured against human-labeled ground truth.
+
+**Recall $\approx 0.9$ (good).** PHSpectra recovers about 90% of the components in the curated training set. When a human labels a feature as a real component, PHSpectra almost always finds it. Very few labeled components are missed.
+
+**Precision $\approx 0.4$ (needs context).** Only about 40% of PHSpectra's detected components have a matching component in the curated set. This means PHSpectra consistently finds more components than the human labeler marked. These extra detections fall into two categories:
+
+- **Real features the labeler did not annotate.** Hand-curated sets are rarely exhaustive &mdash; faint or partially blended lines may be left unlabeled, particularly in crowded regions. PHSpectra's persistence-based detection can resolve features that are easy to overlook during manual inspection.
+- **Possible over-decomposition.** Some of the extra components may split a single broad feature into multiple narrower ones, producing a valid but different decomposition.
+
+The key observation is that this precision/recall split is **stable across the full $\beta$ sweep**: raising $\beta$ does not meaningfully improve precision, because the extra components are not noise artifacts (those would vanish at higher $\beta$). They reflect genuine detections that fall outside the scope of the curated labels.
+
+This interpretation is supported by the synthetic benchmark, where ground truth is known exactly: there, precision and recall are both high ($F_1 = 0.941$), confirming that PHSpectra does not systematically hallucinate components.
 
 ## Why this matters
 

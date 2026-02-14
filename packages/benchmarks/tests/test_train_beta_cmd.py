@@ -69,6 +69,127 @@ def test_train_beta_skips_empty_gp(tmp_path: Path) -> None:
 
 
 @pytest.mark.usefixtures("docs_img_dir")
+def test_train_beta_with_training_set(comparison_data_dir: Path) -> None:
+    """CLI should accept --training-set and use curated components as reference."""
+    ts = [
+        {
+            "survey": "GRS",
+            "pixel": [10, 20],
+            "components": [
+                {"amplitude": 1.0, "mean": 25.0, "stddev": 3.0, "source": "gausspyplus"},
+            ],
+        },
+        {
+            "survey": "GRS",
+            "pixel": [30, 40],
+            "components": [
+                {"amplitude": 2.0, "mean": 25.0, "stddev": 4.0, "source": "phspectra"},
+                {"amplitude": 0.5, "mean": 10.0, "stddev": 2.0, "source": "manual"},
+            ],
+        },
+    ]
+    ts_path = comparison_data_dir / "training_set.json"
+    ts_path.write_text(json.dumps(ts))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "train-beta",
+            "--data-dir",
+            str(comparison_data_dir),
+            "--training-set",
+            str(ts_path),
+            "--beta-steps",
+            "2",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "2 curated spectra" in result.output
+    assert "3 reference components" in result.output
+
+
+@pytest.mark.usefixtures("docs_img_dir")
+def test_train_beta_training_set_skips_unknown_pixels(comparison_data_dir: Path) -> None:
+    """Pixels in training set but not in compare data should be skipped."""
+    ts = [
+        {
+            "survey": "GRS",
+            "pixel": [10, 20],
+            "components": [
+                {"amplitude": 1.0, "mean": 25.0, "stddev": 3.0, "source": "manual"},
+            ],
+        },
+        {
+            "survey": "GRS",
+            "pixel": [99, 99],
+            "components": [
+                {"amplitude": 1.0, "mean": 25.0, "stddev": 3.0, "source": "manual"},
+            ],
+        },
+    ]
+    ts_path = comparison_data_dir / "training_set.json"
+    ts_path.write_text(json.dumps(ts))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "train-beta",
+            "--data-dir",
+            str(comparison_data_dir),
+            "--training-set",
+            str(ts_path),
+            "--beta-steps",
+            "2",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "1 curated spectra" in result.output
+    assert "1 pixel(s) not in compare data" in result.output
+
+
+def test_train_beta_training_set_missing_phresults(tmp_path: Path) -> None:
+    """CLI should fail when --training-set is given but phspectra_results.json is missing."""
+    np.savez(tmp_path / "spectra.npz", signals=np.zeros((2, 50)))
+    ts_path = tmp_path / "ts.json"
+    ts_path.write_text(json.dumps([{"pixel": [0, 0], "components": [{"amplitude": 1, "mean": 25, "stddev": 3}]}]))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["train-beta", "--data-dir", str(tmp_path), "--training-set", str(ts_path)],
+    )
+    assert result.exit_code != 0
+
+
+def test_train_beta_gp_results_missing(tmp_path: Path) -> None:
+    """CLI should fail when results.json is missing (GP+ path)."""
+    np.savez(tmp_path / "spectra.npz", signals=np.zeros((2, 50)))
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["train-beta", "--data-dir", str(tmp_path)])
+    assert result.exit_code != 0
+
+
+def test_train_beta_training_set_empty_components(comparison_data_dir: Path) -> None:
+    """Entries with no components should be skipped."""
+    ts = [
+        {"survey": "GRS", "pixel": [10, 20], "components": []},
+        {"survey": "GRS", "pixel": [30, 40], "components": []},
+    ]
+    ts_path = comparison_data_dir / "ts.json"
+    ts_path.write_text(json.dumps(ts))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["train-beta", "--data-dir", str(comparison_data_dir), "--training-set", str(ts_path)],
+    )
+    assert result.exit_code != 0  # no training spectra → error
+
+
+@pytest.mark.usefixtures("docs_img_dir")
 def test_train_beta_linalg_error(tmp_path: Path) -> None:
     """CLI should handle LinAlgError from fit_gaussians."""
     n_spectra, n_channels = 2, 50

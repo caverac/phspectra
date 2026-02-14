@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import time
+from typing import Any
 
 import click
 import numpy as np
@@ -43,18 +44,35 @@ from phspectra import fit_gaussians
 @click.option("--beta-min", default=3.8, show_default=True)
 @click.option("--beta-max", default=4.5, show_default=True)
 @click.option("--beta-steps", default=8, show_default=True)
-def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int) -> None:
-    """Sweep beta values against GaussPy+ Docker decompositions."""
+@click.option(
+    "--training-set",
+    default=None,
+    type=click.Path(exists=True),
+    help="Path to curated training_set.json from train-gui. "
+    "When provided, curated components are used as ground truth "
+    "instead of GaussPy+ decompositions.",
+)
+def train_beta(  # pylint: disable=too-many-branches
+    data_dir: str,
+    beta_min: float,
+    beta_max: float,
+    beta_steps: int,
+    training_set: str | None,
+) -> None:
+    """Sweep beta values against reference decompositions.
+
+    By default the reference is GaussPy+ Docker output.  Pass
+    ``--training-set`` to use a hand-curated training set instead.
+    """
     output_dir = os.path.join(data_dir, "training-output")
     os.makedirs(output_dir, exist_ok=True)
 
     beta_grid = np.round(np.linspace(beta_min, beta_max, beta_steps), 2).tolist()
 
-    # Load spectra
+    # Load spectra --------------------------------------------------------
     spectra_path = os.path.join(data_dir, "spectra.npz")
-    results_path = os.path.join(data_dir, "results.json")
-    if not os.path.exists(spectra_path) or not os.path.exists(results_path):
-        err_console.print(f"ERROR: {spectra_path} or {results_path} not found.\n" "Run ``benchmarks compare`` first.")
+    if not os.path.exists(spectra_path):
+        err_console.print(f"ERROR: {spectra_path} not found.\nRun ``benchmarks compare`` first.")
         sys.exit(1)
 
     console.print("Step 1: Load spectra", style="bold cyan")
@@ -62,23 +80,67 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     n_spectra, n_channels = signals.shape
     console.print(f"  {n_spectra} spectra, {n_channels} channels each")
 
-    # Load GaussPy+ Docker decompositions
-    console.print("\nStep 2: Load GaussPy+ Docker decompositions", style="bold cyan")
-    with open(results_path, encoding="utf-8") as f:
-        gp_results = json.load(f)
-    gp_amps = gp_results["amplitudes_fit"]
-    gp_means = gp_results["means_fit"]
-    gp_stds = gp_results["stddevs_fit"]
-
-    # Build training set (skip spectra with no GP+ detections)
+    # Build reference training set ----------------------------------------
     training: list[tuple[npt.NDArray[np.float64], list[Component]]] = []
-    for i in range(n_spectra):
-        if not gp_amps[i]:
-            continue
-        ref = [Component(amplitude=a, mean=m, stddev=s) for a, m, s in zip(gp_amps[i], gp_means[i], gp_stds[i])]
-        training.append((signals[i], ref))
-    n_train = len(training)
-    console.print(f"  {n_train} spectra with GaussPy+ components")
+
+    if training_set is not None:
+        console.print("\nStep 2: Load curated training set", style="bold cyan")
+        with open(training_set, encoding="utf-8") as f:
+            ts_entries: list[dict[str, Any]] = json.load(f)
+
+        # Need pixel → signal-index mapping from the compare run.
+        ph_results_path = os.path.join(data_dir, "phspectra_results.json")
+        if not os.path.exists(ph_results_path):
+            err_console.print(f"ERROR: {ph_results_path} not found.\n" "Run ``benchmarks compare`` first.")
+            sys.exit(1)
+        with open(ph_results_path, encoding="utf-8") as f:
+            pixel_list: list[list[int]] = json.load(f)["pixels"]
+        pixel_to_idx = {(p[0], p[1]): i for i, p in enumerate(pixel_list)}
+
+        n_skipped = 0
+        for entry in ts_entries:
+            pixel = (entry["pixel"][0], entry["pixel"][1])
+            comps = entry.get("components", [])
+            if not comps:
+                continue
+            if pixel not in pixel_to_idx:
+                n_skipped += 1
+                continue
+            idx = pixel_to_idx[pixel]
+            ref = [Component(c["amplitude"], c["mean"], c["stddev"]) for c in comps]
+            training.append((signals[idx], ref))
+
+        ref_label = f"Curated training set ({training_set})"
+        n_train = len(training)
+        n_comps = sum(len(r) for _, r in training)
+        console.print(f"  {n_train} curated spectra, {n_comps} reference components")
+        if n_skipped:
+            console.print(f"  {n_skipped} pixel(s) not in compare data, skipped", style="yellow")
+    else:
+        console.print("\nStep 2: Load GaussPy+ Docker decompositions", style="bold cyan")
+        results_path = os.path.join(data_dir, "results.json")
+        if not os.path.exists(results_path):
+            err_console.print(f"ERROR: {results_path} not found.\n" "Run ``benchmarks compare`` first.")
+            sys.exit(1)
+        with open(results_path, encoding="utf-8") as f:
+            gp_results = json.load(f)
+        gp_amps = gp_results["amplitudes_fit"]
+        gp_means = gp_results["means_fit"]
+        gp_stds = gp_results["stddevs_fit"]
+
+        for i in range(n_spectra):
+            if not gp_amps[i]:
+                continue
+            ref = [Component(amplitude=a, mean=m, stddev=s) for a, m, s in zip(gp_amps[i], gp_means[i], gp_stds[i])]
+            training.append((signals[i], ref))
+
+        ref_label = "GaussPy+ Docker (alpha1=2.89, alpha2=6.65, two-phase)"
+        n_train = len(training)
+        console.print(f"  {n_train} spectra with GaussPy+ components")
+
+    if not training:
+        err_console.print("ERROR: no training spectra found.")
+        sys.exit(1)
 
     # Beta sweep
     console.print(
@@ -150,7 +212,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     payload = {
         "n_spectra": n_train,
         "beta_grid": beta_grid,
-        "reference": "GaussPy+ Docker (alpha1=2.89, alpha2=6.65, two-phase)",
+        "reference": ref_label,
         "optimal_beta": best.beta,
         "optimal_f1": best.f1,
         "results": [dataclasses.asdict(r) for r in results],

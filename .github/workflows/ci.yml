@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -10,16 +8,8 @@ env:
   NODE_VERSION: '22'
   PYTHON_VERSION: '3.11'
 
-# Required for GitHub Pages deployment
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment
-concurrency:
-  group: 'pages'
-  cancel-in-progress: false
 
 jobs:
   # ===========================================================================
@@ -50,6 +40,8 @@ jobs:
           packages/phspectra/tests/
           packages/benchmarks/src/
           packages/benchmarks/tests/
+          packages/train-gui/src/
+          packages/train-gui/tests/
           packages/infrastructure/lambda/
 
       - name: Check import order with isort
@@ -59,6 +51,8 @@ jobs:
           packages/phspectra/tests/
           packages/benchmarks/src/
           packages/benchmarks/tests/
+          packages/train-gui/src/
+          packages/train-gui/tests/
           packages/infrastructure/lambda/
 
       - name: Lint with flake8
@@ -68,6 +62,8 @@ jobs:
           packages/phspectra/tests/
           packages/benchmarks/src/
           packages/benchmarks/tests/
+          packages/train-gui/src/
+          packages/train-gui/tests/
           packages/infrastructure/lambda/
 
       - name: Lint with pylint
@@ -77,6 +73,8 @@ jobs:
           packages/phspectra/tests/
           packages/benchmarks/src/
           packages/benchmarks/tests/
+          packages/train-gui/src/
+          packages/train-gui/tests/
           packages/infrastructure/lambda/splitter/
           packages/infrastructure/lambda/worker/
           packages/infrastructure/lambda/tests/
@@ -86,6 +84,7 @@ jobs:
           uv run pydocstyle
           packages/phspectra/src/
           packages/benchmarks/src/
+          packages/train-gui/src/
           packages/infrastructure/lambda/splitter/
           packages/infrastructure/lambda/worker/
 
@@ -113,6 +112,8 @@ jobs:
           packages/phspectra/tests/
           packages/benchmarks/src/
           packages/benchmarks/tests/
+          packages/train-gui/src/
+          packages/train-gui/tests/
           packages/infrastructure/lambda/splitter/
           packages/infrastructure/lambda/worker/
           packages/infrastructure/lambda/tests/
@@ -135,13 +136,24 @@ jobs:
         run: uv sync --group test-lambda
 
       - name: Test phspectra
-        run: uv run python -m pytest packages/phspectra/tests/ -v
+        working-directory: packages/phspectra
+        run: uv run python -m pytest tests/ -v
 
       - name: Test benchmarks
-        run: uv run python -m pytest packages/benchmarks/tests/ -v
+        working-directory: packages/benchmarks
+        run: uv run python -m pytest tests/ -v
+
+      - name: Test train-gui
+        working-directory: packages/train-gui
+        run: uv run python -m pytest tests/ -v
 
       - name: Test infrastructure lambdas
-        run: uv run python -m pytest packages/infrastructure/lambda/tests/ -v
+        run: >-
+          uv run --group test-lambda python -m pytest packages/infrastructure/lambda/tests/ -v
+          --cov=splitter_handler
+          --cov=worker_handler
+          --cov-report=term-missing
+          --cov-fail-under=100
 
   # ===========================================================================
   # JS/TS Jobs (run in parallel)
@@ -218,11 +230,9 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     needs:
-      # Python
       - lint-python
       - typecheck-python
       - test-python
-      # JS/TS
       - lint-js
       - typecheck-js
       - test-js
@@ -242,71 +252,3 @@ jobs:
 
       - name: Build all workspaces
         run: yarn build
-
-      - name: Upload docs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docs-build
-          path: packages/docs/build/
-          retention-days: 7
-
-  # ===========================================================================
-  # Deploy Docs to GitHub Pages
-  # ===========================================================================
-
-  deploy-docs:
-    name: Deploy Docs
-    runs-on: ubuntu-latest
-    needs: [build]
-    # Only deploy on push to main, not on PRs
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Download docs artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docs-build
-          path: ./docs-build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload to GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./docs-build
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  # ===========================================================================
-  # Summary
-  # ===========================================================================
-
-  ci-complete:
-    name: CI Complete
-    runs-on: ubuntu-latest
-    needs: [build, deploy-docs]
-    if: always()
-    steps:
-      - name: Check results
-        run: |
-          # Build must succeed
-          if [[ "${{ needs.build.result }}" != "success" ]]; then
-            echo "Build failed"
-            exit 1
-          fi
-
-          # Deployment must succeed or be skipped (skipped on PRs)
-          if [[ "${{ needs.deploy-docs.result }}" == "failure" ]]; then
-            echo "Docs deployment failed"
-            exit 1
-          fi
-
-          echo "All CI checks passed!"
-          if [[ "${{ needs.deploy-docs.result }}" == "success" ]]; then
-            echo "  Docs deployed to GitHub Pages"
-          fi

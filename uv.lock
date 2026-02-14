@@ -11,6 +11,7 @@ members = [
     "benchmarks",
     "phspectra",
     "phspectra-workspace",
+    "train-gui",
 ]
 
 [[package]]
@@ -82,6 +83,7 @@ version = "0.1.0"
 source = { editable = "packages/benchmarks" }
 dependencies = [
     { name = "astropy" },
+    { name = "boto3" },
     { name = "click" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -98,6 +100,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "astropy", specifier = ">=6.0" },
+    { name = "boto3", specifier = ">=1.34" },
     { name = "click", specifier = ">=8.1" },
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "numpy", specifier = ">=1.26" },
@@ -1267,6 +1270,7 @@ dev = [
     { name = "pylint" },
     { name = "pytest" },
     { name = "python-semantic-release" },
+    { name = "train-gui" },
 ]
 lambda = [
     { name = "astropy" },
@@ -1290,6 +1294,7 @@ test-lambda = [
     { name = "phspectra" },
     { name = "pyarrow" },
     { name = "pytest" },
+    { name = "pytest-cov" },
 ]
 
 [package.metadata]
@@ -1310,6 +1315,7 @@ dev = [
     { name = "pylint", specifier = ">=3.0.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "python-semantic-release", specifier = ">=10.5.3" },
+    { name = "train-gui", editable = "packages/train-gui" },
 ]
 lambda = [
     { name = "astropy", specifier = ">=6.0" },
@@ -1333,6 +1339,7 @@ test-lambda = [
     { name = "phspectra", editable = "packages/phspectra" },
     { name = "pyarrow", specifier = ">=15.0" },
     { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
 ]
 
 [[package]]
@@ -2100,6 +2107,37 @@ sdist = { url = "https://files.pythonhosted.org/packages/cc/18/0bbf3884e9eaa3881
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/75/8539d011f6be8e29f339c42e633aae3cb73bffa95dd0f9adec09b9c58e85/tomlkit-0.13.3-py3-none-any.whl", hash = "sha256:c89c649d79ee40629a9fda55f8ace8c6a1b42deb912b2a8fd8d942ddadb606b0", size = 38901, upload-time = "2025-06-05T07:13:43.546Z" },
 ]
+
+[[package]]
+name = "train-gui"
+version = "0.1.0"
+source = { editable = "packages/train-gui" }
+dependencies = [
+    { name = "astropy" },
+    { name = "benchmarks" },
+    { name = "click" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "astropy", specifier = ">=6.0" },
+    { name = "benchmarks", editable = "packages/benchmarks" },
+    { name = "click", specifier = ">=8.1" },
+    { name = "matplotlib", specifier = ">=3.9" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "scipy", specifier = ">=1.12" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest-cov", specifier = ">=7.0.0" }]
 
 [[package]]
 name = "types-awscrt"
