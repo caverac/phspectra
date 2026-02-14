@@ -70,9 +70,7 @@ def test_run_gausspyplus_stderr(tmp_path: Path) -> None:
     results = {"ok": True}
     (tmp_path / "results.json").write_text(json.dumps(results))
 
-    fake_result = subprocess.CompletedProcess(
-        args=[], returncode=0, stdout="", stderr="warning line"
-    )
+    fake_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="warning line")
     with patch("benchmarks._docker.subprocess.run", return_value=fake_result):
         out = run_gausspyplus(str(tmp_path))
     assert out == results

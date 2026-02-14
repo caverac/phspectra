@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 from astropy.io import fits
@@ -11,6 +11,7 @@ from astropy.table import Table
 from astropy.wcs import WCS
 from benchmarks.cli import main
 from click.testing import CliRunner
+from numpy.linalg import LinAlgError
 
 
 def _make_header_and_cube() -> tuple[fits.Header, np.ndarray]:
@@ -95,8 +96,15 @@ def test_compare_extra_pixels(tmp_path: Path) -> None:
         result = runner.invoke(
             main,
             [
-                "compare", "--n-spectra", "1", "--output-dir", str(output_dir),
-                "--seed", "42", "--extra-pixels", "2,2;99,99;1,1;",
+                "compare",
+                "--n-spectra",
+                "1",
+                "--output-dir",
+                str(output_dir),
+                "--seed",
+                "42",
+                "--extra-pixels",
+                "2,2;99,99;1,1;",
             ],
         )
     assert result.exit_code == 0, result.output
@@ -152,8 +160,6 @@ def test_compare_progress_line(tmp_path: Path) -> None:
 
 def test_compare_linalg_error(tmp_path: Path) -> None:
     """CLI should handle LinAlgError/ValueError from fit_gaussians."""
-    from numpy.linalg import LinAlgError
-
     header, cube = _make_header_and_cube()
     catalog = _make_catalog(header)
     output_dir = tmp_path / "output"

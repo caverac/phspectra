@@ -46,23 +46,17 @@ def test_routes_fits(splitter: Any, eventbridge_event: Any, lambda_context: Magi
     event = eventbridge_event("cubes/grs.fits")
     with patch.object(splitter, "_handle_fits", return_value={"statusCode": 200}) as mock:
         splitter.handler(event, lambda_context)
-    mock.assert_called_once_with(
-        "cubes/grs.fits", survey="grs", beta_values=[splitter.DEFAULT_BETA]
-    )
+    mock.assert_called_once_with("cubes/grs.fits", survey="grs", beta_values=[splitter.DEFAULT_BETA])
 
 
-def test_routes_unsupported_key(
-    splitter: Any, eventbridge_event: Any, lambda_context: MagicMock
-) -> None:
+def test_routes_unsupported_key(splitter: Any, eventbridge_event: Any, lambda_context: MagicMock) -> None:
     """Non-FITS, non-manifest keys return 400."""
     event = eventbridge_event("data/image.png")
     result = splitter.handler(event, lambda_context)
     assert result["statusCode"] == 400
 
 
-def test_json_outside_manifests_prefix(
-    splitter: Any, eventbridge_event: Any, lambda_context: MagicMock
-) -> None:
+def test_json_outside_manifests_prefix(splitter: Any, eventbridge_event: Any, lambda_context: MagicMock) -> None:
     """A ``.json`` key *not* under ``manifests/`` hits the else branch."""
     event = eventbridge_event("data/foo.json")
     result = splitter.handler(event, lambda_context)
@@ -116,9 +110,7 @@ def test_handle_fits_single_chunk(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item"),
-        patch.object(
-            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
-        ),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -151,9 +143,7 @@ def test_handle_fits_multiple_chunks(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item"),
-        patch.object(
-            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
-        ),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -184,9 +174,7 @@ def test_handle_fits_multiple_betas(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item"),
-        patch.object(
-            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
-        ),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -196,9 +184,7 @@ def test_handle_fits_multiple_betas(splitter: Any) -> None:
         mock_np.savez_compressed = MagicMock()
         mock_np.float64 = np.float64
 
-        result = splitter._handle_fits(
-            "cubes/test.fits", survey="grs", beta_values=[1.0, 5.0, 10.0]
-        )
+        result = splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[1.0, 5.0, 10.0])
 
     assert result["body"]["n_messages"] == 3
     assert result["body"]["beta_values"] == [1.0, 5.0, 10.0]
@@ -213,9 +199,7 @@ def test_handle_fits_non_3d_raises(splitter: Any) -> None:
         patch.object(splitter.s3, "download_file"),
         patch.object(splitter, "fits") as mock_fits_mod,
         patch.object(splitter, "os") as mock_os,
-        patch.object(
-            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
-        ),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -249,9 +233,7 @@ def test_handle_fits_nan_replacement(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item"),
-        patch.object(
-            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
-        ),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -280,9 +262,7 @@ def test_handle_fits_puts_run_record(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item") as mock_put,
-        patch.object(
-            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
-        ),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -326,9 +306,7 @@ def test_handle_fits_sqs_message_body(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message", side_effect=capture_send),
         patch.object(splitter.dynamodb, "put_item"),
-        patch.object(
-            splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)
-        ),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]

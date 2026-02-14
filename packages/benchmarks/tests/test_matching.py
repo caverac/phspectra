@@ -20,13 +20,13 @@ def test_match_pairs_basic() -> None:
 def test_match_pairs_empty_ref() -> None:
     """Empty reference should return no pairs."""
     pairs = match_pairs([], [Component(5.0, 100.0, 5.0)])
-    assert pairs == []
+    assert not pairs
 
 
 def test_match_pairs_empty_test() -> None:
     """Empty test set should return no pairs."""
     pairs = match_pairs([Component(5.0, 100.0, 5.0)], [])
-    assert pairs == []
+    assert not pairs
 
 
 def test_match_pairs_too_far() -> None:
@@ -34,7 +34,7 @@ def test_match_pairs_too_far() -> None:
     ref = [Component(5.0, 100.0, 2.0)]
     test = [Component(5.0, 200.0, 2.0)]
     pairs = match_pairs(ref, test, pos_tol_sigma=2.0)
-    assert pairs == []
+    assert not pairs
 
 
 def test_count_correct_matches_perfect() -> None:

@@ -19,17 +19,17 @@ import time
 import click
 import numpy as np
 import numpy.typing as npt
-from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from numpy.linalg import LinAlgError
-
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._gaussian import gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score
 from benchmarks._plotting import configure_axes, docs_figure
 from benchmarks._types import BetaSweepResult, Component
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from numpy.linalg import LinAlgError
+
 from phspectra import fit_gaussians
 
 
@@ -54,10 +54,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     spectra_path = os.path.join(data_dir, "spectra.npz")
     results_path = os.path.join(data_dir, "results.json")
     if not os.path.exists(spectra_path) or not os.path.exists(results_path):
-        err_console.print(
-            f"ERROR: {spectra_path} or {results_path} not found.\n"
-            "Run ``benchmarks compare`` first."
-        )
+        err_console.print(f"ERROR: {spectra_path} or {results_path} not found.\n" "Run ``benchmarks compare`` first.")
         sys.exit(1)
 
     console.print("Step 1: Load spectra", style="bold cyan")
@@ -78,10 +75,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
     for i in range(n_spectra):
         if not gp_amps[i]:
             continue
-        ref = [
-            Component(amplitude=a, mean=m, stddev=s)
-            for a, m, s in zip(gp_amps[i], gp_means[i], gp_stds[i])
-        ]
+        ref = [Component(amplitude=a, mean=m, stddev=s) for a, m, s in zip(gp_amps[i], gp_means[i], gp_stds[i])]
         training.append((signals[i], ref))
     n_train = len(training)
     console.print(f"  {n_train} spectra with GaussPy+ components")
@@ -139,9 +133,7 @@ def train_beta(data_dir: str, beta_min: float, beta_max: float, beta_steps: int)
         )
 
     best = max(results, key=lambda r: r.f1)
-    console.print(
-        f"\nOptimal beta = [bold yellow]{best.beta:.2f}[/bold yellow]" f"  (F1 = {best.f1:.4f})"
-    )
+    console.print(f"\nOptimal beta = [bold yellow]{best.beta:.2f}[/bold yellow]" f"  (F1 = {best.f1:.4f})")
 
     # Save CSV
     csv_path = os.path.join(output_dir, "f1-beta-sweep.csv")

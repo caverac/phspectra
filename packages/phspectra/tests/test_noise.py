@@ -90,11 +90,13 @@ def test_few_surviving_after_clip_fallback() -> None:
     every surviving channel, ``len(surviving) < 5`` triggers the fallback.
     """
     # Long positive run in the center → masked in step 1 (length > 2)
-    signal = np.concatenate([
-        np.array([-0.50, -0.51, -0.49, -0.50, -0.52]),  # 5 neg channels (left)
-        np.full(10, 10.0),                                # positive run
-        np.array([-0.50, -0.51, -0.49, -0.50, -0.52]),  # 5 neg channels (right)
-    ])
+    signal = np.concatenate(
+        [
+            np.array([-0.50, -0.51, -0.49, -0.50, -0.52]),  # 5 neg channels (left)
+            np.full(10, 10.0),  # positive run
+            np.array([-0.50, -0.51, -0.49, -0.50, -0.52]),  # 5 neg channels (right)
+        ]
+    )
     # Step 1: positive run at 5-14 (length 10 > 2), mask with pad 2 → mask[3:17].
     # Unmasked: channels 0,1,2 and 17,18,19 (6 channels, all ~ -0.50).
     # Step 2: med_neg ≈ -0.50, MAD ≈ 0.01, mad_sigma ≈ 0.015.

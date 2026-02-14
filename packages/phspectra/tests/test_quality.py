@@ -50,14 +50,14 @@ def test_validate_rejects_narrow_fwhm() -> None:
     narrow = GaussianComponent(amplitude=5.0, mean=50.0, stddev=0.3)
     assert narrow.stddev * FWHM_FACTOR < 1.0  # confirm it's narrow
     result = validate_components([narrow], rms=0.5, n_channels=100)
-    assert result == []
+    assert not result
 
 
 def test_validate_rejects_low_snr() -> None:
     """Component with amplitude < snr_min * rms should be rejected."""
     weak = GaussianComponent(amplitude=0.1, mean=50.0, stddev=3.0)
     result = validate_components([weak], rms=1.0, n_channels=100, snr_min=1.5)
-    assert result == []
+    assert not result
 
 
 def test_validate_rejects_low_significance() -> None:
@@ -65,18 +65,18 @@ def test_validate_rejects_low_significance() -> None:
     # Component with modest amplitude and narrow width -> low significance
     comp = GaussianComponent(amplitude=2.0, mean=50.0, stddev=0.5)
     result = validate_components([comp], rms=0.5, n_channels=100, snr_min=1.0, mf_snr_min=5.0)
-    assert result == []
+    assert not result
 
 
 def test_validate_rejects_oob_mean() -> None:
     """Component with mean outside [0, n_channels) should be rejected."""
     oob = GaussianComponent(amplitude=5.0, mean=-1.0, stddev=3.0)
     result = validate_components([oob], rms=0.5, n_channels=100)
-    assert result == []
+    assert not result
 
     oob2 = GaussianComponent(amplitude=5.0, mean=100.0, stddev=3.0)
     result2 = validate_components([oob2], rms=0.5, n_channels=100)
-    assert result2 == []
+    assert not result2
 
 
 def test_validate_passes_good_component() -> None:
@@ -104,4 +104,4 @@ def test_separated_not_blended() -> None:
     c1 = GaussianComponent(amplitude=5.0, mean=20.0, stddev=3.0)
     c2 = GaussianComponent(amplitude=4.0, mean=80.0, stddev=3.0)
     pairs = find_blended_pairs([c1, c2], f_sep=1.2)
-    assert pairs == []
+    assert not pairs

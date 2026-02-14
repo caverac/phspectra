@@ -16,15 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import click
-
+import numpy as np
+import numpy.typing as npt
+from benchmarks._console import console
+from benchmarks._plotting import AxesGrid2D, configure_axes, docs_figure
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-import numpy as np
-import numpy.typing as npt
-
-from benchmarks._console import console
-from benchmarks._plotting import AxesGrid2D, configure_axes, docs_figure
 
 
 @dataclass(frozen=True, slots=True)

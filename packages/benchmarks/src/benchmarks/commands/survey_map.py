@@ -27,11 +27,10 @@ Panel layout
 from __future__ import annotations
 
 import click
-from matplotlib import pyplot as plt
-from matplotlib.figure import Figure
-
 from benchmarks._console import console
 from benchmarks._plotting import configure_axes, docs_figure
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
 
 
 @docs_figure("survey-map.png")

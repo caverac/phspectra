@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
+import pytest
 from benchmarks.cli import main
 from benchmarks.commands.persistence_plot import (
     PersistenceEvent,
@@ -33,14 +32,14 @@ def test_run_persistence() -> None:
     assert all(isinstance(e, PersistenceEvent) for e in events)
 
 
-
 def test_persistence_event() -> None:
     """PersistenceEvent should be a frozen dataclass."""
     e = PersistenceEvent(index=0, birth=2.0, death=1.0, persistence=1.0)
     assert e.persistence == 1.0
 
 
-def test_plot_water_levels(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_plot_water_levels() -> None:
     """_plot_water_levels should produce a 2x2 figure."""
     sig = _synthetic_signal()
     events = _run_persistence(sig)
@@ -51,7 +50,8 @@ def test_plot_water_levels(docs_img_dir: Path) -> None:
     plt.close(fig)
 
 
-def test_plot_persistence_diagram(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_plot_persistence_diagram() -> None:
     """_plot_persistence_diagram should produce a scatter figure."""
     sig = _synthetic_signal()
     events = _run_persistence(sig)
@@ -60,7 +60,8 @@ def test_plot_persistence_diagram(docs_img_dir: Path) -> None:
     plt.close(fig)
 
 
-def test_persistence_plot_cli(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_persistence_plot_cli() -> None:
     """CLI should succeed."""
     runner = CliRunner()
     result = runner.invoke(main, ["persistence-plot"])

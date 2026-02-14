@@ -34,15 +34,12 @@ class AxesGrid1D:
 
     def __getitem__(self, index: int) -> Axes:
         """Return the axes at *index*."""
-        ...
 
     def __iter__(self) -> Iterator[Axes]:  # type: ignore[empty-body]
         """Iterate over axes in the grid."""
-        ...
 
     def __len__(self) -> int:  # type: ignore[empty-body]
         """Return the number of axes."""
-        ...
 
 
 class AxesGrid2D:
@@ -58,19 +55,15 @@ class AxesGrid2D:
 
     def __getitem__(self, index: tuple[int, int] | int) -> Axes:  # type: ignore[empty-body]
         """Return axes at ``(row, col)`` or row *index*."""
-        ...
 
     def __iter__(self) -> Iterator[AxesGrid1D]:  # type: ignore[empty-body]
         """Iterate over rows, each an ``AxesGrid1D``."""
-        ...
 
     def __len__(self) -> int:  # type: ignore[empty-body]
         """Return the number of rows."""
-        ...
 
     def ravel(self) -> AxesGrid1D:  # type: ignore[empty-body]
         """Return a flat 1-D view of all axes."""
-        ...
 
 
 def configure_axes(ax: Axes) -> None:

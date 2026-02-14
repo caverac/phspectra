@@ -269,9 +269,7 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
         candidate = list(components) + new_peaks
         if max_components is not None:
             candidate = candidate[:max_components]
-        new_comps, new_resid, current_aicc, accepted = _try_refit(
-            x, signal, candidate, n_channels, current_aicc
-        )
+        new_comps, new_resid, current_aicc, accepted = _try_refit(x, signal, candidate, n_channels, current_aicc)
         if accepted:
             components, residual = new_comps, new_resid
             changed = True
@@ -281,9 +279,7 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
     if dip is not None:
         split_comps = _split_component_at(components, dip)
         if split_comps is not None:
-            new_comps, new_resid, current_aicc, accepted = _try_refit(
-                x, signal, split_comps, n_channels, current_aicc
-            )
+            new_comps, new_resid, current_aicc, accepted = _try_refit(x, signal, split_comps, n_channels, current_aicc)
             if accepted:
                 components, residual = new_comps, new_resid
                 changed = True
@@ -293,9 +289,7 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
     if blended:
         i, j = blended[0]
         merged_comps = _merge_blended(components, i, j)
-        new_comps, new_resid, current_aicc, accepted = _try_refit(
-            x, signal, merged_comps, n_channels, current_aicc
-        )
+        new_comps, new_resid, current_aicc, accepted = _try_refit(x, signal, merged_comps, n_channels, current_aicc)
         if accepted:
             components, residual = new_comps, new_resid
             changed = True

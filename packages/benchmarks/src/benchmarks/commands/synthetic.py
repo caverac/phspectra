@@ -22,7 +22,6 @@ import click
 import numpy as np
 import numpy.typing as npt
 from benchmarks._console import console
-from rich.table import Table
 from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
 from benchmarks._gaussian import gaussian, gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score, match_pairs
@@ -32,6 +31,7 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from numpy.linalg import LinAlgError
+from rich.table import Table
 
 from phspectra import fit_gaussians
 from phspectra.quality import aicc
@@ -188,9 +188,7 @@ def _gen_multi_blended(rng: np.random.Generator, n: int) -> list[SyntheticSpectr
                 sep_sigma = rng.uniform(1.5, 3.0)
                 offset = sep_sigma * max(stddev, ref.stddev)
                 direction = rng.choice([-1.0, 1.0])
-                mean = float(
-                    np.clip(ref.mean + direction * offset, MEAN_MARGIN, N_CHANNELS - MEAN_MARGIN)
-                )
+                mean = float(np.clip(ref.mean + direction * offset, MEAN_MARGIN, N_CHANNELS - MEAN_MARGIN))
             comps.append(Component(float(amp), mean, float(stddev)))
         spectra.append(SyntheticSpectrum("multi_blended", i, _make_spectrum(rng, comps), comps))
     return spectra
@@ -290,9 +288,7 @@ def _evaluate_one(args: _WorkItem) -> _EvalResult:
         aicc=round(aic, 4) if np.isfinite(aic) else None,
         amp_log_ratio_mean=round(float(np.mean(amp_log_ratios)), 4) if amp_log_ratios else None,
         pos_log_ratio_mean=round(float(np.mean(pos_log_ratios)), 4) if pos_log_ratios else None,
-        width_log_ratio_mean=(
-            round(float(np.mean(width_log_ratios)), 4) if width_log_ratios else None
-        ),
+        width_log_ratio_mean=(round(float(np.mean(width_log_ratios)), 4) if width_log_ratios else None),
     )
 
 
@@ -337,8 +333,7 @@ def synthetic(
     n_fits = n_total * len(beta_grid)
     n_workers = min(os.cpu_count() or 4, 8)
     console.print(
-        f"\nStep 2: Sweep {len(beta_grid)} beta values "
-        f"({n_fits} total fits, {n_workers} workers)",
+        f"\nStep 2: Sweep {len(beta_grid)} beta values " f"({n_fits} total fits, {n_workers} workers)",
         style="bold cyan",
     )
     work_items: list[_WorkItem] = []
@@ -377,8 +372,7 @@ def synthetic(
         beta_scores[beta] = f1
     optimal_beta = max(beta_scores, key=beta_scores.get)  # type: ignore[arg-type]
     console.print(
-        f"  Optimal beta = [bold yellow]{optimal_beta:.1f}[/bold yellow]"
-        f"  (F1 = {beta_scores[optimal_beta]:.4f})"
+        f"  Optimal beta = [bold yellow]{optimal_beta:.1f}[/bold yellow]" f"  (F1 = {beta_scores[optimal_beta]:.4f})"
     )
 
     # Save outputs
@@ -542,11 +536,7 @@ def _plot_error_boxplots(
     for ax, (key, ylabel) in zip(axes, err_panels):
         box_data = []
         for cat in categories:
-            vals = [
-                getattr(r, key)
-                for r in opt_rows
-                if r.category == cat and getattr(r, key) is not None
-            ]
+            vals = [getattr(r, key) for r in opt_rows if r.category == cat and getattr(r, key) is not None]
             box_data.append(vals)
         bp = ax.boxplot(
             box_data,

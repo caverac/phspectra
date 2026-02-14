@@ -29,6 +29,7 @@ packages = ["src/benchmarks"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["docker"]
 
 [tool.coverage.run]
 source = ["benchmarks"]

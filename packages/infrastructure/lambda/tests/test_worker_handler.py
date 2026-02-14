@@ -150,7 +150,9 @@ def test_output_key_format(
     expected_prefix: str,
 ) -> None:
     """Output key follows ``decompositions/survey=.../beta=.../`` pattern."""
-    event = sqs_event({"chunk_key": "chunks/run/chunk-0000000.npz", "survey": survey, "beta": beta, "run_id": "run-001"})
+    event = sqs_event(
+        {"chunk_key": "chunks/run/chunk-0000000.npz", "survey": survey, "beta": beta, "run_id": "run-001"}
+    )
     chunk = _make_chunk(1)
 
     with (
@@ -235,9 +237,7 @@ def test_response_structure(worker: Any, sqs_event: Any, lambda_context: MagicMo
 # -- DynamoDB progress tracking tests ----------------------------------------
 
 
-def test_jobs_completed_incremented_on_success(
-    worker: Any, sqs_event: Any, lambda_context: MagicMock
-) -> None:
+def test_jobs_completed_incremented_on_success(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
     """On success, ``dynamodb.update_item`` increments ``jobs_completed``."""
     event = sqs_event(MSG_BASE)
     chunk = _make_chunk(1)
@@ -268,9 +268,7 @@ def test_jobs_completed_incremented_on_success(
     )
 
 
-def test_jobs_failed_incremented_on_error(
-    worker: Any, sqs_event: Any, lambda_context: MagicMock
-) -> None:
+def test_jobs_failed_incremented_on_error(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
     """On processing error, ``dynamodb.update_item`` increments ``jobs_failed`` then re-raises."""
     event = sqs_event(MSG_BASE)
     chunk = _make_chunk(1)

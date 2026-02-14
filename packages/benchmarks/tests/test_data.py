@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
@@ -56,11 +58,11 @@ def test_ensure_fits_download(tmp_path: Path) -> None:
     """ensure_fits should call urlretrieve when cache missing."""
     fits_path = tmp_path / "sub" / "download.fits"
 
-    def fake_download(url: str, dest: str) -> None:
+    def fake_download(_url: str, dest: str) -> None:
         _make_fits(Path(dest))
 
     with patch("benchmarks._data.urlretrieve", side_effect=fake_download):
-        header, data = ensure_fits(url="http://example.com/f.fits", path=str(fits_path))
+        _, data = ensure_fits(url="http://example.com/f.fits", path=str(fits_path))
     assert data.shape == (10, 3, 4)
 
 
@@ -77,7 +79,7 @@ def test_fits_bounds_icrs(tmp_path: Path) -> None:
     """fits_bounds should handle ICRS WCS via coordinate transform."""
     fits_path = tmp_path / "icrs.fits"
     hdr = _make_fits(fits_path, ctype1="RA---TAN")
-    glon_min, glon_max, glat_min, glat_max = fits_bounds(hdr)
+    glon_min, glon_max, _, _ = fits_bounds(hdr)
     assert glon_min < glon_max
 
 
@@ -92,8 +94,6 @@ def test_ensure_catalog_cached(tmp_path: Path) -> None:
 
 def test_ensure_catalog_download(tmp_path: Path) -> None:
     """ensure_catalog should download when not cached."""
-    import io
-
     cat = Table({"GLON": [30.0], "GLAT": [0.0], "TB": [1.0]})
     buf = io.BytesIO()
     cat.write(buf, format="votable")
@@ -101,6 +101,8 @@ def test_ensure_catalog_download(tmp_path: Path) -> None:
 
     cat_path = tmp_path / "sub" / "catalog.votable"
     mock_resp = MagicMock()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
     mock_resp.read.return_value = votable_bytes
 
     with patch("benchmarks._data.urlopen", return_value=mock_resp):
@@ -127,8 +129,6 @@ def test_match_catalog_pixels_icrs(tmp_path: Path) -> None:
     hdr = _make_fits(fits_path, ctype1="RA---TAN")
     wcs = WCS(hdr, naxis=2)
     ra, dec = wcs.pixel_to_world_values(0, 0)
-    from astropy.coordinates import SkyCoord
-
     sky = SkyCoord(ra=float(ra), dec=float(dec), unit="deg", frame="icrs")
     cat = Table({"GLON": [sky.galactic.l.deg], "GLAT": [sky.galactic.b.deg]})
     counts = match_catalog_pixels(cat, hdr)

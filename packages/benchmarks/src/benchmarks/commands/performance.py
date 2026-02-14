@@ -13,13 +13,12 @@ import sys
 import click
 import numpy as np
 import numpy.typing as npt
-from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._plotting import configure_axes, docs_figure
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 
 @docs_figure("performance-benchmark.png")
@@ -85,9 +84,7 @@ def performance_plot(data_dir: str) -> None:
     gp_path = os.path.join(data_dir, "results.json")
     for path, label in [(ph_path, "phspectra_results.json"), (gp_path, "results.json")]:
         if not os.path.exists(path):
-            err_console.print(
-                f"ERROR: {label} not found in {data_dir}.\nRun ``benchmarks compare`` first."
-            )
+            err_console.print(f"ERROR: {label} not found in {data_dir}.\nRun ``benchmarks compare`` first.")
             sys.exit(1)
 
     console.print("Loading saved comparison data ...", style="bold cyan")
@@ -109,24 +106,15 @@ def performance_plot(data_dir: str) -> None:
         style="bold",
     )
     console.print(f"  {'─' * 62}")
+    console.print(f"  {'Total time':<30} {ph_total:>10.1f} s {gp_total:>10.1f} s {speedup:>6.1f}x")
     console.print(
-        f"  {'Total time':<30} {ph_total:>10.1f} s {gp_total:>10.1f} s {speedup:>6.1f}x"
+        f"  {'Mean per spectrum':<30} {ph_ms.mean():>9.1f} ms "
+        f"{gp_ms.mean():>9.1f} ms {gp_ms.mean() / max(ph_ms.mean(), 1e-9):>6.1f}x"
     )
-    console.print(
-        f"  {'Mean per spectrum':<30} {ph_ms.mean():>9.1f} ms {gp_ms.mean():>9.1f} ms {gp_ms.mean() / max(ph_ms.mean(), 1e-9):>6.1f}x"
-    )
-    console.print(
-        f"  {'Median per spectrum':<30} {np.median(ph_ms):>9.1f} ms {np.median(gp_ms):>9.1f} ms"
-    )
-    console.print(
-        f"  {'Std dev per spectrum':<30} {ph_ms.std():>9.1f} ms {gp_ms.std():>9.1f} ms"
-    )
-    console.print(
-        f"  {'P95 per spectrum':<30} {np.percentile(ph_ms, 95):>9.1f} ms {np.percentile(gp_ms, 95):>9.1f} ms"
-    )
-    console.print(
-        f"  {'P99 per spectrum':<30} {np.percentile(ph_ms, 99):>9.1f} ms {np.percentile(gp_ms, 99):>9.1f} ms"
-    )
+    console.print(f"  {'Median per spectrum':<30} {np.median(ph_ms):>9.1f} ms {np.median(gp_ms):>9.1f} ms")
+    console.print(f"  {'Std dev per spectrum':<30} {ph_ms.std():>9.1f} ms {gp_ms.std():>9.1f} ms")
+    console.print(f"  {'P95 per spectrum':<30} {np.percentile(ph_ms, 95):>9.1f} ms {np.percentile(gp_ms, 95):>9.1f} ms")
+    console.print(f"  {'P99 per spectrum':<30} {np.percentile(ph_ms, 99):>9.1f} ms {np.percentile(gp_ms, 99):>9.1f} ms")
     console.print(
         f"  {'Mean N components':<30} {ph_data['mean_n_components']:>12.2f} {gp_data['mean_n_components']:>12.2f}"
     )

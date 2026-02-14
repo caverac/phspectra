@@ -128,8 +128,8 @@ def ensure_catalog(
     )
     url = f"{TAP_URL}?REQUEST=doQuery&LANG=ADQL&FORMAT=votable&QUERY={quote(adql)}"
     console.print("  Querying VizieR TAP ...")
-    resp = urlopen(url, timeout=120)  # noqa: S310
-    data = resp.read()
+    with urlopen(url, timeout=120) as resp:  # noqa: S310
+        data = resp.read()
     with open(path, "wb") as f:
         f.write(data)
     console.print(f"  Saved to [blue]{path}[/blue]")

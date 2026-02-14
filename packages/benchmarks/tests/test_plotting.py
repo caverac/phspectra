@@ -71,7 +71,8 @@ def test_docs_figure_decorator(docs_img_dir: Path) -> None:
     assert (docs_img_dir / "test-out.png").exists()
 
 
-def test_docs_figure_unchanged(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_docs_figure_unchanged() -> None:
     """@docs_figure should print 'Unchanged' when figure is identical."""
 
     @docs_figure("unchanged.png")

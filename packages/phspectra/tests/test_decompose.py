@@ -10,7 +10,6 @@ import numpy.typing as npt
 
 from phspectra._types import GaussianComponent
 from phspectra.decompose import (
-    _components_to_params,
     _estimate_stddev,
     _fit_components,
     _has_negative_dip,
@@ -44,11 +43,7 @@ def test_refine_false_matches_legacy() -> None:
     """refine=False should give the same number of components as old behavior."""
     x = np.arange(200, dtype=np.float64)
     rng = np.random.default_rng(42)
-    signal = (
-        _make_gaussian(x, 5.0, 60.0, 5.0)
-        + _make_gaussian(x, 3.0, 140.0, 4.0)
-        + rng.normal(0, 0.3, size=200)
-    )
+    signal = _make_gaussian(x, 5.0, 60.0, 5.0) + _make_gaussian(x, 3.0, 140.0, 4.0) + rng.normal(0, 0.3, size=200)
     result = fit_gaussians(signal, beta=5.2, refine=False)
     assert len(result) >= 1  # should find at least one component
 
@@ -77,11 +72,7 @@ def test_blended_merged() -> None:
     x = np.arange(200, dtype=np.float64)
     rng = np.random.default_rng(99)
     # Two Gaussians very close together (separation < f_sep * min_fwhm)
-    signal = (
-        _make_gaussian(x, 5.0, 100.0, 8.0)
-        + _make_gaussian(x, 4.5, 103.0, 8.0)
-        + rng.normal(0, 0.2, size=200)
-    )
+    signal = _make_gaussian(x, 5.0, 100.0, 8.0) + _make_gaussian(x, 4.5, 103.0, 8.0) + rng.normal(0, 0.2, size=200)
     result = fit_gaussians(signal, beta=4.0, f_sep=1.2, snr_min=1.0, mf_snr_min=2.0)
     # After merging blended pair, should have fewer components than initial peaks
     # The exact count depends on AICc, but should be 1 or 2
@@ -93,11 +84,7 @@ def test_negative_residual_split() -> None:
     x = np.arange(200, dtype=np.float64)
     rng = np.random.default_rng(55)
     # Two peaks with a dip between them -- might initially fit as one broad Gaussian
-    signal = (
-        _make_gaussian(x, 5.0, 80.0, 5.0)
-        + _make_gaussian(x, 5.0, 120.0, 5.0)
-        + rng.normal(0, 0.2, size=200)
-    )
+    signal = _make_gaussian(x, 5.0, 80.0, 5.0) + _make_gaussian(x, 5.0, 120.0, 5.0) + rng.normal(0, 0.2, size=200)
     result = fit_gaussians(signal, beta=3.0, neg_thresh=3.0, snr_min=1.0, mf_snr_min=2.0)
     # Should find 2 components
     assert len(result) >= 2
@@ -107,11 +94,7 @@ def test_max_iter_respected() -> None:
     """Iteration count should not exceed max_refine_iter."""
     x = np.arange(200, dtype=np.float64)
     rng = np.random.default_rng(42)
-    signal = (
-        _make_gaussian(x, 5.0, 60.0, 5.0)
-        + _make_gaussian(x, 3.0, 140.0, 4.0)
-        + rng.normal(0, 0.3, size=200)
-    )
+    signal = _make_gaussian(x, 5.0, 60.0, 5.0) + _make_gaussian(x, 3.0, 140.0, 4.0) + rng.normal(0, 0.3, size=200)
     # With max_refine_iter=0, should still return something (no refinement)
     result = fit_gaussians(signal, beta=3.0, max_refine_iter=0)
     assert isinstance(result, list)
@@ -318,11 +301,7 @@ def test_negative_dip_split_in_refinement() -> None:
     rng = np.random.default_rng(88)
     # Create a signal with two peaks close enough to be fit as one broad Gaussian,
     # with a clear dip between them.
-    signal = (
-        _make_gaussian(x, 6.0, 80.0, 4.0)
-        + _make_gaussian(x, 6.0, 100.0, 4.0)
-        + rng.normal(0, 0.15, size=200)
-    )
+    signal = _make_gaussian(x, 6.0, 80.0, 4.0) + _make_gaussian(x, 6.0, 100.0, 4.0) + rng.normal(0, 0.15, size=200)
     result = fit_gaussians(signal, beta=3.0, neg_thresh=3.0, snr_min=1.0, mf_snr_min=2.0)
     # Should resolve into 2 components via the dip-split path
     assert len(result) >= 2
@@ -368,11 +347,7 @@ def test_refine_iteration_dip_split_accepted() -> None:
     """
     x = np.arange(200, dtype=np.float64)
     rng = np.random.default_rng(42)
-    signal = (
-        _make_gaussian(x, 5.0, 80.0, 6.0)
-        + _make_gaussian(x, 5.0, 120.0, 6.0)
-        + rng.normal(0, 0.2, size=200)
-    )
+    signal = _make_gaussian(x, 5.0, 80.0, 6.0) + _make_gaussian(x, 5.0, 120.0, 6.0) + rng.normal(0, 0.2, size=200)
 
     # Start from one broad component
     broad = [GaussianComponent(amplitude=4.0, mean=100.0, stddev=25.0)]
@@ -381,12 +356,17 @@ def test_refine_iteration_dip_split_accepted() -> None:
     rms = estimate_rms(signal)
 
     new_comps, _, _, changed = _refine_iteration(
-        x, signal, components, residual, 200, current_aicc,
+        x,
+        signal,
+        components,
+        residual,
+        200,
+        current_aicc,
         rms=rms,
-        snr_min=999.0,       # suppress residual-peak path
+        snr_min=999.0,  # suppress residual-peak path
         mf_snr_min=999.0,
-        neg_thresh=0.5,       # easy dip detection
-        f_sep=0.0,            # suppress blended-merge path
+        neg_thresh=0.5,  # easy dip detection
+        f_sep=0.0,  # suppress blended-merge path
         max_components=None,
     )
     assert changed
@@ -412,12 +392,17 @@ def test_refine_iteration_blended_merge_accepted() -> None:
     current_aicc = aicc(residual, 6)
 
     new_comps, _, _, changed = _refine_iteration(
-        x, signal, components, residual, 200, current_aicc,
+        x,
+        signal,
+        components,
+        residual,
+        200,
+        current_aicc,
         rms=0.2,
-        snr_min=999.0,       # suppress residual-peak path
+        snr_min=999.0,  # suppress residual-peak path
         mf_snr_min=999.0,
-        neg_thresh=999.0,    # suppress dip-split path
-        f_sep=5.0,           # aggressive blended detection
+        neg_thresh=999.0,  # suppress dip-split path
+        f_sep=5.0,  # aggressive blended detection
         max_components=None,
     )
     assert changed

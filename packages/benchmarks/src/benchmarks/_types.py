@@ -26,27 +26,32 @@ class _AngleAttr(Protocol):
     """An astropy angle-like attribute with a ``.deg`` property."""
 
     @property
-    def deg(self) -> npt.NDArray[np.float64]: ...
+    def deg(self) -> npt.NDArray[np.float64]:
+        """Angular value in degrees."""
 
 
 class GalacticFrame(Protocol):
     """Structural type for an astropy Galactic coordinate frame."""
 
     @property
-    def l(self) -> _AngleAttr: ...  # noqa: E741
+    def l(self) -> _AngleAttr:  # noqa: E741, E743
+        """Galactic longitude."""
 
     @property
-    def b(self) -> _AngleAttr: ...
+    def b(self) -> _AngleAttr:
+        """Galactic latitude."""
 
 
 class ICRSFrame(Protocol):
     """Structural type for an astropy ICRS coordinate frame."""
 
     @property
-    def ra(self) -> _AngleAttr: ...
+    def ra(self) -> _AngleAttr:
+        """Right ascension."""
 
     @property
-    def dec(self) -> _AngleAttr: ...
+    def dec(self) -> _AngleAttr:
+        """Declination."""
 
 
 @dataclass

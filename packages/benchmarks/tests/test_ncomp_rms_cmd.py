@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 from benchmarks.cli import main
 from benchmarks.commands.ncomp_rms_plot import (
     _annotate_panel,
@@ -39,7 +40,8 @@ def test_annotate_panel() -> None:
     plt.close(fig)
 
 
-def test_build_ncomp_rms(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_build_ncomp_rms() -> None:
     """_build_ncomp_rms should produce a two-panel figure."""
     rms = np.array([0.1, 0.15, 0.25, 0.3])
     ncomp = np.array([1, 2, 3, 4])
@@ -48,7 +50,8 @@ def test_build_ncomp_rms(docs_img_dir: Path) -> None:
     plt.close(fig)
 
 
-def test_ncomp_rms_plot_cli(comparison_data_dir: Path, docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_ncomp_rms_plot_cli(comparison_data_dir: Path) -> None:
     """CLI should succeed with valid data dir."""
     runner = CliRunner()
     result = runner.invoke(main, ["ncomp-rms-plot", "--data-dir", str(comparison_data_dir)])

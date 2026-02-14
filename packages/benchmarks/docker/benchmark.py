@@ -89,7 +89,7 @@ def _make_decomposer() -> GaussianDecomposer:
     return decomposer
 
 
-def _decompose_one(
+def decompose_one(
     decomposer: GaussianDecomposer,
     signal: npt.NDArray[np.float64],
     x: npt.NDArray[np.float64],
@@ -209,11 +209,11 @@ def _run_batch(
     elapsed = time.perf_counter() - t_start
     logger.info("Batch complete in %.1fs", elapsed)
 
-    result_path = _find_result_pickle(files_before)
-    return _parse_batch_results(result_path, n_spectra), elapsed
+    result_path = find_result_pickle(files_before)
+    return parse_batch_results(result_path, n_spectra), elapsed
 
 
-def _find_result_pickle(files_before: set[str]) -> str | None:
+def find_result_pickle(files_before: set[str]) -> str | None:
     """Locate the GaussPy+ output pickle file.
 
     Parameters
@@ -243,7 +243,7 @@ def _find_result_pickle(files_before: set[str]) -> str | None:
     return None
 
 
-def _parse_batch_results(
+def parse_batch_results(
     result_path: str | None,
     n_spectra: int,
 ) -> BatchResults:
@@ -315,7 +315,7 @@ def main() -> None:
 
     t_total_start = time.perf_counter()
     for i in range(n_spectra):
-        _, elapsed = _decompose_one(decomposer, signals[i], x_values, errors)
+        _, elapsed = decompose_one(decomposer, signals[i], x_values, errors)
         times.append(elapsed)
         if (i + 1) % 50 == 0:
             logger.info("  %d/%d", i + 1, n_spectra)

@@ -5,13 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 from benchmarks.cli import main
 from benchmarks.commands.performance import _plot_timing
 from click.testing import CliRunner
 from matplotlib import pyplot as plt
 
 
-def test_plot_timing(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_plot_timing() -> None:
     """_plot_timing should produce a histogram figure."""
     ph_ms = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     gp_ms = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
@@ -20,7 +22,8 @@ def test_plot_timing(docs_img_dir: Path) -> None:
     plt.close(fig)
 
 
-def test_performance_plot_cli(comparison_data_dir: Path, docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_performance_plot_cli(comparison_data_dir: Path) -> None:
     """CLI should succeed with valid data dir."""
     runner = CliRunner()
     result = runner.invoke(main, ["performance-plot", "--data-dir", str(comparison_data_dir)])

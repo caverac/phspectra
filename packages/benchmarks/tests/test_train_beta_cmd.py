@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 from benchmarks._types import BetaSweepResult
 from benchmarks.cli import main
 from benchmarks.commands.train_beta import _plot_beta_sweep
@@ -14,7 +15,8 @@ from click.testing import CliRunner
 from matplotlib import pyplot as plt
 
 
-def test_plot_beta_sweep(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_plot_beta_sweep() -> None:
     """_plot_beta_sweep should produce F1/P/R figure."""
     results = [
         BetaSweepResult(3.8, 0.8, 0.9, 0.7, 10, 12, 11, 1.0, 0.1, 0.15, 8),
@@ -25,7 +27,8 @@ def test_plot_beta_sweep(docs_img_dir: Path) -> None:
     plt.close(fig)
 
 
-def test_train_beta_cli(comparison_data_dir: Path, docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_train_beta_cli(comparison_data_dir: Path) -> None:
     """CLI should succeed with valid data and small sweep."""
     runner = CliRunner()
     result = runner.invoke(
@@ -42,7 +45,8 @@ def test_train_beta_cli_missing(tmp_path: Path) -> None:
     assert result.exit_code != 0
 
 
-def test_train_beta_skips_empty_gp(tmp_path: Path, docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_train_beta_skips_empty_gp(tmp_path: Path) -> None:
     """CLI should skip spectra where GP+ found no components."""
     n_spectra, n_channels = 3, 50
     signals = np.random.default_rng(0).normal(0, 0.1, (n_spectra, n_channels))
@@ -64,7 +68,8 @@ def test_train_beta_skips_empty_gp(tmp_path: Path, docs_img_dir: Path) -> None:
     assert "2 spectra with GaussPy+ components" in result.output
 
 
-def test_train_beta_linalg_error(tmp_path: Path, docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_train_beta_linalg_error(tmp_path: Path) -> None:
     """CLI should handle LinAlgError from fit_gaussians."""
     n_spectra, n_channels = 2, 50
     signals = np.random.default_rng(0).normal(0, 0.1, (n_spectra, n_channels))

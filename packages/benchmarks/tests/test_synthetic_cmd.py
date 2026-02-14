@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 from benchmarks._types import Component
 from benchmarks.cli import main
 from benchmarks.commands.synthetic import (
     GENERATORS,
     _agg_f1,
-    _evaluate_one,
     _EvalResult,
+    _evaluate_one,
     _gen_crowded,
     _gen_multi_blended,
     _gen_multi_separated,
-    _gen_single_broad,
     _gen_single_bright,
+    _gen_single_broad,
     _gen_single_faint,
     _gen_single_narrow,
     _make_spectrum,
@@ -48,24 +48,28 @@ def test_gen_single_bright() -> None:
 
 
 def test_gen_single_faint() -> None:
+    """_gen_single_faint should generate spectra with low SNR."""
     rng = np.random.default_rng(0)
     spectra = _gen_single_faint(rng, 2)
     assert len(spectra) == 2
 
 
 def test_gen_single_narrow() -> None:
+    """_gen_single_narrow should generate spectra with narrow lines."""
     rng = np.random.default_rng(0)
     spectra = _gen_single_narrow(rng, 2)
     assert len(spectra) == 2
 
 
 def test_gen_single_broad() -> None:
+    """_gen_single_broad should generate spectra with broad lines."""
     rng = np.random.default_rng(0)
     spectra = _gen_single_broad(rng, 2)
     assert len(spectra) == 2
 
 
 def test_gen_multi_separated() -> None:
+    """_gen_multi_separated should generate multi-component spectra."""
     rng = np.random.default_rng(0)
     spectra = _gen_multi_separated(rng, 2)
     assert len(spectra) == 2
@@ -73,12 +77,14 @@ def test_gen_multi_separated() -> None:
 
 
 def test_gen_multi_blended() -> None:
+    """_gen_multi_blended should generate blended multi-component spectra."""
     rng = np.random.default_rng(0)
     spectra = _gen_multi_blended(rng, 2)
     assert len(spectra) == 2
 
 
 def test_gen_crowded() -> None:
+    """_gen_crowded should generate crowded spectra with 4+ components."""
     rng = np.random.default_rng(0)
     spectra = _gen_crowded(rng, 2)
     assert len(spectra) == 2
@@ -138,7 +144,8 @@ def test_agg_f1() -> None:
     assert empty == 0.0
 
 
-def test_plot_f1_vs_beta(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_plot_f1_vs_beta() -> None:
     """_plot_f1_vs_beta should produce a figure."""
     rows = [
         _EvalResult("single_bright", 0, b, 1.0, 1.0, 1.0, 1, 1, 1, 1, 0, 0.1, None, None, None, None)
@@ -150,12 +157,27 @@ def test_plot_f1_vs_beta(docs_img_dir: Path) -> None:
     plt.close(fig)
 
 
-def test_plot_error_boxplots(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_plot_error_boxplots() -> None:
     """_plot_error_boxplots should produce a figure."""
     rows = [
         _EvalResult(
-            "single_bright", 0, 3.8, 1.0, 1.0, 1.0, 1, 1, 1, 1, 0, 0.1, 10.0,
-            0.01, 0.02, 0.03,
+            "single_bright",
+            0,
+            3.8,
+            1.0,
+            1.0,
+            1.0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0.1,
+            10.0,
+            0.01,
+            0.02,
+            0.03,
         )
     ]
     categories = ["single_bright"]
@@ -164,7 +186,8 @@ def test_plot_error_boxplots(docs_img_dir: Path) -> None:
     plt.close(fig)
 
 
-def test_synthetic_cli(docs_img_dir: Path) -> None:
+@pytest.mark.usefixtures("docs_img_dir")
+def test_synthetic_cli() -> None:
     """CLI should run end-to-end with small parameters."""
     runner = CliRunner()
     result = runner.invoke(

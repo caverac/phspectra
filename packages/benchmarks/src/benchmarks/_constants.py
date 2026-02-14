@@ -7,9 +7,7 @@ from pathlib import Path
 
 # Remote data sources
 
-GAUSSPY_FITS_URL = (
-    "https://github.com/mriener/gausspyplus/raw/master/" + "gausspyplus/data/grs-test_field.fits"
-)
+GAUSSPY_FITS_URL = "https://github.com/mriener/gausspyplus/raw/master/" + "gausspyplus/data/grs-test_field.fits"
 TAP_URL = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync"
 
 # Local cache paths
