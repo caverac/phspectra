@@ -51,7 +51,7 @@ commit_parser = "conventional-monorepo"
 tag_format = "phspectra-v{version}"
 version_variables = ["src/phspectra/__init__.py:__version__"]
 version_toml = ["pyproject.toml:project.version"]
-build_command = "python -m build"
+build_command = "pip install build && python -m build"
 commit_message = "chore(phspectra-release): {version} [skip ci]"
 
 [tool.semantic_release.commit_parser_options]
