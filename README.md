@@ -12,28 +12,51 @@ This project uses **0-dimensional persistent homology** to detect and rank peaks
 
 - [Packages](#packages)
 - [Getting Started](#getting-started)
+- [Documentation](#documentation)
+- [Benchmarks CLI](#benchmarks-cli)
 - [License](#license)
 
 ## Packages
 
-This is a monorepo with three packages:
+This is a monorepo with five packages:
 
 | Package                                     | Description                                                                 |
 | ------------------------------------------- | --------------------------------------------------------------------------- |
 | [`phspectra`](packages/phspectra)           | Core Python library — persistence-based peak detection and Gaussian fitting |
+| [`benchmarks`](packages/benchmarks)         | Benchmark suite for phspectra vs GaussPy+                                   |
 | [`docs`](packages/docs)                     | Project documentation ([live site](https://caverac.github.io/phspectra/))   |
 | [`infrastructure`](packages/infrastructure) | AWS CDK stack for large-scale processing                                    |
-
-See the [documentation site](https://caverac.github.io/phspectra/) for motivation, algorithm details, and the project roadmap.
+| [`pre-print`](packages/pre-print)           | LaTeX source for the accompanying paper                                     |
 
 ## Getting Started
 
 This project uses [mise](https://mise.jdx.dev/) to manage tool versions (Node 22, Python 3.11, uv).
 
 ```bash
+# Install tool versions
 mise install
+
+# Install JS/TS dependencies
 yarn install
-yarn dev:docs
+
+# Install Python dependencies
+uv sync --all-groups
+```
+
+## Documentation
+
+All details about the algorithm, API, and project roadmap live on the [documentation site](https://caverac.github.io/phspectra/). To run it locally:
+
+```bash
+yarn workspace @phspectra/docs start
+```
+
+## Benchmarks CLI
+
+The `benchmarks` package provides a CLI for running comparisons against GaussPy+:
+
+```bash
+uv run benchmarks --help
 ```
 
 ## License
