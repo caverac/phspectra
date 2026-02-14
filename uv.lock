@@ -82,6 +82,7 @@ version = "0.1.0"
 source = { editable = "packages/benchmarks" }
 dependencies = [
     { name = "astropy" },
+    { name = "boto3" },
     { name = "click" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -98,6 +99,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "astropy", specifier = ">=6.0" },
+    { name = "boto3", specifier = ">=1.34" },
     { name = "click", specifier = ">=8.1" },
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "numpy", specifier = ">=1.26" },
