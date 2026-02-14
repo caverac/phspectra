@@ -10,6 +10,15 @@ const config: Config = {
   moduleNameMapper: {
     '^lib/(.*)$': '<rootDir>/src/lib/$1',
     '^utils/(.*)$': '<rootDir>/src/utils/$1'
+  },
+  collectCoverageFrom: ['src/**/*.ts'],
+  coverageThreshold: {
+    global: {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100
+    }
   }
 }
 
