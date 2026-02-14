@@ -25,8 +25,11 @@ def test_cli_lists_commands() -> None:
         "compare-plot",
         "train-beta",
         "inspect",
-        "performance",
+        "performance-plot",
         "synthetic",
+        "persistence-plot",
+        "ncomp-rms-plot",
+        "survey-map",
     ]:
         assert cmd in result.output, f"Missing command: {cmd}"
 
@@ -79,9 +82,30 @@ def test_inspect_help() -> None:
     assert "PX" in result.output
 
 
-def test_performance_help() -> None:
-    """``benchmarks performance --help`` should succeed."""
+def test_performance_plot_help() -> None:
+    """``benchmarks performance-plot --help`` should succeed."""
     runner = CliRunner()
-    result = runner.invoke(main, ["performance", "--help"])
+    result = runner.invoke(main, ["performance-plot", "--help"])
     assert result.exit_code == 0
-    assert "--n-spectra" in result.output
+    assert "--data-dir" in result.output
+
+
+def test_persistence_plot_help() -> None:
+    """``benchmarks persistence-plot --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["persistence-plot", "--help"])
+    assert result.exit_code == 0
+
+
+def test_ncomp_rms_plot_help() -> None:
+    """``benchmarks ncomp-rms-plot --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["ncomp-rms-plot", "--help"])
+    assert result.exit_code == 0
+
+
+def test_survey_map_help() -> None:
+    """``benchmarks survey-map --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["survey-map", "--help"])
+    assert result.exit_code == 0

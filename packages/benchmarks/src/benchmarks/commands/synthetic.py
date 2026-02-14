@@ -117,7 +117,7 @@ def _gen_single_bright(rng: np.random.Generator, n: int) -> list[SyntheticSpectr
     for i in range(n):
         amp = rng.uniform(1.0, 5.0)
         stddev = rng.uniform(3.0, 10.0)
-        while amp / NOISE_SIGMA < 7.0:
+        while amp / NOISE_SIGMA < 7.0:  # pragma: no cover
             amp = rng.uniform(1.0, 5.0)
         comp = Component(amplitude=float(amp), mean=_rand_mean(rng), stddev=float(stddev))
         spectra.append(SyntheticSpectrum("single_bright", i, _make_spectrum(rng, [comp]), [comp]))

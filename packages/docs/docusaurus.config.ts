@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
 import type * as Preset from '@docusaurus/preset-classic'
 import type { Config } from '@docusaurus/types'
 import { themes as prismThemes } from 'prism-react-renderer'
@@ -5,6 +8,11 @@ import rehypeKatex from 'rehype-katex'
 import remarkMath from 'remark-math'
 
 const baseUrl = process.env.DOCS_BASE_URL ?? '/phspectra/'
+
+const pyprojectPath = path.resolve(__dirname, '../phspectra/pyproject.toml')
+const pyprojectContent = fs.readFileSync(pyprojectPath, 'utf-8')
+const versionMatch = pyprojectContent.match(/^version\s*=\s*"([^"]+)"/m)
+const phspectraVersion = versionMatch?.[1] ?? '0.0.0'
 
 const config: Config = {
   title: 'PHSpectra',
@@ -19,6 +27,10 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
+
+  customFields: {
+    phspectraVersion
+  },
 
   i18n: {
     defaultLocale: 'en',
@@ -80,6 +92,10 @@ const config: Config = {
         src: 'img/logo.svg'
       },
       items: [
+        {
+          type: 'custom-versionBadge',
+          position: 'left'
+        } as never,
         {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',

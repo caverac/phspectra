@@ -21,5 +21,20 @@ dependencies = [
 [project.scripts]
 benchmarks = "benchmarks.cli:main"
 
+[dependency-groups]
+dev = ["pytest-cov>=7.0.0"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/benchmarks"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["benchmarks"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "\\.\\.\\."]

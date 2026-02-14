@@ -113,7 +113,7 @@ def _run_persistence(signal: npt.NDArray[np.float64]) -> list[PersistenceEvent]:
                 continue
             neighbor_root = find(neighbor)
             idx_root = find(comp)
-            if idx_root == neighbor_root:
+            if idx_root == neighbor_root:  # pragma: no cover
                 continue
             rep_ir = rep[idx_root]
             rep_nr = rep[neighbor_root]

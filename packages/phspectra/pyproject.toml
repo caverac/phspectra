@@ -40,3 +40,18 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "\\.\\.\\.",
 ]
+
+# =============================================================================
+# Semantic Release
+# =============================================================================
+
+[tool.semantic_release]
+commit_parser = "conventional-monorepo"
+tag_format = "phspectra-v{version}"
+version_variables = ["src/phspectra/__init__.py:__version__"]
+version_toml = ["pyproject.toml:project.version"]
+build_command = "python -m build"
+commit_message = "chore(phspectra-release): {version} [skip ci]"
+
+[tool.semantic_release.commit_parser_options]
+path_filters = ["packages/phspectra"]
