@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/caverac/phspectra/compare/v1.0.0...v1.1.0) (2026-02-14)
+
+### Features
+
+- **benchmark:** added pipeline cli optio to trigger aws run ([8fd24eb](https://github.com/caverac/phspectra/commit/8fd24eb7ebed0779ea097756812c020c6d195e07))
+- **train-gui:** added train gui tool ([1b18fb5](https://github.com/caverac/phspectra/commit/1b18fb5da6bad8f97c8f8edecd4f8c180a7c599e))
+
 # 1.0.0 (2026-02-14)
 
 ### Bug Fixes
