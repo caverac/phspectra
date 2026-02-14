@@ -1,0 +1,88 @@
+repos:
+  - repo: local
+    hooks:
+      # --- Python formatters (auto-fix) ---
+      - id: black
+        name: black
+        entry: uv run black
+        language: system
+        types: [python]
+        files: ^packages/(phspectra|benchmarks|infrastructure/lambda)/
+
+      - id: isort
+        name: isort
+        entry: uv run isort
+        language: system
+        types: [python]
+        files: ^packages/(phspectra|benchmarks|infrastructure/lambda)/
+
+      # --- Python linters ---
+      - id: flake8
+        name: flake8
+        entry: uv run flake8
+        language: system
+        types: [python]
+        files: ^packages/(phspectra|benchmarks|infrastructure/lambda)/
+
+      - id: pylint
+        name: pylint
+        entry: uv run pylint
+        language: system
+        types: [python]
+        files: ^packages/(phspectra/(src|tests)|benchmarks/(src|tests)|infrastructure/lambda/(splitter|worker|tests))/
+
+      - id: pydocstyle
+        name: pydocstyle
+        entry: uv run pydocstyle
+        language: system
+        types: [python]
+        files: ^packages/(phspectra/src|benchmarks/src|infrastructure/lambda/(splitter|worker))/
+
+      # --- Python typecheck (whole-project, not per-file) ---
+      - id: mypy
+        name: mypy
+        entry: >-
+          uv run mypy
+          packages/phspectra/src/
+          packages/phspectra/tests/
+          packages/benchmarks/src/
+          packages/benchmarks/tests/
+          packages/infrastructure/lambda/splitter/
+          packages/infrastructure/lambda/worker/
+          packages/infrastructure/lambda/tests/
+        language: system
+        types: [python]
+        pass_filenames: false
+        files: ^packages/(phspectra|benchmarks|infrastructure/lambda)/
+
+      # --- JS/TS formatters (auto-fix) ---
+      - id: prettier
+        name: prettier
+        entry: yarn prettier --write
+        language: system
+        types_or: [javascript, jsx, ts, tsx, json, markdown, yaml, css]
+
+      # --- JS/TS linters (auto-fix where possible) ---
+      - id: eslint
+        name: eslint
+        entry: yarn eslint --max-warnings 0 --fix
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+
+      # --- JS/TS typecheck (whole-project) ---
+      - id: typecheck-ts
+        name: tsc
+        entry: yarn typecheck
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx]
+
+  # --- Commit message lint ---
+  - repo: local
+    hooks:
+      - id: commitlint
+        name: commitlint
+        entry: yarn commitlint --edit
+        language: system
+        stages: [commit-msg]
+        always_run: true
