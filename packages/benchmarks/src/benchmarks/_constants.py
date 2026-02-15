@@ -10,6 +10,14 @@ from pathlib import Path
 GAUSSPY_FITS_URL = "https://github.com/mriener/gausspyplus/raw/master/" + "gausspyplus/data/grs-test_field.fits"
 TAP_URL = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync"
 
+# S3 public resources
+
+RESOURCES_BUCKET_TEMPLATE = "phspectra-{environment}-resources"
+RESOURCES_BASE_URL_TEMPLATE = "https://phspectra-{environment}-resources.s3.amazonaws.com"
+RESOURCE_FITS = "grs-test-field.fits"
+RESOURCE_CATALOG = "gausspy-catalog.votable"
+RESOURCE_PRECOMPUTE_DB = "pre-compute.db"
+
 # Local cache paths
 
 CACHE_DIR = "/tmp/phspectra"
@@ -36,7 +44,7 @@ DEFAULT_MAX_COMPONENTS = 10
 # Synthetic benchmark parameters
 
 N_CHANNELS = 424
-NOISE_SIGMA = 0.13  # K -- GRS-realistic
+NOISE_SIGMA = 0.25  # K -- GRS-realistic
 MEAN_MARGIN = 10  # keep means within [MEAN_MARGIN, N_CHANNELS - MEAN_MARGIN]
 
 # F1 matching criteria (Lindner et al. 2015, Eq. 7)

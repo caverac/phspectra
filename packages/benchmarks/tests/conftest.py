@@ -8,6 +8,13 @@ from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 import pytest
+from benchmarks._database import (
+    create_db,
+    insert_components,
+    insert_gausspyplus_run,
+    insert_phspectra_run,
+    insert_pixels,
+)
 from benchmarks._types import Component
 
 
@@ -34,13 +41,14 @@ def channel_array() -> npt.NDArray[np.float64]:
 
 @pytest.fixture()
 def comparison_data_dir(tmp_path: Path) -> Path:
-    """Write minimal valid spectra.npz, phspectra_results.json, results.json."""
+    """Write minimal valid spectra.npz, pre-compute.db, and legacy JSON files."""
     n_spectra, n_channels = 2, 50
     rng = np.random.default_rng(0)
     signals = rng.normal(0, 0.1, (n_spectra, n_channels))
 
     np.savez(tmp_path / "spectra.npz", signals=signals)
 
+    # Legacy JSON files (kept for backward compat in train_beta fallback)
     ph = {
         "beta": 3.8,
         "pixels": [[10, 20], [30, 40]],
@@ -62,6 +70,40 @@ def comparison_data_dir(tmp_path: Path) -> Path:
         "mean_n_components": 1.0,
     }
     (tmp_path / "results.json").write_text(json.dumps(gp))
+
+    # SQLite database (used by compare_plot, performance, ncomp_rms, inspect)
+    db_path = str(tmp_path / "pre-compute.db")
+    conn = create_db(db_path)
+
+    ph_run_id = insert_phspectra_run(conn, beta=3.8, n_spectra=n_spectra, total_time_s=0.03)
+    insert_components(conn, "phspectra_components", ph_run_id, 10, 20, [(1.0, 25.0, 3.0)])
+    insert_components(conn, "phspectra_components", ph_run_id, 30, 40, [(2.0, 25.0, 4.0)])
+    insert_pixels(
+        conn,
+        "phspectra_pixels",
+        ph_run_id,
+        [(10, 20, 1, 0.1, 0.01), (30, 40, 1, 0.12, 0.02)],
+    )
+
+    gp_run_id = insert_gausspyplus_run(
+        conn,
+        alpha1=2.89,
+        alpha2=6.65,
+        phase="two",
+        n_spectra=n_spectra,
+        total_time_s=1.1,
+    )
+    insert_components(conn, "gausspyplus_components", gp_run_id, 10, 20, [(1.1, 25.5, 3.1)])
+    insert_components(conn, "gausspyplus_components", gp_run_id, 30, 40, [(1.9, 24.5, 4.1)])
+    insert_pixels(
+        conn,
+        "gausspyplus_pixels",
+        gp_run_id,
+        [(10, 20, 1, 0.11, 0.5), (30, 40, 1, 0.13, 0.6)],
+    )
+
+    conn.commit()
+    conn.close()
 
     return tmp_path
 

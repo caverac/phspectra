@@ -21,15 +21,15 @@ def test_cli_lists_commands() -> None:
     assert result.exit_code == 0
     for cmd in [
         "download",
-        "compare",
+        "pre-compute",
         "compare-plot",
-        "train-beta",
+        "train",
         "inspect",
         "performance-plot",
-        "synthetic",
+        "train-synthetic",
         "persistence-plot",
         "ncomp-rms-plot",
-        "survey-map",
+        "survey-map-plot",
         "pipeline",
     ]:
         assert cmd in result.output, f"Missing command: {cmd}"
@@ -43,10 +43,10 @@ def test_download_help() -> None:
     assert "--cache-dir" in result.output
 
 
-def test_compare_help() -> None:
-    """``benchmarks compare --help`` should succeed."""
+def test_pre_compute_help() -> None:
+    """``benchmarks pre-compute --help`` should succeed."""
     runner = CliRunner()
-    result = runner.invoke(main, ["compare", "--help"])
+    result = runner.invoke(main, ["pre-compute", "--help"])
     assert result.exit_code == 0
     assert "--n-spectra" in result.output
 
@@ -59,18 +59,18 @@ def test_compare_plot_help() -> None:
     assert "--data-dir" in result.output
 
 
-def test_synthetic_help() -> None:
-    """``benchmarks synthetic --help`` should succeed."""
+def test_train_synthetic_help() -> None:
+    """``benchmarks train-synthetic --help`` should succeed."""
     runner = CliRunner()
-    result = runner.invoke(main, ["synthetic", "--help"])
+    result = runner.invoke(main, ["train-synthetic", "--help"])
     assert result.exit_code == 0
     assert "--n-per-category" in result.output
 
 
-def test_train_beta_help() -> None:
-    """``benchmarks train-beta --help`` should succeed."""
+def test_train_help() -> None:
+    """``benchmarks train --help`` should succeed."""
     runner = CliRunner()
-    result = runner.invoke(main, ["train-beta", "--help"])
+    result = runner.invoke(main, ["train", "--help"])
     assert result.exit_code == 0
     assert "--beta-min" in result.output
 
@@ -105,8 +105,8 @@ def test_ncomp_rms_plot_help() -> None:
     assert result.exit_code == 0
 
 
-def test_survey_map_help() -> None:
-    """``benchmarks survey-map --help`` should succeed."""
+def test_survey_map_plot_help() -> None:
+    """``benchmarks survey-map-plot --help`` should succeed."""
     runner = CliRunner()
-    result = runner.invoke(main, ["survey-map", "--help"])
+    result = runner.invoke(main, ["survey-map-plot", "--help"])
     assert result.exit_code == 0

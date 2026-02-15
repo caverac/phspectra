@@ -1,4 +1,4 @@
-"""``benchmarks synthetic`` -- synthetic benchmark with known ground truth.
+"""``benchmarks train-synthetic`` -- synthetic benchmark with known ground truth.
 
 Generates seven categories of synthetic spectra (single bright/faint/
 narrow/broad, multi separated/blended, crowded), decomposes each with
@@ -25,10 +25,9 @@ from benchmarks._console import console
 from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
 from benchmarks._gaussian import gaussian, gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score, match_pairs
-from benchmarks._plotting import AxesGrid1D, configure_axes, docs_figure
+from benchmarks._plotting import AxesGrid1D, AxesGrid2D, configure_axes, docs_figure
 from benchmarks._types import Component, SyntheticSpectrum
 from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from numpy.linalg import LinAlgError
 from rich.table import Table
@@ -218,9 +217,6 @@ GENERATORS = {
 }
 
 
-# Parallel worker
-
-
 def _evaluate_one(args: _WorkItem) -> _EvalResult:
     """Evaluate a single (spectrum, beta) pair.
 
@@ -292,13 +288,13 @@ def _evaluate_one(args: _WorkItem) -> _EvalResult:
     )
 
 
-@click.command()
+@click.command("train-synthetic")
 @click.option("--n-per-category", default=50, show_default=True)
 @click.option("--beta-min", default=3.8, show_default=True)
 @click.option("--beta-max", default=4.5, show_default=True)
-@click.option("--beta-steps", default=7, show_default=True)
+@click.option("--beta-steps", default=12, show_default=True)
 @click.option("--seed", default=2026_02_12, show_default=True)
-def synthetic(
+def train_synthetic(
     n_per_category: int,
     beta_min: float,
     beta_max: float,
@@ -438,18 +434,24 @@ def _agg_f1(csv_rows: list[_EvalResult], beta: float, cat: str | None = None) ->
 @docs_figure("synthetic-f1.png")
 def _plot_f1_vs_beta(
     csv_rows: list[_EvalResult],
-    categories: list[str],
+    categories: list[str],  # pylint: disable=unused-argument
 ) -> Figure:
-    """Build the F1 vs beta figure for all categories.
+    """Build the 2x2 F1 vs beta figure grouped by category theme.
 
-    One line per category plus a bold overall line.
+    Panel layout:
+      (0,0) single_bright (dashed) + single_faint (dash-dot) + overall (solid)
+      (0,1) single_narrow (dashed) + single_broad (dash-dot) + overall (solid)
+      (1,0) multi_separated (dashed) + multi_blended (dash-dot) + overall (solid)
+      (1,1) crowded (dashed) + overall (solid)
+
+    All lines black, distinguished by line style only.
 
     Parameters
     ----------
     csv_rows : list[_EvalResult]
         Full benchmark result rows.
     categories : list[str]
-        Ordered list of category keys.
+        Ordered list of category keys (unused but kept for signature compat).
 
     Returns
     -------
@@ -457,33 +459,52 @@ def _plot_f1_vs_beta(
         The completed matplotlib figure.
     """
     betas = sorted(set(r.beta for r in csv_rows))
+    overall = [_agg_f1(csv_rows, b) for b in betas]
+
+    panel_spec: list[list[tuple[str, str, str]]] = [
+        [
+            ("single_bright", "--", CATEGORY_LABELS["single_bright"]),
+            ("single_faint", "-.", CATEGORY_LABELS["single_faint"]),
+        ],
+        [
+            ("single_narrow", "--", CATEGORY_LABELS["single_narrow"]),
+            ("single_broad", "-.", CATEGORY_LABELS["single_broad"]),
+        ],
+        [
+            ("multi_separated", "--", CATEGORY_LABELS["multi_separated"]),
+            ("multi_blended", "-.", CATEGORY_LABELS["multi_blended"]),
+        ],
+        [
+            ("crowded", "--", CATEGORY_LABELS["crowded"]),
+        ],
+    ]
 
     fig: Figure
-    ax: Axes
-    fig, ax = plt.subplots(figsize=(6, 5))
-    fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
+    axes: AxesGrid2D
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
+    fig.subplots_adjust(left=0.08, right=0.96, bottom=0.08, top=0.95, wspace=0.08, hspace=0.08)
 
-    for cat in categories:
-        ax.plot(
-            betas,
-            [_agg_f1(csv_rows, b, cat) for b in betas],
-            "o-",
-            label=CATEGORY_LABELS[cat],
-            markersize=4,
-        )
-    ax.plot(
-        betas,
-        [_agg_f1(csv_rows, b) for b in betas],
-        "ko-",
-        linewidth=2.5,
-        markersize=6,
-        label="Overall",
-    )
-    ax.set_xlabel(r"$\beta$")
-    ax.set_ylabel("$F_1$")
-    ax.legend(loc="lower left", frameon=False)
-    ax.set_ylim(-0.05, 1.05)
-    configure_axes(ax)
+    for idx, lines in enumerate(panel_spec):
+        row, col = divmod(idx, 2)
+        ax = axes[row, col]
+        for cat, ls, label in lines:
+            ax.plot(
+                betas,
+                [_agg_f1(csv_rows, b, cat) for b in betas],
+                color="k",
+                linestyle=ls,
+                linewidth=1.2,
+                label=label,
+            )
+        ax.plot(betas, overall, color="k", linestyle="-", linewidth=2.5, label="Overall")
+        ax.set_ylim(-0.05, 1.05)
+        ax.legend(loc="lower left", frameon=False)
+        configure_axes(ax)
+
+    for ax in [axes[1, 0], axes[1, 1]]:
+        ax.set_xlabel(r"$\beta$")
+    for ax in [axes[0, 0], axes[1, 0]]:
+        ax.set_ylabel("$F_1$")
 
     return fig
 
@@ -544,12 +565,14 @@ def _plot_error_boxplots(
             patch_artist=True,
             widths=0.5,
             medianprops={"color": "k", "linewidth": 1.5},
+            whiskerprops={"color": "k"},
+            capprops={"color": "k"},
             showfliers=False,
         )
-        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-        for patch, color in zip(bp["boxes"], colors):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.6)
+        for patch in bp["boxes"]:
+            patch.set_facecolor("white")
+            patch.set_edgecolor("k")
+        ax.axhline(0, color="#cccccc", linewidth=0.8, linestyle="--")
         ax.set_ylabel(ylabel)
         configure_axes(ax)
 

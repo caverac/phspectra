@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { AnalyticsStack } from 'lib/analytics.stack'
 import { DataLakeStack } from 'lib/data-lake.stack'
 import { ProcessingStack } from 'lib/processing.stack'
+import { ResourcesStack } from 'lib/resources.stack'
 import { SplitterStack } from 'lib/splitter.stack'
 import { z } from 'zod'
 
@@ -42,5 +43,10 @@ new SplitterStack(app, 'PHSSplitter', {
 new AnalyticsStack(app, 'PHSAnalytics', {
   deploymentEnvironment: env.ENVIRONMENT,
   bucket: dataLake.bucket,
+  env: cdkEnv
+})
+
+new ResourcesStack(app, 'PHSResources', {
+  deploymentEnvironment: env.ENVIRONMENT,
   env: cdkEnv
 })

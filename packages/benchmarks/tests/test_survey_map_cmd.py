@@ -21,5 +21,5 @@ def test_build_figure() -> None:
 def test_survey_map_cli() -> None:
     """CLI should succeed."""
     runner = CliRunner()
-    result = runner.invoke(main, ["survey-map"])
+    result = runner.invoke(main, ["survey-map-plot"])
     assert result.exit_code == 0, result.output

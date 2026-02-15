@@ -1,6 +1,6 @@
-"""``benchmarks train-beta`` -- sweep beta on real GRS data.
+"""``benchmarks train`` -- sweep beta on real GRS data.
 
-Loads spectra and GaussPy+ decompositions from ``benchmarks compare``
+Loads spectra and a curated training set from ``benchmarks pre-compute``
 output, then evaluates phspectra at each beta in a user-defined grid.
 Reports F1, precision, and recall per beta and produces a line plot
 saved to both the benchmark output directory and the docs image
@@ -22,6 +22,7 @@ import numpy as np
 import numpy.typing as npt
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
+from benchmarks._database import load_components
 from benchmarks._gaussian import gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score
 from benchmarks._plotting import configure_axes, docs_figure
@@ -34,36 +35,81 @@ from numpy.linalg import LinAlgError
 from phspectra import fit_gaussians
 
 
-@click.command("train-beta")
+def _load_training_set(
+    training_set: str,
+    data_dir: str,
+    signals: npt.NDArray[np.float64],
+) -> tuple[list[tuple[npt.NDArray[np.float64], list[Component]]], str]:
+    """Load a curated training set and resolve pixel-to-signal indices.
+
+    Returns the training pairs and a human-readable label.
+    """
+    with open(training_set, encoding="utf-8") as f:
+        ts_entries: list[dict[str, Any]] = json.load(f)
+
+    db_path = os.path.join(data_dir, "pre-compute.db")
+    if os.path.exists(db_path):
+        ph_comp_map = load_components(db_path, "phspectra")
+        pixel_to_idx = {pixel: i for i, pixel in enumerate(ph_comp_map.keys())}
+    else:
+        ph_results_path = os.path.join(data_dir, "phspectra_results.json")
+        if not os.path.exists(ph_results_path):
+            err_console.print(
+                f"ERROR: neither pre-compute.db nor phspectra_results.json found in {data_dir}.\n"
+                "Run ``benchmarks pre-compute`` first."
+            )
+            sys.exit(1)
+        with open(ph_results_path, encoding="utf-8") as f:
+            pixel_list: list[list[int]] = json.load(f)["pixels"]
+        pixel_to_idx = {(p[0], p[1]): i for i, p in enumerate(pixel_list)}
+
+    training: list[tuple[npt.NDArray[np.float64], list[Component]]] = []
+    n_skipped = 0
+    for entry in ts_entries:
+        pixel = (entry["pixel"][0], entry["pixel"][1])
+        comps = entry.get("components", [])
+        if not comps:
+            continue
+        if pixel not in pixel_to_idx:
+            n_skipped += 1
+            continue
+        idx = pixel_to_idx[pixel]
+        ref = [Component(c["amplitude"], c["mean"], c["stddev"]) for c in comps]
+        training.append((signals[idx], ref))
+
+    ref_label = f"Curated training set ({training_set})"
+    n_train = len(training)
+    n_comps = sum(len(r) for _, r in training)
+    console.print(f"  {n_train} curated spectra, {n_comps} reference components")
+    if n_skipped:
+        console.print(f"  {n_skipped} pixel(s) not in pre-compute data, skipped", style="yellow")
+    return training, ref_label
+
+
+@click.command("train")
 @click.option(
     "--data-dir",
     default=os.path.join(CACHE_DIR, "compare-docker"),
     show_default=True,
-    help="Directory with spectra.npz and results.json from ``compare``.",
+    help="Directory with spectra.npz from ``pre-compute``.",
 )
 @click.option("--beta-min", default=3.8, show_default=True)
 @click.option("--beta-max", default=4.5, show_default=True)
 @click.option("--beta-steps", default=8, show_default=True)
 @click.option(
     "--training-set",
-    default=None,
+    required=True,
     type=click.Path(exists=True),
-    help="Path to curated training_set.json from train-gui. "
-    "When provided, curated components are used as ground truth "
-    "instead of GaussPy+ decompositions.",
+    help="Path to curated training_set.json from train-gui.",
 )
-def train_beta(  # pylint: disable=too-many-branches
+def train_beta(
     data_dir: str,
     beta_min: float,
     beta_max: float,
     beta_steps: int,
-    training_set: str | None,
+    training_set: str,
 ) -> None:
-    """Sweep beta values against reference decompositions.
-
-    By default the reference is GaussPy+ Docker output.  Pass
-    ``--training-set`` to use a hand-curated training set instead.
-    """
+    """Sweep beta values against a curated training set."""
     output_dir = os.path.join(data_dir, "training-output")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -72,7 +118,7 @@ def train_beta(  # pylint: disable=too-many-branches
     # Load spectra --------------------------------------------------------
     spectra_path = os.path.join(data_dir, "spectra.npz")
     if not os.path.exists(spectra_path):
-        err_console.print(f"ERROR: {spectra_path} not found.\nRun ``benchmarks compare`` first.")
+        err_console.print(f"ERROR: {spectra_path} not found.\nRun ``benchmarks pre-compute`` first.")
         sys.exit(1)
 
     console.print("Step 1: Load spectra", style="bold cyan")
@@ -81,70 +127,19 @@ def train_beta(  # pylint: disable=too-many-branches
     console.print(f"  {n_spectra} spectra, {n_channels} channels each")
 
     # Build reference training set ----------------------------------------
-    training: list[tuple[npt.NDArray[np.float64], list[Component]]] = []
-
-    if training_set is not None:
-        console.print("\nStep 2: Load curated training set", style="bold cyan")
-        with open(training_set, encoding="utf-8") as f:
-            ts_entries: list[dict[str, Any]] = json.load(f)
-
-        # Need pixel → signal-index mapping from the compare run.
-        ph_results_path = os.path.join(data_dir, "phspectra_results.json")
-        if not os.path.exists(ph_results_path):
-            err_console.print(f"ERROR: {ph_results_path} not found.\n" "Run ``benchmarks compare`` first.")
-            sys.exit(1)
-        with open(ph_results_path, encoding="utf-8") as f:
-            pixel_list: list[list[int]] = json.load(f)["pixels"]
-        pixel_to_idx = {(p[0], p[1]): i for i, p in enumerate(pixel_list)}
-
-        n_skipped = 0
-        for entry in ts_entries:
-            pixel = (entry["pixel"][0], entry["pixel"][1])
-            comps = entry.get("components", [])
-            if not comps:
-                continue
-            if pixel not in pixel_to_idx:
-                n_skipped += 1
-                continue
-            idx = pixel_to_idx[pixel]
-            ref = [Component(c["amplitude"], c["mean"], c["stddev"]) for c in comps]
-            training.append((signals[idx], ref))
-
-        ref_label = f"Curated training set ({training_set})"
-        n_train = len(training)
-        n_comps = sum(len(r) for _, r in training)
-        console.print(f"  {n_train} curated spectra, {n_comps} reference components")
-        if n_skipped:
-            console.print(f"  {n_skipped} pixel(s) not in compare data, skipped", style="yellow")
-    else:
-        console.print("\nStep 2: Load GaussPy+ Docker decompositions", style="bold cyan")
-        results_path = os.path.join(data_dir, "results.json")
-        if not os.path.exists(results_path):
-            err_console.print(f"ERROR: {results_path} not found.\n" "Run ``benchmarks compare`` first.")
-            sys.exit(1)
-        with open(results_path, encoding="utf-8") as f:
-            gp_results = json.load(f)
-        gp_amps = gp_results["amplitudes_fit"]
-        gp_means = gp_results["means_fit"]
-        gp_stds = gp_results["stddevs_fit"]
-
-        for i in range(n_spectra):
-            if not gp_amps[i]:
-                continue
-            ref = [Component(amplitude=a, mean=m, stddev=s) for a, m, s in zip(gp_amps[i], gp_means[i], gp_stds[i])]
-            training.append((signals[i], ref))
-
-        ref_label = "GaussPy+ Docker (alpha1=2.89, alpha2=6.65, two-phase)"
-        n_train = len(training)
-        console.print(f"  {n_train} spectra with GaussPy+ components")
-
+    console.print("\nStep 2: Load curated training set", style="bold cyan")
+    training, ref_label = _load_training_set(
+        training_set,
+        data_dir,
+        signals,
+    )
     if not training:
         err_console.print("ERROR: no training spectra found.")
         sys.exit(1)
 
     # Beta sweep
     console.print(
-        f"\nStep 3: Sweep {len(beta_grid)} beta values ({n_train * len(beta_grid)} fits)",
+        f"\nStep 3: Sweep {len(beta_grid)} beta values ({len(training) * len(beta_grid)} fits)",
         style="bold cyan",
     )
     results: list[BetaSweepResult] = []
@@ -210,7 +205,7 @@ def train_beta(  # pylint: disable=too-many-branches
     # Save JSON
     json_path = os.path.join(output_dir, "f1-beta-sweep.json")
     payload = {
-        "n_spectra": n_train,
+        "n_spectra": len(training),
         "beta_grid": beta_grid,
         "reference": ref_label,
         "optimal_beta": best.beta,

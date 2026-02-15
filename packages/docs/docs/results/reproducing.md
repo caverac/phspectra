@@ -4,11 +4,19 @@ sidebar_position: 5
 
 # Reproducing results
 
-All benchmarks are run through the `benchmarks` CLI. Docker must be running for the GaussPy+ comparison. Run them in order -- each step depends on the previous one.
+All benchmarks are run through the `benchmarks` CLI. To get started, run:
 
 ```bash
 uv run benchmarks --help
 ```
+
+This will show you all available commands. Each command is documented with `--help` and the source code is available in `packages/benchmarks/src/benchmarks/commands/`. The commands are designed to be modular, e.g.
+
+```
+uv run benchmarks download --help
+```
+
+will show you how to download the data.
 
 ## Step 0: Download data
 
@@ -16,7 +24,9 @@ uv run benchmarks --help
 uv run benchmarks download
 ```
 
-Downloads and caches the GRS test field FITS cube and VizieR catalog to `/tmp/phspectra/`. The FITS cube is large and the GaussPy+ decompositions take a long time to run, so this only needs to be done once.
+Downloads and caches the GRS test field FITS cube (copied from the GaussPy+ repository and persisted in this project for reproducibility)
+
+and VizieR catalog to `/tmp/phspectra/`. The FITS cube is large and the GaussPy+ decompositions take a long time to run, so this only needs to be done once.
 
 ## Step 1: GaussPy+ comparison (generates all shared data)
 
