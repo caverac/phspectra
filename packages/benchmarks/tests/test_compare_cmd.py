@@ -1,4 +1,4 @@
-"""Tests for benchmarks.commands.compare."""
+"""Tests for benchmarks.commands.pre_compute (was compare)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ from unittest.mock import patch
 import numpy as np
 import numpy.typing as npt
 from astropy.io import fits
-from astropy.table import Table
-from astropy.wcs import WCS
 from benchmarks.cli import main
 from click.testing import CliRunner
 from numpy.linalg import LinAlgError
@@ -35,13 +33,6 @@ def _make_header_and_cube() -> tuple[fits.Header, npt.NDArray[np.float64]]:
     return hdr, cube
 
 
-def _make_catalog(header: fits.Header) -> Table:
-    """Create a catalog with entries matching pixel (1,1)."""
-    wcs = WCS(header, naxis=2)
-    lon, lat = wcs.pixel_to_world_values(1, 1)
-    return Table({"GLON": [float(lon)], "GLAT": [float(lat)]})
-
-
 def _gp_results_for(n_spectra: int) -> dict[str, object]:
     """Build a fake GaussPy+ results dict."""
     return {
@@ -57,47 +48,42 @@ def _gp_results_for(n_spectra: int) -> dict[str, object]:
 def test_compare_cli(tmp_path: Path) -> None:
     """CLI should run end-to-end with all deps mocked."""
     header, cube = _make_header_and_cube()
-    catalog = _make_catalog(header)
     output_dir = tmp_path / "output"
 
     with (
-        patch("benchmarks.commands.compare.ensure_fits", return_value=(header, cube)),
-        patch("benchmarks.commands.compare.fits_bounds", return_value=(29.0, 31.0, -1.0, 1.0)),
-        patch("benchmarks.commands.compare.ensure_catalog", return_value=catalog),
-        patch("benchmarks.commands.compare.build_image"),
-        patch("benchmarks.commands.compare.run_gausspyplus") as mock_gp,
+        patch("benchmarks.commands.pre_compute.ensure_fits", return_value=(header, cube)),
+        patch("benchmarks.commands.pre_compute.build_image"),
+        patch("benchmarks.commands.pre_compute.run_gausspyplus") as mock_gp,
     ):
         mock_gp.return_value = _gp_results_for(1)
         runner = CliRunner()
         result = runner.invoke(
             main,
-            ["compare", "--n-spectra", "1", "--output-dir", str(output_dir), "--seed", "42"],
+            ["pre-compute", "--n-spectra", "1", "--output-dir", str(output_dir), "--seed", "42"],
         )
     assert result.exit_code == 0, result.output
     assert (output_dir / "spectra.npz").exists()
-    assert (output_dir / "phspectra_results.json").exists()
+    assert (output_dir / "pre-compute.db").exists()
 
 
 def test_compare_extra_pixels(tmp_path: Path) -> None:
     """CLI should handle --extra-pixels: empty pair, duplicate, OOB."""
     header, cube = _make_header_and_cube()
-    catalog = _make_catalog(header)
     output_dir = tmp_path / "output"
 
     with (
-        patch("benchmarks.commands.compare.ensure_fits", return_value=(header, cube)),
-        patch("benchmarks.commands.compare.fits_bounds", return_value=(29.0, 31.0, -1.0, 1.0)),
-        patch("benchmarks.commands.compare.ensure_catalog", return_value=catalog),
-        patch("benchmarks.commands.compare.build_image"),
-        patch("benchmarks.commands.compare.run_gausspyplus") as mock_gp,
+        patch("benchmarks.commands.pre_compute.ensure_fits", return_value=(header, cube)),
+        patch("benchmarks.commands.pre_compute.build_image"),
+        patch("benchmarks.commands.pre_compute.run_gausspyplus") as mock_gp,
     ):
-        # (2,2) in bounds; (99,99) OOB; (1,1) duplicate; trailing ; = empty pair
-        mock_gp.return_value = _gp_results_for(2)
+        # 1 sampled + (2,2) in bounds + (99,99) OOB skipped + (0,0) in bounds
+        # + second (2,2) duplicate skipped = 3 total
+        mock_gp.return_value = _gp_results_for(3)
         runner = CliRunner()
         result = runner.invoke(
             main,
             [
-                "compare",
+                "pre-compute",
                 "--n-spectra",
                 "1",
                 "--output-dir",
@@ -105,78 +91,88 @@ def test_compare_extra_pixels(tmp_path: Path) -> None:
                 "--seed",
                 "42",
                 "--extra-pixels",
-                "2,2;99,99;1,1;",
+                "2,2;99,99;0,0;2,2;",
             ],
         )
     assert result.exit_code == 0, result.output
-
-
-def test_compare_empty_catalog(tmp_path: Path) -> None:
-    """CLI should exit when catalog is empty."""
-    header, cube = _make_header_and_cube()
-    empty_cat = Table({"GLON": np.array([], dtype=float), "GLAT": np.array([], dtype=float)})
-    output_dir = tmp_path / "output"
-
-    with (
-        patch("benchmarks.commands.compare.ensure_fits", return_value=(header, cube)),
-        patch("benchmarks.commands.compare.fits_bounds", return_value=(29.0, 31.0, -1.0, 1.0)),
-        patch("benchmarks.commands.compare.ensure_catalog", return_value=empty_cat),
-    ):
-        runner = CliRunner()
-        result = runner.invoke(
-            main,
-            ["compare", "--n-spectra", "1", "--output-dir", str(output_dir)],
-        )
-    assert result.exit_code != 0
+    assert "already selected" in result.output
 
 
 def test_compare_progress_line(tmp_path: Path) -> None:
     """CLI should print progress at every 100 spectra."""
-    header, cube = _make_header_and_cube()
-    catalog = _make_catalog(header)
+    # Need >= 100 pixels to trigger the progress line at (i+1) % 100 == 0
+    nx, ny, nz = 10, 10, 50
+    hdr = fits.Header()
+    hdr["NAXIS"] = 3
+    hdr["NAXIS1"] = nx
+    hdr["NAXIS2"] = ny
+    hdr["NAXIS3"] = nz
+    hdr["CTYPE1"] = "GLON-CAR"
+    hdr["CTYPE2"] = "GLAT-CAR"
+    hdr["CRPIX1"] = 1.0
+    hdr["CRPIX2"] = 1.0
+    hdr["CDELT1"] = 0.01
+    hdr["CDELT2"] = 0.01
+    hdr["CRVAL1"] = 30.0
+    hdr["CRVAL2"] = 0.0
+    cube = np.random.default_rng(0).normal(0, 0.1, (nz, ny, nx))
+    n = nx * ny  # 100
+
     output_dir = tmp_path / "output"
-
-    # Mock select_spectra to return 100 spectra
-    pixels_100 = [(i % 4, i % 3) for i in range(100)]
-    signals_100 = np.random.default_rng(0).normal(0, 0.1, (100, 50))
-
     with (
-        patch("benchmarks.commands.compare.ensure_fits", return_value=(header, cube)),
-        patch("benchmarks.commands.compare.fits_bounds", return_value=(29.0, 31.0, -1.0, 1.0)),
-        patch("benchmarks.commands.compare.ensure_catalog", return_value=catalog),
-        patch("benchmarks.commands.compare.select_spectra", return_value=(pixels_100, signals_100)),
-        patch("benchmarks.commands.compare.fit_gaussians", return_value=[]),
-        patch("benchmarks.commands.compare.build_image"),
-        patch("benchmarks.commands.compare.run_gausspyplus") as mock_gp,
+        patch("benchmarks.commands.pre_compute.ensure_fits", return_value=(hdr, cube)),
+        patch("benchmarks.commands.pre_compute.fit_gaussians", return_value=[]),
+        patch("benchmarks.commands.pre_compute.build_image"),
+        patch("benchmarks.commands.pre_compute.run_gausspyplus") as mock_gp,
     ):
-        mock_gp.return_value = _gp_results_for(100)
+        mock_gp.return_value = _gp_results_for(n)
         runner = CliRunner()
         result = runner.invoke(
             main,
-            ["compare", "--n-spectra", "100", "--output-dir", str(output_dir), "--seed", "42"],
+            ["pre-compute", "--output-dir", str(output_dir)],
         )
     assert result.exit_code == 0, result.output
+    # Progress line at the 100th spectrum
     assert "100/100" in result.output
+
+
+def test_compare_all_pixels(tmp_path: Path) -> None:
+    """CLI should use all pixels when --n-spectra is omitted."""
+    header, cube = _make_header_and_cube()
+    output_dir = tmp_path / "output"
+    # Cube is 4x3=12 pixels
+    n = 4 * 3
+
+    with (
+        patch("benchmarks.commands.pre_compute.ensure_fits", return_value=(header, cube)),
+        patch("benchmarks.commands.pre_compute.build_image"),
+        patch("benchmarks.commands.pre_compute.run_gausspyplus") as mock_gp,
+    ):
+        mock_gp.return_value = _gp_results_for(n)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["pre-compute", "--output-dir", str(output_dir)],
+        )
+    assert result.exit_code == 0, result.output
+    assert f"{n}/{n}" in result.output
 
 
 def test_compare_linalg_error(tmp_path: Path) -> None:
     """CLI should handle LinAlgError/ValueError from fit_gaussians."""
     header, cube = _make_header_and_cube()
-    catalog = _make_catalog(header)
     output_dir = tmp_path / "output"
 
     with (
-        patch("benchmarks.commands.compare.ensure_fits", return_value=(header, cube)),
-        patch("benchmarks.commands.compare.fits_bounds", return_value=(29.0, 31.0, -1.0, 1.0)),
-        patch("benchmarks.commands.compare.ensure_catalog", return_value=catalog),
-        patch("benchmarks.commands.compare.fit_gaussians", side_effect=LinAlgError("test")),
-        patch("benchmarks.commands.compare.build_image"),
-        patch("benchmarks.commands.compare.run_gausspyplus") as mock_gp,
+        patch("benchmarks.commands.pre_compute.ensure_fits", return_value=(header, cube)),
+        patch("benchmarks.commands.pre_compute.fit_gaussians", side_effect=LinAlgError("test")),
+        patch("benchmarks.commands.pre_compute.build_image"),
+        patch("benchmarks.commands.pre_compute.run_gausspyplus") as mock_gp,
     ):
         mock_gp.return_value = _gp_results_for(1)
         runner = CliRunner()
         result = runner.invoke(
             main,
-            ["compare", "--n-spectra", "1", "--output-dir", str(output_dir), "--seed", "42"],
+            ["pre-compute", "--n-spectra", "1", "--output-dir", str(output_dir), "--seed", "42"],
         )
     assert result.exit_code == 0, result.output

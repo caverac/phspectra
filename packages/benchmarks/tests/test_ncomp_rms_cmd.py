@@ -10,24 +10,9 @@ from benchmarks.cli import main
 from benchmarks.commands.ncomp_rms_plot import (
     _annotate_panel,
     _build_ncomp_rms,
-    _compute_rms_and_ncomp,
 )
 from click.testing import CliRunner
 from matplotlib import pyplot as plt
-
-
-def test_compute_rms_and_ncomp() -> None:
-    """_compute_rms_and_ncomp should return rms and ncomp arrays."""
-    signals = np.zeros((2, 50))
-    data = {
-        "amplitudes_fit": [[1.0], [2.0]],
-        "means_fit": [[25.0], [25.0]],
-        "stddevs_fit": [[3.0], [4.0]],
-    }
-    rms, ncomp = _compute_rms_and_ncomp(signals, data)
-    assert len(rms) == 2
-    assert len(ncomp) == 2
-    assert all(ncomp == 1)
 
 
 def test_annotate_panel() -> None:

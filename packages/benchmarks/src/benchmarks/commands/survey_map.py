@@ -33,7 +33,7 @@ from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 
 
-@docs_figure("survey-map.png")
+@docs_figure("survey-map-plot.png")
 def _build_figure() -> Figure:
     """Construct the 2x2 placeholder figure."""
     fig: Figure
@@ -72,7 +72,7 @@ def _build_figure() -> Figure:
     return fig
 
 
-@click.command("survey-map")
+@click.command("survey-map-plot")
 def survey_map() -> None:
     """Generate 2x2 survey visualisation from full-field decomposition [WIP]."""
     console.print("Generating survey map placeholder ...", style="bold cyan")

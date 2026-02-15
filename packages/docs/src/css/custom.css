@@ -25,6 +25,24 @@
   background: transparent !important;
 }
 
+figure.scientific {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+figure.scientific img {
+  max-width: 100%;
+}
+
+figure.scientific figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ifm-color-emphasis-700);
+  text-align: left;
+  padding: 0 1rem;
+}
+
 .version-badge {
   display: inline-block;
   padding: 0.15rem 0.5rem;

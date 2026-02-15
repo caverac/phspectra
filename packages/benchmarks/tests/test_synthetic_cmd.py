@@ -1,4 +1,4 @@
-"""Tests for benchmarks.commands.synthetic."""
+"""Tests for benchmarks.commands.train_synthetic."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from benchmarks._types import Component
 from benchmarks.cli import main
-from benchmarks.commands.synthetic import (
+from benchmarks.commands.train_synthetic import (
     GENERATORS,
     _agg_f1,
     _EvalResult,
@@ -122,7 +122,7 @@ def test_evaluate_one_exception() -> None:
         true_comps_raw=[{"amplitude": 2.0, "mean": 100.0, "stddev": 5.0}],
         beta=3.8,
     )
-    with patch("benchmarks.commands.synthetic.fit_gaussians", side_effect=ValueError("test")):
+    with patch("benchmarks.commands.train_synthetic.fit_gaussians", side_effect=ValueError("test")):
         result = _evaluate_one(item)
     assert result.n_detected == 0
     assert result.f1 == 0.0
@@ -192,6 +192,6 @@ def test_synthetic_cli() -> None:
     runner = CliRunner()
     result = runner.invoke(
         main,
-        ["synthetic", "--n-per-category", "2", "--beta-steps", "2", "--seed", "42"],
+        ["train-synthetic", "--n-per-category", "2", "--beta-steps", "2", "--seed", "42"],
     )
     assert result.exit_code == 0, result.output

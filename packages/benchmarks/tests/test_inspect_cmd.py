@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import patch
@@ -10,6 +9,13 @@ from unittest.mock import patch
 import numpy as np
 import numpy.typing as npt
 from astropy.io import fits
+from benchmarks._database import (
+    create_db,
+    insert_components,
+    insert_gausspyplus_run,
+    insert_phspectra_run,
+    insert_pixels,
+)
 from benchmarks.cli import main
 from click.testing import CliRunner
 
@@ -31,7 +37,7 @@ def _fake_ensure_fits_empty(**_kwargs: str) -> tuple[fits.Header, npt.NDArray[np
 
 
 def _setup_inspect_dir(tmp_path: Path) -> Path:
-    """Set up a data dir with fake FITS and JSON results."""
+    """Set up a data dir with fake FITS and SQLite database."""
     data_dir = tmp_path / "compare-docker"
     data_dir.mkdir()
 
@@ -43,24 +49,44 @@ def _setup_inspect_dir(tmp_path: Path) -> Path:
     hdr["NAXIS1"] = nx
     hdr["NAXIS2"] = ny
     hdr["NAXIS3"] = nz
-    fits.PrimaryHDU(data=data, header=hdr).writeto(str(tmp_path / "grs-test-field.fits"), overwrite=True)
+    fits.PrimaryHDU(data=data, header=hdr).writeto(
+        str(tmp_path / "grs-test-field.fits"),
+        overwrite=True,
+    )
 
-    # phspectra results
-    ph = {
-        "pixels": [[1, 1], [2, 2]],
-        "amplitudes_fit": [[1.0], [2.0]],
-        "means_fit": [[25.0], [25.0]],
-        "stddevs_fit": [[3.0], [4.0]],
-    }
-    (data_dir / "phspectra_results.json").write_text(json.dumps(ph))
+    # SQLite database
+    db_path = str(data_dir / "pre-compute.db")
+    conn = create_db(db_path)
 
-    # GP+ results
-    gp = {
-        "amplitudes_fit": [[1.1], [1.9]],
-        "means_fit": [[25.5], [24.5]],
-        "stddevs_fit": [[3.1], [4.1]],
-    }
-    (data_dir / "results.json").write_text(json.dumps(gp))
+    ph_run_id = insert_phspectra_run(conn, beta=3.8, n_spectra=2, total_time_s=0.03)
+    insert_components(conn, "phspectra_components", ph_run_id, 1, 1, [(1.0, 25.0, 3.0)])
+    insert_components(conn, "phspectra_components", ph_run_id, 2, 2, [(2.0, 25.0, 4.0)])
+    insert_pixels(
+        conn,
+        "phspectra_pixels",
+        ph_run_id,
+        [(1, 1, 1, 0.1, 0.01), (2, 2, 1, 0.12, 0.02)],
+    )
+
+    gp_run_id = insert_gausspyplus_run(
+        conn,
+        alpha1=2.89,
+        alpha2=6.65,
+        phase="two",
+        n_spectra=2,
+        total_time_s=1.1,
+    )
+    insert_components(conn, "gausspyplus_components", gp_run_id, 1, 1, [(1.1, 25.5, 3.1)])
+    insert_components(conn, "gausspyplus_components", gp_run_id, 2, 2, [(1.9, 24.5, 4.1)])
+    insert_pixels(
+        conn,
+        "gausspyplus_pixels",
+        gp_run_id,
+        [(1, 1, 1, 0.11, 0.5), (2, 2, 1, 0.13, 0.6)],
+    )
+
+    conn.commit()
+    conn.close()
 
     return data_dir
 
@@ -82,27 +108,13 @@ def test_inspect_cli(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
 
 
-def test_inspect_missing_results_json(tmp_path: Path) -> None:
-    """CLI should fail when results.json is missing."""
+def test_inspect_missing_db(tmp_path: Path) -> None:
+    """CLI should fail when pre-compute.db is missing."""
     data_dir = tmp_path / "compare-docker"
     data_dir.mkdir()
-    (data_dir / "phspectra_results.json").write_text("{}")
 
-    with patch("benchmarks.commands.inspect_pixel.ensure_fits", side_effect=_fake_ensure_fits_empty):
-        runner = CliRunner()
-        result = runner.invoke(main, ["inspect", "0", "0", "--data-dir", str(data_dir)])
-    assert result.exit_code != 0
-
-
-def test_inspect_missing_phspectra_results(tmp_path: Path) -> None:
-    """CLI should fail when phspectra_results.json is missing."""
-    data_dir = tmp_path / "compare-docker"
-    data_dir.mkdir()
-    (data_dir / "results.json").write_text("{}")
-
-    with patch("benchmarks.commands.inspect_pixel.ensure_fits", side_effect=_fake_ensure_fits_empty):
-        runner = CliRunner()
-        result = runner.invoke(main, ["inspect", "0", "0", "--data-dir", str(data_dir)])
+    runner = CliRunner()
+    result = runner.invoke(main, ["inspect", "0", "0", "--data-dir", str(data_dir)])
     assert result.exit_code != 0
 
 
@@ -209,11 +221,29 @@ def test_inspect_no_components(tmp_path: Path) -> None:
     hdr["NAXIS1"] = nx
     hdr["NAXIS2"] = ny
     hdr["NAXIS3"] = nz
-    fits.PrimaryHDU(data=data, header=hdr).writeto(str(tmp_path / "grs-test-field.fits"), overwrite=True)
-    ph = {"pixels": [[1, 1]], "amplitudes_fit": [[]], "means_fit": [[]], "stddevs_fit": [[]]}
-    (data_dir / "phspectra_results.json").write_text(json.dumps(ph))
-    gp: dict[str, list[list[object]]] = {"amplitudes_fit": [[]], "means_fit": [[]], "stddevs_fit": [[]]}
-    (data_dir / "results.json").write_text(json.dumps(gp))
+    fits.PrimaryHDU(data=data, header=hdr).writeto(
+        str(tmp_path / "grs-test-field.fits"),
+        overwrite=True,
+    )
+
+    # SQLite with empty components
+    db_path = str(data_dir / "pre-compute.db")
+    conn = create_db(db_path)
+    ph_run_id = insert_phspectra_run(conn, beta=3.8, n_spectra=1, total_time_s=0.01)
+    insert_pixels(conn, "phspectra_pixels", ph_run_id, [(1, 1, 0, 0.1, 0.01)])
+
+    gp_run_id = insert_gausspyplus_run(
+        conn,
+        alpha1=2.89,
+        alpha2=6.65,
+        phase="two",
+        n_spectra=1,
+        total_time_s=0.5,
+    )
+    insert_pixels(conn, "gausspyplus_pixels", gp_run_id, [(1, 1, 0, 0.11, 0.5)])
+
+    conn.commit()
+    conn.close()
 
     fake = _make_fake_ensure_fits(tmp_path / "grs-test-field.fits")
 

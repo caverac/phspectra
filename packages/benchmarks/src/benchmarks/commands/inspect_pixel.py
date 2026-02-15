@@ -8,7 +8,6 @@ particular spectrum.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from typing import Any
@@ -18,6 +17,7 @@ import numpy as np
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._data import ensure_fits
+from benchmarks._database import load_components, load_pixels
 from benchmarks._gaussian import gaussian_model
 from benchmarks._plotting import configure_axes
 from benchmarks._types import Component
@@ -53,19 +53,6 @@ def _compute_zoom(
     return lo, hi
 
 
-def _validate_data_files(data_dir: str) -> tuple[str, str]:
-    """Check that results.json and phspectra_results.json exist."""
-    docker_results_path = os.path.join(data_dir, "results.json")
-    ph_results_path = os.path.join(data_dir, "phspectra_results.json")
-    if not os.path.exists(docker_results_path):
-        err_console.print("ERROR: results.json not found, run ``benchmarks compare`` first")
-        sys.exit(1)
-    if not os.path.exists(ph_results_path):
-        err_console.print("ERROR: phspectra_results.json not found, run ``benchmarks compare`` first")
-        sys.exit(1)
-    return docker_results_path, ph_results_path
-
-
 @click.command("inspect")
 @click.argument("px", type=int)
 @click.argument("py", type=int)
@@ -97,17 +84,20 @@ def inspect_pixel(
     beta_list = [float(b) for b in betas.split(",")]
     mf_snr_min_list = [float(s) for s in mf_snr_mins.split(",")]
 
+    db_path = os.path.join(data_dir, "pre-compute.db")
+    if not os.path.exists(db_path):
+        err_console.print("ERROR: pre-compute.db not found, run ``benchmarks pre-compute`` first")
+        sys.exit(1)
+
     fits_path = os.path.join(data_dir, "..", "grs-test-field.fits")
-    docker_results_path, ph_results_path = _validate_data_files(data_dir)
 
     # Load data
     _, cube = ensure_fits(path=fits_path)
     n_channels = cube.shape[0]
 
-    # Read pixel list saved by ``benchmarks compare``
-    with open(ph_results_path, encoding="utf-8") as f:
-        ph_saved = json.load(f)
-    selected = [tuple(p) for p in ph_saved["pixels"]]
+    # Read pixel list from SQLite
+    ph_pixel_rows = load_pixels(db_path, "phspectra")
+    selected = [(r["xpos"], r["ypos"]) for r in ph_pixel_rows]
 
     try:
         spec_idx = selected.index((px, py))
@@ -121,19 +111,12 @@ def inspect_pixel(
     signal = np.nan_to_num(cube[:, py, px].astype(np.float64), nan=0.0)
     x = np.arange(n_channels, dtype=np.float64)
 
-    # GaussPy+ results
-    with open(docker_results_path, encoding="utf-8") as f:
-        gp = json.load(f)
-    gp_comps = [
-        Component(a, m, s)
-        for a, m, s in zip(
-            gp["amplitudes_fit"][spec_idx],
-            gp["means_fit"][spec_idx],
-            gp["stddevs_fit"][spec_idx],
-        )
-    ]
+    # GaussPy+ results from SQLite
+    gp_comp_map = load_components(db_path, "gausspyplus")
+    gp_raw = gp_comp_map.get((px, py), [])
+    gp_comps = [Component(a, m, s) for a, m, s in gp_raw]
     gp_model = gaussian_model(x, gp_comps)
-    gp_rms = float(np.sqrt(np.mean((signal - gp_model) ** 2)))  #
+    gp_rms = float(np.sqrt(np.mean((signal - gp_model) ** 2)))
 
     console.print(f"Pixel ({px}, {py}), index {spec_idx}", style="bold cyan")
     console.print(f"GaussPy+: {len(gp_comps)} components, RMS={gp_rms:.4f}")
@@ -143,7 +126,7 @@ def inspect_pixel(
     for beta in beta_list:
         for mf_snr_min in mf_snr_min_list:
             try:
-                comps = fit_gaussians(signal, beta=beta, max_components=10, mf_snr_min=mf_snr_min)
+                comps = fit_gaussians(signal, beta=beta, max_components=12, mf_snr_min=mf_snr_min)
             except (LinAlgError, ValueError):
                 comps = []
             ph_results[(beta, mf_snr_min)] = [Component(c.amplitude, c.mean, c.stddev) for c in comps]

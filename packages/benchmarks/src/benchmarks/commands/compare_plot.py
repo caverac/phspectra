@@ -1,6 +1,6 @@
 """``benchmarks compare-plot`` -- generate plots from saved comparison data.
 
-Reads the JSON/NPZ outputs of ``benchmarks compare`` and produces four
+Reads the SQLite/NPZ outputs of ``benchmarks pre-compute`` and produces four
 figures: RMS distribution histogram, RMS scatter, six-panel disagreement
 cases, and matched-width ratio histogram.  All are saved to the docs
 static image directory via the ``@docs_figure`` decorator.
@@ -8,19 +8,20 @@ static image directory via the ``@docs_figure`` decorator.
 
 from __future__ import annotations
 
-import json
 import os
 
 import click
 import numpy as np
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
+from benchmarks._database import load_components, load_pixels, load_run
 from benchmarks._gaussian import residual_rms
 from benchmarks._matching import match_pairs
 from benchmarks._plotting import configure_axes, docs_figure, plot_panel
 from benchmarks._types import ComparisonResult, ComparisonSummary, Component
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
+from matplotlib.patches import Patch
 
 
 def _select_disagreement_cases(
@@ -134,10 +135,7 @@ def _collect_matched_widths(
 def _load_results(
     data_dir: str,
 ) -> tuple[list[ComparisonResult], ComparisonSummary]:
-    """Load saved comparison data and reconstruct ComparisonResult objects.
-
-    Expects ``spectra.npz``, ``phspectra_results.json``, and
-    ``results.json`` (GaussPy+ Docker output) in *data_dir*.
+    """Load saved comparison data from SQLite and NPZ.
 
     Parameters
     ----------
@@ -147,60 +145,52 @@ def _load_results(
     Returns
     -------
     tuple[list[ComparisonResult], ComparisonSummary]
-        ``(results, summary)`` where *summary* contains aggregate
-        timing and component-count statistics.
+        ``(results, summary)``
     """
     spectra_path = os.path.join(data_dir, "spectra.npz")
-    ph_path = os.path.join(data_dir, "phspectra_results.json")
-    gp_path = os.path.join(data_dir, "results.json")
+    db_path = os.path.join(data_dir, "pre-compute.db")
 
     for path, label in [
         (spectra_path, "spectra.npz"),
-        (ph_path, "phspectra_results.json"),
-        (gp_path, "results.json"),
+        (db_path, "pre-compute.db"),
     ]:
         if not os.path.exists(path):
             err_console.print(f"ERROR: missing {label} in {data_dir}")
             raise SystemExit(1)
 
-    signals = np.load(spectra_path)["signals"]
+    npz = np.load(spectra_path)
+    signals = npz["signals"]
+    npz_pixels = npz["pixels"]  # (N, 2) array saved by pre-compute
+    pixel_to_signal_idx = {(int(r[0]), int(r[1])): i for i, r in enumerate(npz_pixels)}
 
-    with open(ph_path, encoding="utf-8") as f:
-        ph_data = json.load(f)
-    with open(gp_path, encoding="utf-8") as f:
-        gp_data = json.load(f)
+    ph_run = load_run(db_path, "phspectra")
+    gp_run = load_run(db_path, "gausspyplus")
 
-    n_spectra = len(signals)
+    ph_comp_map = load_components(db_path, "phspectra")
+    gp_comp_map = load_components(db_path, "gausspyplus")
+
+    ph_pixel_rows = load_pixels(db_path, "phspectra")
+    gp_pixel_rows = load_pixels(db_path, "gausspyplus")
+
+    pixel_order = [(r["xpos"], r["ypos"]) for r in ph_pixel_rows]
+    ph_time_map = {(r["xpos"], r["ypos"]): r["time_s"] for r in ph_pixel_rows}
+    gp_time_map = {(r["xpos"], r["ypos"]): r["time_s"] for r in gp_pixel_rows}
+
     results: list[ComparisonResult] = []
-    for i in range(n_spectra):
-        signal = signals[i]
-        pixel = tuple(ph_data["pixels"][i])
+    for px, py in pixel_order:
+        signal = signals[pixel_to_signal_idx[(px, py)]]
 
-        ph_comps = [
-            Component(a, m, s)
-            for a, m, s in zip(
-                ph_data["amplitudes_fit"][i],
-                ph_data["means_fit"][i],
-                ph_data["stddevs_fit"][i],
-            )
-        ]
-        gp_comps = [
-            Component(a, m, s)
-            for a, m, s in zip(
-                gp_data["amplitudes_fit"][i],
-                gp_data["means_fit"][i],
-                gp_data["stddevs_fit"][i],
-            )
-        ]
+        ph_comps = [Component(a, m, s) for a, m, s in ph_comp_map.get((px, py), [])]
+        gp_comps = [Component(a, m, s) for a, m, s in gp_comp_map.get((px, py), [])]
 
         ph_rms = residual_rms(signal, ph_comps)
         gp_rms = residual_rms(signal, gp_comps)
-        ph_time = ph_data["times"][i]
-        gp_time = gp_data["times"][i] if i < len(gp_data["times"]) else 0.0
+        ph_time = ph_time_map.get((px, py), 0.0)
+        gp_time = gp_time_map.get((px, py), 0.0)
 
         results.append(
             ComparisonResult(
-                pixel=pixel,
+                pixel=(px, py),
                 signal=signal,
                 gp_comps=gp_comps,
                 ph_comps=ph_comps,
@@ -212,10 +202,10 @@ def _load_results(
         )
 
     summary = ComparisonSummary(
-        ph_total_time=ph_data["total_time_s"],
-        gp_total_time=gp_data["total_time_s"],
-        ph_mean_n_components=ph_data["mean_n_components"],
-        gp_mean_n_components=gp_data["mean_n_components"],
+        ph_total_time=ph_run["total_time_s"],
+        gp_total_time=gp_run["total_time_s"],
+        ph_mean_n_components=float(np.mean([len(r.ph_comps) for r in results])),
+        gp_mean_n_components=float(np.mean([len(r.gp_comps) for r in results])),
     )
     return results, summary
 
@@ -242,28 +232,23 @@ def _build_rms_hist(results: list[ComparisonResult]) -> Figure:
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
     upper = max(np.percentile(ph_rms_arr, 99), np.percentile(gp_rms_arr, 99))
-    bins_ph = np.linspace(0, upper, 40)
-    bins_gp = np.linspace(0, upper, 41)
-    ph_counts, ph_edges, _ = ax.hist(
-        ph_rms_arr,
-        bins=bins_ph,  # type: ignore[arg-type]
-        alpha=0.7,
-        label="PHSpectra",
-        color="k",
-    )
-    gp_counts, gp_edges, _ = ax.hist(
-        gp_rms_arr,
-        bins=bins_gp,  # type: ignore[arg-type]
-        alpha=0.2,
-        label="GaussPy+",
-        color="#4d4d4d",
-    )
-    ax.stairs(ph_counts, ph_edges, color="k", linewidth=1.2)
-    ax.stairs(gp_counts, gp_edges, color="#4d4d4d", linewidth=1.2)
+    bins_ph = np.linspace(0, upper, 50)
+    bins_gp = np.linspace(0, upper, 51)
+    ph_counts, ph_edges = np.histogram(ph_rms_arr, bins=bins_ph)
+    gp_counts, gp_edges = np.histogram(gp_rms_arr, bins=bins_gp)
+    ax.stairs(ph_counts, ph_edges, color="k", linewidth=1.2, linestyle="-")
+    ax.stairs(gp_counts, gp_edges, color="k", linewidth=1.2, linestyle="--")
 
     ax.set_xlabel("RMS (K)")
     ax.set_ylabel("Count")
-    ax.legend(loc="upper right", frameon=False)
+    ax.legend(
+        handles=[
+            Patch(facecolor="none", edgecolor="k", linewidth=1.2, linestyle="-", label="PHSpectra"),
+            Patch(facecolor="none", edgecolor="k", linewidth=1.2, linestyle="--", label="GaussPy+"),
+        ],
+        loc="upper right",
+        frameon=False,
+    )
     configure_axes(ax)
 
     return fig
@@ -287,8 +272,6 @@ def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
     """
     ph_rms_arr = np.array([r.ph_rms for r in results])
     gp_rms_arr = np.array([r.gp_rms for r in results])
-    n_ph_wins = int(np.sum(ph_rms_arr < gp_rms_arr))
-    n_select = len(results)
 
     fig: Figure
     fig, ax = plt.subplots(figsize=(6.5, 5))
@@ -300,11 +283,6 @@ def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
     ax.set_xlabel("GaussPy+ RMS (K)")
     ax.set_ylabel("PHSpectra RMS (K)")
     ax.set_aspect("equal")
-    ax.legend(
-        [f"PH lower: {n_ph_wins}/{n_select}"],
-        loc="upper left",
-        frameon=False,
-    )
     configure_axes(ax)
 
     return fig
@@ -332,10 +310,10 @@ def _build_disagreements_figure(
     """
     fig: Figure
     fig, axes = plt.subplots(2, 3, figsize=(16, 11), sharex=True, sharey=True)
-    fig.subplots_adjust(left=0.05, right=0.98, bottom=0.07, top=0.95, wspace=0.08, hspace=0.18)
+    fig.subplots_adjust(left=0.05, right=0.98, bottom=0.07, top=0.95, wspace=0.08, hspace=0.08)
 
     for i, (label, r) in enumerate(disagreements):
-        plot_panel(axes.ravel()[i], r, f"{label} -- px({r.pixel[0]},{r.pixel[1]})")
+        plot_panel(axes.ravel()[i], r, f"{label} - px({r.pixel[0]},{r.pixel[1]})")
         configure_axes(axes.ravel()[i])
     for i in range(len(disagreements), 6):
         axes.ravel()[i].set_visible(False)
@@ -410,7 +388,7 @@ def _build_width_hist(
     "--data-dir",
     default=os.path.join(CACHE_DIR, "compare-docker"),
     show_default=True,
-    help="Directory containing spectra.npz, results.json, and phspectra_results.json.",
+    help="Directory containing spectra.npz and pre-compute.db.",
 )
 def compare_plot(data_dir: str) -> None:
     """Generate comparison plots from saved phspectra vs GaussPy+ data."""
@@ -420,12 +398,21 @@ def compare_plot(data_dir: str) -> None:
     console.print(f"  Loaded {n_select} spectra from [blue]{data_dir}[/blue]")
 
     # Summary stats
-    n_ph_wins = sum(1 for r in results if r.ph_rms < r.gp_rms)
+    ph_rms_arr = np.array([r.ph_rms for r in results])
+    gp_rms_arr = np.array([r.gp_rms for r in results])
+    n_ph_wins = int(np.sum(ph_rms_arr < gp_rms_arr))
     ph_total = summary.ph_total_time
     gp_total = summary.gp_total_time
     speedup = gp_total / ph_total if ph_total > 0 else 0
     console.print(
-        f"  RMS wins: phspectra {n_ph_wins}/{n_select}, " f"GP+ {n_select - n_ph_wins}/{n_select}",
+        f"  Mean RMS: phspectra {ph_rms_arr.mean():.4f} K, GP+ {gp_rms_arr.mean():.4f} K",
+        style="green",
+    )
+    console.print(
+        f"  RMS wins: phspectra {n_ph_wins}/{n_select} "
+        f"({100 * n_ph_wins / n_select:.0f}%), "
+        f"GP+ {n_select - n_ph_wins}/{n_select} "
+        f"({100 * (n_select - n_ph_wins) / n_select:.0f}%)",
         style="green",
     )
     console.print(
