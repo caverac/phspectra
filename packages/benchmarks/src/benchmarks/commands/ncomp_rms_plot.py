@@ -123,6 +123,28 @@ def ncomp_rms_plot(data_dir: str) -> None:
     gp_rms = np.array([r["rms"] for r in gp_pixel_rows])
     gp_ncomp = np.array([r["n_components"] for r in gp_pixel_rows], dtype=int)
 
-    console.print(f"  {len(ph_pixel_rows)} spectra loaded from [blue]{data_dir}[/blue]")
+    n_spectra = len(ph_pixel_rows)
+    console.print(f"  {n_spectra} spectra loaded from [blue]{data_dir}[/blue]")
+
+    # Component count statistics
+    console.print(
+        f"  Mean N components: phspectra {ph_ncomp.mean():.2f}, GP+ {gp_ncomp.mean():.2f}",
+        style="green",
+    )
+    lo = ph_rms <= 0.2
+    hi = ph_rms > 0.2
+    if lo.sum() > 0:
+        console.print(
+            f"  RMS <= 0.2 K ({lo.sum()} spectra): "
+            f"phspectra {ph_ncomp[lo].mean():.2f}, GP+ {gp_ncomp[lo].mean():.2f} mean components",
+            style="green",
+        )
+    if hi.sum() > 0:
+        console.print(
+            f"  RMS >  0.2 K ({hi.sum()} spectra): "
+            f"phspectra {ph_ncomp[hi].mean():.2f}, GP+ {gp_ncomp[hi].mean():.2f} mean components",
+            style="green",
+        )
+
     _build_ncomp_rms(ph_rms, ph_ncomp, gp_rms, gp_ncomp)
     console.print("Done.", style="bold green")

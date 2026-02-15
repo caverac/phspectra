@@ -311,6 +311,13 @@ def persistence_plot() -> None:
 
     top_peaks = sorted(events[:3], key=lambda e: e.index)
 
+    console.print("Synthetic signal: 3 Gaussians + noise (sigma=0.08)", style="bold cyan")
+    console.print(f"  {len(events)} persistence events, top 3:")
+    for e in top_peaks:
+        console.print(
+            f"    ch={e.index:>3d}  birth={e.birth:.2f}  death={e.death:.2f}  " f"persistence={e.birth - e.death:.2f}"
+        )
+
     _plot_water_levels(x, signal, top_peaks)
     _plot_persistence_diagram(events)
 

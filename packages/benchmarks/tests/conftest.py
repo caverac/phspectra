@@ -46,7 +46,8 @@ def comparison_data_dir(tmp_path: Path) -> Path:
     rng = np.random.default_rng(0)
     signals = rng.normal(0, 0.1, (n_spectra, n_channels))
 
-    np.savez(tmp_path / "spectra.npz", signals=signals)
+    pixels = np.array([[10, 20], [30, 40]])
+    np.savez(tmp_path / "spectra.npz", signals=signals, pixels=pixels)
 
     # Legacy JSON files (kept for backward compat in train_beta fallback)
     ph = {
@@ -82,7 +83,7 @@ def comparison_data_dir(tmp_path: Path) -> Path:
         conn,
         "phspectra_pixels",
         ph_run_id,
-        [(10, 20, 1, 0.1, 0.01), (30, 40, 1, 0.12, 0.02)],
+        [(10, 20, 1, 0.1, 0.01), (30, 40, 1, 0.25, 0.02)],
     )
 
     gp_run_id = insert_gausspyplus_run(

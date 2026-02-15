@@ -239,7 +239,7 @@ def _evaluate_one(args: _WorkItem) -> _EvalResult:
     x = np.arange(len(signal), dtype=np.float64)
 
     try:
-        detected_raw = fit_gaussians(signal, beta=args.beta, max_components=8)
+        detected_raw = fit_gaussians(signal, beta=args.beta, max_components=12)
     except (LinAlgError, ValueError):
         detected_raw = []
 
@@ -367,9 +367,27 @@ def train_synthetic(
         _, _, f1 = f1_score(tot_c, tot_t, tot_g)
         beta_scores[beta] = f1
     optimal_beta = max(beta_scores, key=beta_scores.get)  # type: ignore[arg-type]
+    f1_values = list(beta_scores.values())
+    f1_variation = max(f1_values) - min(f1_values)
+    console.print(f"  Noise sigma: {NOISE_SIGMA} K, {n_total} spectra ({n_per_category}/category)")
     console.print(
         f"  Optimal beta = [bold yellow]{optimal_beta:.1f}[/bold yellow]" f"  (F1 = {beta_scores[optimal_beta]:.4f})"
     )
+    console.print(
+        f"  F1 variation across sweep: {f1_variation:.3f} "
+        f"({beta_scores[beta_grid[0]]:.3f} at beta={beta_grid[0]} "
+        f"to {beta_scores[beta_grid[-1]]:.3f} at beta={beta_grid[-1]})"
+    )
+
+    # Per-category F1 at optimal beta
+    console.print(f"\n  Per-category F1 at beta={optimal_beta:.1f}:", style="bold")
+    cat_f1_pairs: list[tuple[str, float]] = []
+    for cat in categories:
+        cat_f1 = _agg_f1(csv_rows, optimal_beta, cat)
+        cat_f1_pairs.append((cat, cat_f1))
+    cat_f1_pairs.sort(key=lambda x: x[1], reverse=True)
+    for cat, cat_f1 in cat_f1_pairs:
+        console.print(f"    {cat:<20s}  F1 = {cat_f1:.3f}")
 
     # Save outputs
     csv_path = os.path.join(output_dir, "synthetic_benchmark.csv")

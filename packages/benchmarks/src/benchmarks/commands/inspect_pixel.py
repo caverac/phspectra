@@ -126,7 +126,7 @@ def inspect_pixel(
     for beta in beta_list:
         for mf_snr_min in mf_snr_min_list:
             try:
-                comps = fit_gaussians(signal, beta=beta, max_components=10, mf_snr_min=mf_snr_min)
+                comps = fit_gaussians(signal, beta=beta, max_components=12, mf_snr_min=mf_snr_min)
             except (LinAlgError, ValueError):
                 comps = []
             ph_results[(beta, mf_snr_min)] = [Component(c.amplitude, c.mean, c.stddev) for c in comps]

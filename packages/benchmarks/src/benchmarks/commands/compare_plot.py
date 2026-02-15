@@ -158,7 +158,10 @@ def _load_results(
             err_console.print(f"ERROR: missing {label} in {data_dir}")
             raise SystemExit(1)
 
-    signals = np.load(spectra_path)["signals"]
+    npz = np.load(spectra_path)
+    signals = npz["signals"]
+    npz_pixels = npz["pixels"]  # (N, 2) array saved by pre-compute
+    pixel_to_signal_idx = {(int(r[0]), int(r[1])): i for i, r in enumerate(npz_pixels)}
 
     ph_run = load_run(db_path, "phspectra")
     gp_run = load_run(db_path, "gausspyplus")
@@ -169,14 +172,13 @@ def _load_results(
     ph_pixel_rows = load_pixels(db_path, "phspectra")
     gp_pixel_rows = load_pixels(db_path, "gausspyplus")
 
-    # Build pixel -> index mapping from ph_pixel_rows order
     pixel_order = [(r["xpos"], r["ypos"]) for r in ph_pixel_rows]
     ph_time_map = {(r["xpos"], r["ypos"]): r["time_s"] for r in ph_pixel_rows}
     gp_time_map = {(r["xpos"], r["ypos"]): r["time_s"] for r in gp_pixel_rows}
 
     results: list[ComparisonResult] = []
-    for i, (px, py) in enumerate(pixel_order):
-        signal = signals[i]
+    for px, py in pixel_order:
+        signal = signals[pixel_to_signal_idx[(px, py)]]
 
         ph_comps = [Component(a, m, s) for a, m, s in ph_comp_map.get((px, py), [])]
         gp_comps = [Component(a, m, s) for a, m, s in gp_comp_map.get((px, py), [])]
@@ -308,10 +310,10 @@ def _build_disagreements_figure(
     """
     fig: Figure
     fig, axes = plt.subplots(2, 3, figsize=(16, 11), sharex=True, sharey=True)
-    fig.subplots_adjust(left=0.05, right=0.98, bottom=0.07, top=0.95, wspace=0.08, hspace=0.18)
+    fig.subplots_adjust(left=0.05, right=0.98, bottom=0.07, top=0.95, wspace=0.08, hspace=0.08)
 
     for i, (label, r) in enumerate(disagreements):
-        plot_panel(axes.ravel()[i], r, f"{label} -- px({r.pixel[0]},{r.pixel[1]})")
+        plot_panel(axes.ravel()[i], r, f"{label} - px({r.pixel[0]},{r.pixel[1]})")
         configure_axes(axes.ravel()[i])
     for i in range(len(disagreements), 6):
         axes.ravel()[i].set_visible(False)
@@ -396,12 +398,21 @@ def compare_plot(data_dir: str) -> None:
     console.print(f"  Loaded {n_select} spectra from [blue]{data_dir}[/blue]")
 
     # Summary stats
-    n_ph_wins = sum(1 for r in results if r.ph_rms < r.gp_rms)
+    ph_rms_arr = np.array([r.ph_rms for r in results])
+    gp_rms_arr = np.array([r.gp_rms for r in results])
+    n_ph_wins = int(np.sum(ph_rms_arr < gp_rms_arr))
     ph_total = summary.ph_total_time
     gp_total = summary.gp_total_time
     speedup = gp_total / ph_total if ph_total > 0 else 0
     console.print(
-        f"  RMS wins: phspectra {n_ph_wins}/{n_select}, " f"GP+ {n_select - n_ph_wins}/{n_select}",
+        f"  Mean RMS: phspectra {ph_rms_arr.mean():.4f} K, GP+ {gp_rms_arr.mean():.4f} K",
+        style="green",
+    )
+    console.print(
+        f"  RMS wins: phspectra {n_ph_wins}/{n_select} "
+        f"({100 * n_ph_wins / n_select:.0f}%), "
+        f"GP+ {n_select - n_ph_wins}/{n_select} "
+        f"({100 * (n_select - n_ph_wins) / n_select:.0f}%)",
         style="green",
     )
     console.print(

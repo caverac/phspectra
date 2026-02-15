@@ -22,7 +22,6 @@ import numpy as np
 import numpy.typing as npt
 from benchmarks._console import console, err_console
 from benchmarks._constants import CACHE_DIR
-from benchmarks._database import load_components
 from benchmarks._gaussian import gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score
 from benchmarks._plotting import configure_axes, docs_figure
@@ -37,7 +36,7 @@ from phspectra import fit_gaussians
 
 def _load_training_set(
     training_set: str,
-    data_dir: str,
+    pixel_to_idx: dict[tuple[int, int], int],
     signals: npt.NDArray[np.float64],
 ) -> tuple[list[tuple[npt.NDArray[np.float64], list[Component]]], str]:
     """Load a curated training set and resolve pixel-to-signal indices.
@@ -46,22 +45,6 @@ def _load_training_set(
     """
     with open(training_set, encoding="utf-8") as f:
         ts_entries: list[dict[str, Any]] = json.load(f)
-
-    db_path = os.path.join(data_dir, "pre-compute.db")
-    if os.path.exists(db_path):
-        ph_comp_map = load_components(db_path, "phspectra")
-        pixel_to_idx = {pixel: i for i, pixel in enumerate(ph_comp_map.keys())}
-    else:
-        ph_results_path = os.path.join(data_dir, "phspectra_results.json")
-        if not os.path.exists(ph_results_path):
-            err_console.print(
-                f"ERROR: neither pre-compute.db nor phspectra_results.json found in {data_dir}.\n"
-                "Run ``benchmarks pre-compute`` first."
-            )
-            sys.exit(1)
-        with open(ph_results_path, encoding="utf-8") as f:
-            pixel_list: list[list[int]] = json.load(f)["pixels"]
-        pixel_to_idx = {(p[0], p[1]): i for i, p in enumerate(pixel_list)}
 
     training: list[tuple[npt.NDArray[np.float64], list[Component]]] = []
     n_skipped = 0
@@ -95,7 +78,7 @@ def _load_training_set(
 )
 @click.option("--beta-min", default=3.8, show_default=True)
 @click.option("--beta-max", default=4.5, show_default=True)
-@click.option("--beta-steps", default=8, show_default=True)
+@click.option("--beta-steps", default=16, show_default=True)
 @click.option(
     "--training-set",
     required=True,
@@ -122,7 +105,15 @@ def train_beta(
         sys.exit(1)
 
     console.print("Step 1: Load spectra", style="bold cyan")
-    signals = np.load(spectra_path)["signals"]
+    npz = np.load(spectra_path)
+    signals = npz["signals"]
+    if "pixels" not in npz:
+        err_console.print(
+            "ERROR: spectra.npz missing 'pixels' array.\nRe-run ``benchmarks pre-compute`` to regenerate it."
+        )
+        sys.exit(1)
+    npz_pixels = npz["pixels"]
+    pixel_to_idx = {(int(r[0]), int(r[1])): i for i, r in enumerate(npz_pixels)}
     n_spectra, n_channels = signals.shape
     console.print(f"  {n_spectra} spectra, {n_channels} channels each")
 
@@ -130,7 +121,7 @@ def train_beta(
     console.print("\nStep 2: Load curated training set", style="bold cyan")
     training, ref_label = _load_training_set(
         training_set,
-        data_dir,
+        pixel_to_idx,
         signals,
     )
     if not training:
@@ -154,7 +145,7 @@ def train_beta(
         for signal, ref in training:
             x = np.arange(len(signal), dtype=np.float64)
             try:
-                guessed_raw = fit_gaussians(signal, beta=beta, max_components=16, mf_snr_min=3.5)
+                guessed_raw = fit_gaussians(signal, beta=beta, max_components=12, mf_snr_min=3.5)
             except (LinAlgError, ValueError):
                 guessed_raw = []
             guessed = [Component(c.amplitude, c.mean, c.stddev) for c in guessed_raw]
@@ -190,7 +181,17 @@ def train_beta(
         )
 
     best = max(results, key=lambda r: r.f1)
-    console.print(f"\nOptimal beta = [bold yellow]{best.beta:.2f}[/bold yellow]" f"  (F1 = {best.f1:.4f})")
+    f1_values = [r.f1 for r in results]
+    f1_variation = max(f1_values) - min(f1_values)
+    console.print(
+        f"\nOptimal beta = [bold yellow]{best.beta:.2f}[/bold yellow]"
+        f"  (F1 = {best.f1:.4f}, P = {best.precision:.4f}, R = {best.recall:.4f})"
+    )
+    console.print(
+        f"  F1 variation across sweep: {f1_variation:.3f} "
+        f"(min {min(f1_values):.3f} at beta={results[f1_values.index(min(f1_values))].beta:.2f}, "
+        f"max {max(f1_values):.3f} at beta={best.beta:.2f})"
+    )
 
     # Save CSV
     csv_path = os.path.join(output_dir, "f1-beta-sweep.csv")

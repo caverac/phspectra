@@ -165,8 +165,8 @@ def test_train_training_set_skips_unknown_pixels(comparison_data_dir: Path) -> N
 
 
 def test_train_training_set_missing_data(tmp_path: Path) -> None:
-    """CLI should fail when --training-set is given but no pixel data exists."""
-    np.savez(tmp_path / "spectra.npz", signals=np.zeros((2, 50)))
+    """CLI should fail when spectra.npz has no pixels array."""
+    np.savez(tmp_path / "spectra.npz", signals=np.zeros((2, 50)))  # no pixels
     ts_path = tmp_path / "ts.json"
     ts_path.write_text(json.dumps([{"pixel": [0, 0], "components": [{"amplitude": 1, "mean": 25, "stddev": 3}]}]))
 
@@ -196,9 +196,8 @@ def test_train_training_set_empty_components(comparison_data_dir: Path) -> None:
 
 
 @pytest.mark.usefixtures("docs_img_dir")
-def test_train_json_fallback(comparison_data_dir: Path) -> None:
-    """CLI should fall back to phspectra_results.json when pre-compute.db is missing."""
-    # Remove the SQLite database so it falls back to JSON
+def test_train_without_db(comparison_data_dir: Path) -> None:
+    """CLI should succeed using only spectra.npz (no DB needed for pixel mapping)."""
     db_file = comparison_data_dir / "pre-compute.db"
     if db_file.exists():
         db_file.unlink()

@@ -215,7 +215,7 @@ def plot_panel(
     )
     ax.legend(loc="upper right", frameon=False)
     ax.set_xlabel("Channel")
-    ax.set_ylabel("T (K)")
+    ax.set_ylabel("$T$ (K)")
 
 
 def zoom_range(
