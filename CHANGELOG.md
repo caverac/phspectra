@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/caverac/phspectra/compare/v1.1.0...v1.1.1) (2026-02-15)
+
+### Bug Fixes
+
+- bug in measuring gp time ([6058382](https://github.com/caverac/phspectra/commit/6058382a4e2a228fe3cdc2fecb1b4f5ca4582dc9))
+
 # [1.1.0](https://github.com/caverac/phspectra/compare/v1.0.0...v1.1.0) (2026-02-14)
 
 ### Features
