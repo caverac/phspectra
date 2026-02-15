@@ -51,10 +51,10 @@ describe('ProcessingStack', () => {
 
   test('DynamoDB runs table with PAY_PER_REQUEST billing', () => {
     template.hasResourceProperties('AWS::DynamoDB::Table', {
-      TableName: 'phspectra-development-runs',
+      TableName: 'phspectra-runs',
       BillingMode: 'PAY_PER_REQUEST',
-      KeySchema: [{ AttributeName: 'run_id', KeyType: 'HASH' }],
-      AttributeDefinitions: [{ AttributeName: 'run_id', AttributeType: 'S' }]
+      KeySchema: [{ AttributeName: 'PK', KeyType: 'HASH' }],
+      AttributeDefinitions: [{ AttributeName: 'PK', AttributeType: 'S' }]
     })
   })
 
