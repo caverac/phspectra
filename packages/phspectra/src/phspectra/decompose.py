@@ -11,6 +11,13 @@ from phspectra.noise import estimate_rms, estimate_rms_simple
 from phspectra.persistence import PersistentPeak, find_peaks_by_persistence
 from phspectra.quality import aicc, find_blended_pairs, validate_components
 
+try:
+    from phspectra._gaussfit import bounded_lm_fit as _c_bounded_lm_fit
+
+    _HAS_C_EXT: bool = True
+except ImportError:  # pragma: no cover
+    _HAS_C_EXT = False
+
 # Re-export for backward compatibility
 __all__ = [
     "DEFAULT_BETA",
@@ -67,17 +74,43 @@ def _fit_components(
 
     p0, lower, upper = _components_to_params(components, n_channels)
 
-    try:
-        popt, _ = curve_fit(
-            _multi_gaussian,
-            x,
-            signal,
-            p0=p0,
-            bounds=(lower, upper),
-            maxfev=maxfev,
-        )
-    except (RuntimeError, np.linalg.LinAlgError):
-        popt = np.array(p0)
+    if _HAS_C_EXT:
+        try:
+            popt = _c_bounded_lm_fit(
+                np.ascontiguousarray(x, dtype=np.float64),
+                np.ascontiguousarray(signal, dtype=np.float64),
+                np.array(p0, dtype=np.float64),
+                np.array(lower, dtype=np.float64),
+                np.array(upper, dtype=np.float64),
+                maxfev,
+            )
+        except RuntimeError:
+            popt = np.array(p0)
+        except ValueError:
+            # Too many parameters for C solver; fall back to scipy
+            try:
+                popt, _ = curve_fit(
+                    _multi_gaussian,
+                    x,
+                    signal,
+                    p0=p0,
+                    bounds=(lower, upper),
+                    maxfev=maxfev,
+                )
+            except (RuntimeError, np.linalg.LinAlgError):
+                popt = np.array(p0)
+    else:  # pragma: no cover
+        try:
+            popt, _ = curve_fit(
+                _multi_gaussian,
+                x,
+                signal,
+                p0=p0,
+                bounds=(lower, upper),
+                maxfev=maxfev,
+            )
+        except (RuntimeError, np.linalg.LinAlgError):
+            popt = np.array(p0)
 
     fitted = [
         GaussianComponent(

@@ -150,9 +150,12 @@ def test_fit_components_curvefit_failure() -> None:
     signal = np.zeros(50)
     # Provide a degenerate guess that will cause curve_fit to fail
     bad_guess = [GaussianComponent(amplitude=1e-15, mean=25.0, stddev=0.3)]
-    with patch(
-        "phspectra.decompose.curve_fit",
-        side_effect=RuntimeError("maxfev exceeded"),
+    with (
+        patch("phspectra.decompose._HAS_C_EXT", False),
+        patch(
+            "phspectra.decompose.curve_fit",
+            side_effect=RuntimeError("maxfev exceeded"),
+        ),
     ):
         comps, _ = _fit_components(x, signal, bad_guess, 50)
     assert len(comps) == 1
@@ -163,9 +166,65 @@ def test_fit_components_linalg_failure() -> None:
     x = np.arange(50, dtype=np.float64)
     signal = np.zeros(50)
     guess = [GaussianComponent(amplitude=1.0, mean=25.0, stddev=3.0)]
-    with patch(
-        "phspectra.decompose.curve_fit",
-        side_effect=np.linalg.LinAlgError("SVD did not converge"),
+    with (
+        patch("phspectra.decompose._HAS_C_EXT", False),
+        patch(
+            "phspectra.decompose.curve_fit",
+            side_effect=np.linalg.LinAlgError("SVD did not converge"),
+        ),
+    ):
+        comps, _ = _fit_components(x, signal, guess, 50)
+    assert len(comps) == 1
+
+
+def test_fit_components_c_ext_failure() -> None:
+    """_fit_components should fall back to p0 when C extension raises RuntimeError."""
+    x = np.arange(50, dtype=np.float64)
+    signal = np.zeros(50)
+    guess = [GaussianComponent(amplitude=1.0, mean=25.0, stddev=3.0)]
+    with (
+        patch("phspectra.decompose._HAS_C_EXT", True),
+        patch(
+            "phspectra.decompose._c_bounded_lm_fit",
+            side_effect=RuntimeError("maxfev reached"),
+        ),
+    ):
+        comps, _ = _fit_components(x, signal, guess, 50)
+    assert len(comps) == 1
+
+
+def test_fit_components_c_ext_value_error_fallback() -> None:
+    """_fit_components should fall back to curve_fit on ValueError from C ext."""
+    x = np.arange(50, dtype=np.float64)
+    signal = _make_gaussian(x, 3.0, 25.0, 4.0)
+    guess = [GaussianComponent(amplitude=2.5, mean=24.0, stddev=3.0)]
+    with (
+        patch("phspectra.decompose._HAS_C_EXT", True),
+        patch(
+            "phspectra.decompose._c_bounded_lm_fit",
+            side_effect=ValueError("Too many parameters"),
+        ),
+    ):
+        comps, _ = _fit_components(x, signal, guess, 50)
+    assert len(comps) == 1
+    assert abs(comps[0].amplitude - 3.0) < 0.5
+
+
+def test_fit_components_c_ext_value_error_then_curvefit_failure() -> None:
+    """When C ext raises ValueError and curve_fit also fails, fall back to p0."""
+    x = np.arange(50, dtype=np.float64)
+    signal = np.zeros(50)
+    guess = [GaussianComponent(amplitude=1.0, mean=25.0, stddev=3.0)]
+    with (
+        patch("phspectra.decompose._HAS_C_EXT", True),
+        patch(
+            "phspectra.decompose._c_bounded_lm_fit",
+            side_effect=ValueError("Too many parameters"),
+        ),
+        patch(
+            "phspectra.decompose.curve_fit",
+            side_effect=RuntimeError("maxfev exceeded"),
+        ),
     ):
         comps, _ = _fit_components(x, signal, guess, 50)
     assert len(comps) == 1

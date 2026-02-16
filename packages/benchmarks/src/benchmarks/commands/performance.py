@@ -44,16 +44,18 @@ def _plot_timing(
     fig, ax = plt.subplots(figsize=(6.5, 5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
-    clip = max([0, 1500.0])
-    bins_ph = np.linspace(0, clip, 50)
-    bins_gp = np.linspace(0, clip, 51)
+    lo = max(1.0, float(min(ph_ms.min(), gp_ms.min())) * 0.8)
+    hi = float(max(ph_ms.max(), gp_ms.max())) * 1.2
+    bins_ph = np.geomspace(lo, hi, 70)
+    bins_gp = np.geomspace(lo, hi, 71)
     ph_counts, ph_edges = np.histogram(ph_ms, bins=bins_ph)
     gp_counts, gp_edges = np.histogram(gp_ms, bins=bins_gp)
     ax.stairs(ph_counts, ph_edges, color="k", linewidth=1.2, linestyle="-")
     ax.stairs(gp_counts, gp_edges, color="k", linewidth=1.2, linestyle="--")
 
+    ax.set_xscale("log")
     ax.set_xlabel("Time per spectrum (ms)")
-    ax.set_xlim(0, 1500)
+    ax.set_xlim(lo, hi)
     ax.set_ylabel("Count")
     ax.legend(
         handles=[
