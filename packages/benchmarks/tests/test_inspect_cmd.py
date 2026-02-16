@@ -250,6 +250,28 @@ def test_inspect_no_components(tmp_path: Path) -> None:
     with (
         patch("benchmarks.commands.inspect_pixel.ensure_fits", side_effect=fake),
         patch("benchmarks.commands.inspect_pixel.plt.show"),
+        patch("benchmarks.commands.inspect_pixel.fit_gaussians", return_value=[]),
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["inspect", "1", "1", "--data-dir", str(data_dir), "--betas", "3.8", "--mf-snr-mins", "4.0"],
+        )
+    assert result.exit_code == 0, result.output
+
+
+def test_inspect_fit_exception(tmp_path: Path) -> None:
+    """CLI should handle fit_gaussians raising LinAlgError."""
+    data_dir = _setup_inspect_dir(tmp_path)
+    fake = _make_fake_ensure_fits(tmp_path / "grs-test-field.fits")
+
+    with (
+        patch("benchmarks.commands.inspect_pixel.ensure_fits", side_effect=fake),
+        patch("benchmarks.commands.inspect_pixel.plt.show"),
+        patch(
+            "benchmarks.commands.inspect_pixel.fit_gaussians",
+            side_effect=np.linalg.LinAlgError("singular"),
+        ),
     ):
         runner = CliRunner()
         result = runner.invoke(

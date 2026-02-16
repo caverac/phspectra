@@ -11,7 +11,6 @@ def bounded_lm_fit(
     upper: NDArray[np.float64],
     maxfev: int,
 ) -> NDArray[np.float64]: ...
-
 def find_peaks(
     signal: NDArray[np.float64],
     min_persistence: float,
