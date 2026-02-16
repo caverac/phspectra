@@ -289,6 +289,37 @@ def test_response_structure(worker: Any, sqs_event: Any, lambda_context: MagicMo
     assert result["body"]["n_spectra"] == 2
 
 
+def test_build_fit_kwargs_int_and_bool(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """Int and bool params are cast correctly by ``_build_fit_kwargs``."""
+    msg = {**MSG_BASE, "params": {"beta": 5.0, "max_refine_iter": 2, "refine": False}}
+    event = sqs_event(msg)
+    chunk = _make_chunk(1)
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", return_value=[]) as mock_fit,
+        patch.object(worker, "pq"),
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        worker.handler(event, lambda_context)
+
+    kwargs = mock_fit.call_args[1]
+    assert kwargs["max_refine_iter"] == 2
+    assert isinstance(kwargs["max_refine_iter"], int)
+    assert kwargs["refine"] is False
+    assert isinstance(kwargs["refine"], bool)
+
+
 # -- DynamoDB progress tracking tests ----------------------------------------
 
 
