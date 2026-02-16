@@ -1,3 +1,9 @@
+# [1.2.0](https://github.com/caverac/phspectra/compare/v1.1.1...v1.2.0) (2026-02-16)
+
+### Features
+
+- **phspectra:** moved phspectra functionality into c extension ([f9b84e5](https://github.com/caverac/phspectra/commit/f9b84e5590b7ce9fbf8dfaa21ff1decdc8c0b861))
+
 ## [1.1.1](https://github.com/caverac/phspectra/compare/v1.1.0...v1.1.1) (2026-02-15)
 
 ### Bug Fixes
