@@ -13,23 +13,6 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 
-# --_survey_from_key --------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("key", "expected"),
-    [
-        ("cubes/GRS.fits", "grs"),
-        ("a/b/NGC1234.fits", "ngc1234"),
-        ("FILE.fits", "file"),
-    ],
-    ids=["nested-dir", "deep-nested", "root-level"],
-)
-def test_survey_from_key(splitter: Any, key: str, expected: str) -> None:
-    """``_survey_from_key`` extracts lowercase stem from various key formats."""
-    assert splitter._survey_from_key(key) == expected
-
-
 # --handler routing ---------------------------------------------------------
 
 
@@ -41,17 +24,16 @@ def test_routes_manifest(splitter: Any, eventbridge_event: Any, lambda_context: 
     mock.assert_called_once_with("manifests/sweep.json")
 
 
-def test_routes_fits(splitter: Any, eventbridge_event: Any, lambda_context: MagicMock) -> None:
-    """FITS keys delegate to ``_handle_fits`` with ``DEFAULT_BETA``."""
-    event = eventbridge_event("cubes/grs.fits")
-    with patch.object(splitter, "_handle_fits", return_value={"statusCode": 200}) as mock:
-        splitter.handler(event, lambda_context)
-    mock.assert_called_once_with("cubes/grs.fits", survey="grs", beta_values=[splitter.DEFAULT_BETA])
-
-
 def test_routes_unsupported_key(splitter: Any, eventbridge_event: Any, lambda_context: MagicMock) -> None:
-    """Non-FITS, non-manifest keys return 400."""
+    """Non-manifest keys return 400."""
     event = eventbridge_event("data/image.png")
+    result = splitter.handler(event, lambda_context)
+    assert result["statusCode"] == 400
+
+
+def test_fits_key_returns_400(splitter: Any, eventbridge_event: Any, lambda_context: MagicMock) -> None:
+    """A ``.fits`` key (no manifest) returns 400."""
+    event = eventbridge_event("cubes/grs.fits")
     result = splitter.handler(event, lambda_context)
     assert result["statusCode"] == 400
 
@@ -68,7 +50,7 @@ def test_json_outside_manifests_prefix(splitter: Any, eventbridge_event: Any, la
 
 def test_handle_manifest_parses_and_delegates(splitter: Any) -> None:
     """``_handle_manifest`` reads S3 JSON and calls ``_handle_fits``."""
-    manifest = {"cube_key": "cubes/test.fits", "survey": "grs", "beta_values": [1.0, 2.0]}
+    manifest = {"cube_key": "cubes/test.fits", "survey": "grs", "params": {"beta": 5.0}}
     body_stream = io.BytesIO(json.dumps(manifest).encode())
     mock_resp = {"Body": body_stream}
 
@@ -79,7 +61,7 @@ def test_handle_manifest_parses_and_delegates(splitter: Any) -> None:
         splitter._handle_manifest("manifests/test.json")
 
     mock_s3.assert_called_once_with(Bucket="test-bucket", Key="manifests/test.json")
-    mock_fits.assert_called_once_with("cubes/test.fits", survey="grs", beta_values=[1.0, 2.0])
+    mock_fits.assert_called_once_with("cubes/test.fits", survey="grs", params={"beta": 5.0})
 
 
 # --_handle_fits ------------------------------------------------------------
@@ -121,7 +103,7 @@ def test_handle_fits_single_chunk(splitter: Any) -> None:
         mock_np.savez_compressed = MagicMock()
         mock_np.float64 = np.float64
 
-        result = splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[5.0])
+        result = splitter._handle_fits("cubes/test.fits", survey="grs", params={"beta": 5.0})
 
     assert result["statusCode"] == 200
     assert result["body"]["n_chunks"] == 1
@@ -153,41 +135,11 @@ def test_handle_fits_multiple_chunks(splitter: Any) -> None:
         mock_np.savez_compressed = MagicMock()
         mock_np.float64 = np.float64
 
-        result = splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[5.0])
+        result = splitter._handle_fits("cubes/test.fits", survey="grs", params={"beta": 5.0})
 
     assert result["statusCode"] == 200
     assert result["body"]["n_chunks"] == 2
     assert result["body"]["n_spectra"] == 900
-
-
-def test_handle_fits_multiple_betas(splitter: Any) -> None:
-    """Number of messages equals ``n_chunks * len(beta_values)``."""
-    # 100 spectra -> 1 chunk, 3 betas -> 3 messages
-    hdul = _make_mock_hdul((4, 10, 10))
-    run_id = "fixed-uuid"
-
-    with (
-        patch.object(splitter.s3, "download_file"),
-        patch.object(splitter, "fits") as mock_fits_mod,
-        patch.object(splitter, "os") as mock_os,
-        patch.object(splitter, "np") as mock_np,
-        patch.object(splitter.s3, "upload_file"),
-        patch.object(splitter.sqs, "send_message"),
-        patch.object(splitter.dynamodb, "put_item"),
-        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
-    ):
-        mock_fits_mod.open.return_value = hdul
-        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
-        mock_os.remove = MagicMock()
-        mock_np.nan_to_num.side_effect = np.nan_to_num
-        mock_np.mgrid = np.mgrid
-        mock_np.savez_compressed = MagicMock()
-        mock_np.float64 = np.float64
-
-        result = splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[1.0, 5.0, 10.0])
-
-    assert result["body"]["n_messages"] == 3
-    assert result["body"]["beta_values"] == [1.0, 5.0, 10.0]
 
 
 def test_handle_fits_non_3d_raises(splitter: Any) -> None:
@@ -206,7 +158,7 @@ def test_handle_fits_non_3d_raises(splitter: Any) -> None:
         mock_os.remove = MagicMock()
 
         with pytest.raises(ValueError, match="Expected 3D FITS cube"):
-            splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[5.0])
+            splitter._handle_fits("cubes/test.fits", survey="grs", params={"beta": 5.0})
 
 
 def test_handle_fits_nan_replacement(splitter: Any) -> None:
@@ -243,7 +195,7 @@ def test_handle_fits_nan_replacement(splitter: Any) -> None:
         mock_np.savez_compressed.side_effect = capture_savez
         mock_np.float64 = np.float64
 
-        splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[5.0])
+        splitter._handle_fits("cubes/test.fits", survey="grs", params={"beta": 5.0})
 
     assert len(saved_arrays) == 1
     assert not np.isnan(saved_arrays[0]).any()
@@ -272,18 +224,18 @@ def test_handle_fits_puts_run_record(splitter: Any) -> None:
         mock_np.savez_compressed = MagicMock()
         mock_np.float64 = np.float64
 
-        splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[5.0])
+        splitter._handle_fits("cubes/test.fits", survey="grs", params={"beta": 5.0})
 
     mock_put.assert_called_once()
     item = mock_put.call_args[1]["Item"]
-    assert item["run_id"] == {"S": run_id}
+    assert item["PK"] == {"S": run_id}
     assert item["survey"] == {"S": "grs"}
     assert item["jobs_total"] == {"N": "1"}
     assert item["jobs_completed"] == {"N": "0"}
     assert item["jobs_failed"] == {"N": "0"}
     assert item["n_spectra"] == {"N": "100"}
     assert item["n_chunks"] == {"N": "1"}
-    assert item["beta_values"] == {"L": [{"N": "5.0"}]}
+    assert json.loads(item["params"]["S"]) == {"beta": 5.0}
     assert "created_at" in item
 
 
@@ -316,11 +268,11 @@ def test_handle_fits_sqs_message_body(splitter: Any) -> None:
         mock_np.savez_compressed = MagicMock()
         mock_np.float64 = np.float64
 
-        splitter._handle_fits("cubes/test.fits", survey="grs", beta_values=[5.0])
+        splitter._handle_fits("cubes/test.fits", survey="grs", params={"beta": 5.0})
 
     assert len(sent_messages) == 1
     body = json.loads(sent_messages[0]["MessageBody"])
     assert body["survey"] == "grs"
-    assert body["beta"] == 5.0
+    assert body["params"] == {"beta": 5.0}
     assert body["run_id"] == run_id
     assert body["chunk_key"].startswith("chunks/")

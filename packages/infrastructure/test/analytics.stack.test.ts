@@ -27,20 +27,20 @@ describe('AnalyticsStack', () => {
       TableInput: Match.objectLike({
         Parameters: Match.objectLike({
           'projection.enabled': 'true',
-          'projection.survey.type': 'enum',
-          'projection.beta.type': 'decimal'
+          'projection.survey.type': 'enum'
         })
       })
     })
   })
 
-  test('table has 8 columns and 2 partition keys', () => {
+  test('table has 9 columns and 1 partition key', () => {
     template.hasResourceProperties('AWS::Glue::Table', {
       TableInput: Match.objectLike({
         StorageDescriptor: Match.objectLike({
           Columns: Match.arrayWith([
             { Name: 'x', Type: 'int' },
             { Name: 'y', Type: 'int' },
+            { Name: 'beta', Type: 'double' },
             { Name: 'rms', Type: 'double' },
             { Name: 'min_persistence', Type: 'double' },
             { Name: 'n_components', Type: 'int' },
@@ -49,10 +49,7 @@ describe('AnalyticsStack', () => {
             { Name: 'component_stddevs', Type: 'array<double>' }
           ])
         }),
-        PartitionKeys: [
-          { Name: 'survey', Type: 'string' },
-          { Name: 'beta', Type: 'string' }
-        ]
+        PartitionKeys: [{ Name: 'survey', Type: 'string' }]
       })
     })
   })

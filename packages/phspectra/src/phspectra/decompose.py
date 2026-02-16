@@ -18,17 +18,12 @@ try:
 except ImportError:  # pragma: no cover
     _HAS_C_EXT = False
 
-# Re-export for backward compatibility
 __all__ = [
-    "DEFAULT_BETA",
     "GaussianComponent",
     "estimate_rms",
     "estimate_rms_simple",
     "fit_gaussians",
 ]
-
-#: Default persistence threshold in units of noise sigma.
-DEFAULT_BETA: float = 3.8
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +334,7 @@ def fit_gaussians(
     signal: NDArray[np.floating],
     *,
     peaks: list[PersistentPeak] | None = None,
-    beta: float = DEFAULT_BETA,
+    beta: float = 3.8,
     min_persistence: float | None = None,
     max_components: int | None = None,
     refine: bool = True,

@@ -152,8 +152,15 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    environment: development
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT }}:role/PHSpectra-GitHubActions-Role
+          aws-region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -167,4 +174,8 @@ jobs:
         run: yarn install --immutable
 
       - name: Deploy CDK
-        run: yarn workspace @phspectra/infrastructure deploy
+        run: yarn workspace @phspectra/infrastructure deploy --require-approval never
+        env:
+          ENVIRONMENT: development
+          AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}

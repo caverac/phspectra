@@ -6,15 +6,18 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import click
 import pytest
 from benchmarks.cli import main
 from benchmarks.commands.pipeline import (
     _bucket_name,
     _discover_run_id,
     _get_run_item,
+    _parse_params,
     _poll_progress,
     _survey_from_path,
     _table_name,
+    _upload_manifest,
 )
 from click.testing import CliRunner
 
@@ -35,7 +38,7 @@ def _make_run_item(
     jobs_failed: int = 0,
 ) -> dict[str, dict[str, str]]:
     return {
-        "run_id": {"S": run_id},
+        "PK": {"S": run_id},
         "survey": {"S": survey},
         "created_at": {"S": created_at},
         "jobs_total": {"N": str(jobs_total)},
@@ -148,11 +151,34 @@ class TestPipelineDirectMode:
         s3.upload_file.assert_called_once()
         s3.put_object.assert_called_once()
 
-        # Manifest body contains default beta
+        # Manifest body has no params key (no --param given -> omitted)
         call_kwargs = s3.put_object.call_args
         body = json.loads(call_kwargs[1]["Body"] if call_kwargs[1] else call_kwargs.kwargs["Body"])
-        assert body["beta_values"] == [3.8]
+        assert "params" not in body
         assert body["survey"] == "grs"
+
+    @patch(MOCK_BOTO3)
+    def test_direct_mode_with_param(self, mock_boto3: MagicMock, tmp_path: Path) -> None:
+        """Direct mode with --param beta=3.8 includes params in manifest."""
+        fits = tmp_path / "GRS.fits"
+        fits.write_bytes(b"fake")
+        s3 = MagicMock()
+        ddb = MagicMock()
+        mock_boto3.client.side_effect = lambda svc: s3 if svc == "s3" else ddb
+
+        item = _make_run_item()
+        ddb.scan.return_value = {"Items": [item]}
+        ddb.get_item.return_value = {"Item": item}
+
+        result = CliRunner().invoke(
+            main,
+            ["pipeline", str(fits), "--param", "beta=3.8", "--poll-interval", "0"],
+        )
+        assert result.exit_code == 0
+
+        call_kwargs = s3.put_object.call_args
+        body = json.loads(call_kwargs[1]["Body"] if call_kwargs[1] else call_kwargs.kwargs["Body"])
+        assert body["params"] == {"beta": 3.8}
 
 
 # ---------------------------------------------------------------------------
@@ -183,10 +209,8 @@ class TestPipelineManifestMode:
                 "cubes/GRS.fits",
                 "--survey",
                 "grs",
-                "--beta",
-                "3.8",
-                "--beta",
-                "5.0",
+                "--param",
+                "beta=3.8",
                 "--poll-interval",
                 "0",
             ],
@@ -274,6 +298,78 @@ class TestPollProgress:
         assert int(final["jobs_completed"]["N"]) == 4
         mock_sleep.assert_called_once_with(1)
 
+    @patch("benchmarks.commands.pipeline.time.sleep")
+    @patch("benchmarks.commands.pipeline.time.monotonic")
+    def test_stall_timeout_exits(self, mock_monotonic: MagicMock, _mock_sleep: MagicMock) -> None:
+        """Poll exits when no progress is made within stall_timeout."""
+        ddb = MagicMock()
+        stalled = _make_run_item(jobs_total=10, jobs_completed=3, jobs_failed=0)
+        ddb.get_item.return_value = {"Item": stalled}
+
+        # First call: t=0 (initial), second: t=0 (first poll, done changes so reset),
+        # third: t=100 (stall check after sleep), fourth: t=100 (second poll, done unchanged),
+        # fifth: t=200 (stall check -> exceeds 100s timeout)
+        mock_monotonic.side_effect = [0, 0, 100, 100, 200]
+
+        with pytest.raises(SystemExit):
+            _poll_progress(ddb, "t", "run-1", poll_interval=1, stall_timeout=100)
+
+
+# ---------------------------------------------------------------------------
+# TestUploadManifest
+# ---------------------------------------------------------------------------
+
+
+class TestUploadManifest:
+    """Manifest body format."""
+
+    def test_manifest_includes_params_when_set(self) -> None:
+        """Manifest body contains ``params`` when non-empty."""
+        s3 = MagicMock()
+        _upload_manifest(s3, "bucket", "cubes/test.fits", "grs", {"beta": 3.8})
+        body = json.loads(s3.put_object.call_args[1]["Body"])
+        assert body["params"] == {"beta": 3.8}
+
+    def test_manifest_omits_params_when_empty(self) -> None:
+        """Manifest body omits ``params`` when empty dict."""
+        s3 = MagicMock()
+        _upload_manifest(s3, "bucket", "cubes/test.fits", "grs", {})
+        body = json.loads(s3.put_object.call_args[1]["Body"])
+        assert "params" not in body
+
+
+# ---------------------------------------------------------------------------
+# TestParseParams
+# ---------------------------------------------------------------------------
+
+
+class TestParseParams:
+    """Validation of ``--param key=value`` parsing."""
+
+    def test_invalid_key_raises(self) -> None:
+        """An unknown key raises ``UsageError``."""
+        with pytest.raises(click.UsageError, match="Unknown param"):
+            _parse_params(("invalid_key=1.0",))
+
+    def test_valid_key_parses(self) -> None:
+        """A valid key is parsed and JSON-decoded."""
+        result = _parse_params(("beta=3.8", "snr_min=2.0"))
+        assert result == {"beta": 3.8, "snr_min": 2.0}
+
+    def test_missing_equals_raises(self) -> None:
+        """A param without ``=`` raises ``UsageError``."""
+        with pytest.raises(click.UsageError, match="Invalid --param format"):
+            _parse_params(("beta",))
+
+    def test_cli_rejects_invalid_param(self) -> None:
+        """CLI exits with error for unknown param key."""
+        result = CliRunner().invoke(
+            main,
+            ["pipeline", "--manifest", "--cube-key", "x", "--survey", "grs", "--param", "bad_key=1"],
+        )
+        assert result.exit_code != 0
+        assert "Unknown param" in result.output
+
 
 # ---------------------------------------------------------------------------
 # TestHelperFunctions
@@ -288,8 +384,8 @@ class TestHelperFunctions:
         assert _bucket_name("staging") == "phspectra-staging-data"
 
     def test_table_name(self) -> None:
-        """Table name should follow phspectra-{env}-runs pattern."""
-        assert _table_name("production") == "phspectra-production-runs"
+        """Table name is not environment-prefixed."""
+        assert _table_name("production") == "phspectra-runs"
 
     def test_survey_from_path(self) -> None:
         """Survey name should be the lowercased file stem."""

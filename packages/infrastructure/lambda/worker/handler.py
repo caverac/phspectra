@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from typing import TypedDict
 
 import boto3
 import numpy as np
@@ -27,10 +28,10 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     """Decompose a chunk of spectra and write Parquet results to S3.
 
     Expects a single SQS record whose body contains ``chunk_key``,
-    ``survey``, and ``beta``.  Downloads the ``.npz`` chunk, runs
-    ``estimate_rms`` and ``fit_gaussians`` on every spectrum, and
-    uploads a Snappy-compressed Parquet file to
-    ``decompositions/survey=<survey>/beta=<beta>/<chunk>.parquet``.
+    ``survey``, and an optional ``params`` dict.  Downloads the ``.npz``
+    chunk, runs ``estimate_rms`` and ``fit_gaussians`` on every spectrum,
+    and uploads a Snappy-compressed Parquet file to
+    ``decompositions/survey=<survey>/<chunk>.parquet``.
 
     Parameters
     ----------
@@ -51,11 +52,11 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
 
     chunk_key: str = msg["chunk_key"]
     survey: str = msg["survey"]
-    beta: float = float(msg["beta"])
+    params: dict[str, object] = msg.get("params", {})
     run_id: str = msg["run_id"]
 
     try:
-        result = _process_chunk(chunk_key, survey, beta)
+        result = _process_chunk(chunk_key, survey, params)
     except Exception:
         _increment_counter(run_id, "jobs_failed")
         raise
@@ -76,13 +77,56 @@ def _increment_counter(run_id: str, attribute: str) -> None:
     """
     dynamodb.update_item(
         TableName=TABLE_NAME,
-        Key={"run_id": {"S": run_id}},
+        Key={"PK": {"S": run_id}},
         UpdateExpression=f"ADD {attribute} :one",
         ExpressionAttributeValues={":one": {"N": "1"}},
     )
 
 
-def _process_chunk(chunk_key: str, survey: str, beta: float) -> dict[str, object]:
+class _FitKwargs(TypedDict, total=False):
+    """Typed keyword arguments for ``fit_gaussians``."""
+
+    beta: float
+    min_persistence: float
+    max_components: int
+    refine: bool
+    max_refine_iter: int
+    snr_min: float
+    mf_snr_min: float
+    f_sep: float
+    neg_thresh: float
+
+
+def _build_fit_kwargs(params: dict[str, object]) -> _FitKwargs:
+    """Cast raw JSON params to the types expected by ``fit_gaussians``.
+
+    Parameters
+    ----------
+    params : dict[str, object]
+        Raw keyword arguments from the SQS message.
+
+    Returns
+    -------
+    _FitKwargs
+        Typed keyword arguments safe to unpack into ``fit_gaussians``.
+    """
+    _FLOAT_KEYS = {"beta", "min_persistence", "snr_min", "mf_snr_min", "f_sep", "neg_thresh"}
+    _INT_KEYS = {"max_components", "max_refine_iter"}
+    _BOOL_KEYS = {"refine"}
+
+    kwargs = _FitKwargs()
+    for key, raw in params.items():
+        val = str(raw)
+        if key in _FLOAT_KEYS:
+            kwargs[key] = float(val)  # type: ignore[literal-required]
+        elif key in _INT_KEYS:
+            kwargs[key] = int(float(val))  # type: ignore[literal-required]
+        elif key in _BOOL_KEYS:
+            kwargs[key] = val.lower() not in ("false", "0", "")  # type: ignore[literal-required]
+    return kwargs
+
+
+def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> dict[str, object]:
     """Download a chunk, decompose spectra, and upload Parquet results.
 
     Parameters
@@ -91,8 +135,8 @@ def _process_chunk(chunk_key: str, survey: str, beta: float) -> dict[str, object
         S3 key of the ``.npz`` chunk.
     survey : str
         Survey identifier.
-    beta : float
-        Persistence threshold.
+    params : dict[str, object]
+        ``fit_gaussians`` keyword arguments.
 
     Returns
     -------
@@ -109,16 +153,20 @@ def _process_chunk(chunk_key: str, survey: str, beta: float) -> dict[str, object
     x_coords = data["x"]
     y_coords = data["y"]
 
+    fit_kwargs = _build_fit_kwargs(params)
+    beta = fit_kwargs.get("beta", 3.8)
+
     rows: list[dict[str, object]] = []
     for idx, spectrum in enumerate(spectra):
         rms = estimate_rms(spectrum)
-        min_persistence = beta * rms
-        components = fit_gaussians(spectrum, beta=beta)
+        min_persistence = fit_kwargs.get("min_persistence", beta * rms)
+        components = fit_gaussians(spectrum, **fit_kwargs)
 
         rows.append(
             {
                 "x": int(x_coords[idx]),
                 "y": int(y_coords[idx]),
+                "beta": float(beta),
                 "rms": float(rms),
                 "min_persistence": float(min_persistence),
                 "n_components": len(components),
@@ -133,6 +181,7 @@ def _process_chunk(chunk_key: str, survey: str, beta: float) -> dict[str, object
         {
             "x": pa.array([r["x"] for r in rows], type=pa.int32()),
             "y": pa.array([r["y"] for r in rows], type=pa.int32()),
+            "beta": pa.array([r["beta"] for r in rows], type=pa.float64()),
             "rms": pa.array([r["rms"] for r in rows], type=pa.float64()),
             "min_persistence": pa.array([r["min_persistence"] for r in rows], type=pa.float64()),
             "n_components": pa.array([r["n_components"] for r in rows], type=pa.int32()),
@@ -152,9 +201,8 @@ def _process_chunk(chunk_key: str, survey: str, beta: float) -> dict[str, object
     )
 
     # Write Parquet to /tmp then upload
-    beta_str = f"{beta:.2f}"
     chunk_basename = os.path.basename(chunk_key).replace(".npz", ".parquet")
-    output_key = f"decompositions/survey={survey}/beta={beta_str}/{chunk_basename}"
+    output_key = f"decompositions/survey={survey}/{chunk_basename}"
 
     local_parquet = f"/tmp/{uuid.uuid4().hex}.parquet"
     pq.write_table(table, local_parquet, compression="snappy")

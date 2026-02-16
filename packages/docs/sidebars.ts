@@ -21,6 +21,11 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Infrastructure',
       items: ['infrastructure/aws-pipeline']
+    },
+    {
+      type: 'category',
+      label: 'PHSpectra Library',
+      items: ['library/installation', 'library/api', 'library/algorithm', 'library/examples']
     }
   ]
 }

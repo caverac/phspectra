@@ -1,4 +1,4 @@
-"""Splitter Lambda: reads FITS cubes or manifests, chunks spectra, fans out to SQS."""
+"""Splitter Lambda: reads manifests, chunks spectra, fans out to SQS."""
 
 from __future__ import annotations
 
@@ -21,15 +21,13 @@ BUCKET = os.environ["BUCKET_NAME"]
 QUEUE_URL = os.environ["QUEUE_URL"]
 TABLE_NAME = os.environ["TABLE_NAME"]
 CHUNK_SIZE = 500
-DEFAULT_BETA = 3.8
 
 
 def handler(event: dict[str, object], context: LambdaContext) -> dict[str, object]:
-    """Route an EventBridge S3 notification to the appropriate handler.
+    """Handle an EventBridge S3 notification for a manifest upload.
 
-    Supports two trigger types: a ``.fits`` cube upload (chunked and fanned
-    out with a default beta) or a ``manifests/*.json`` upload (which
-    specifies the cube key, survey, and beta sweep values).
+    Triggered when a JSON manifest is uploaded to ``manifests/*.json``.
+    The manifest specifies the cube key, survey, and optional params.
 
     Parameters
     ----------
@@ -52,18 +50,15 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     if key.startswith("manifests/") and key.endswith(".json"):
         return _handle_manifest(key)
 
-    if key.endswith(".fits"):
-        return _handle_fits(key, survey=_survey_from_key(key), beta_values=[DEFAULT_BETA])
-
     return {"statusCode": 400, "body": f"Unsupported key: {key}"}
 
 
 def _handle_manifest(key: str) -> dict[str, object]:
     """Parse a JSON manifest from S3 and delegate to ``_handle_fits``.
 
-    The manifest must contain ``cube_key``, ``survey``, and
-    ``beta_values`` fields, allowing callers to specify a multi-beta
-    sweep over a single FITS cube.
+    The manifest must contain ``cube_key`` and ``survey`` fields.
+    An optional ``params`` dict passes keyword arguments through to
+    ``fit_gaussians`` on the workers.
 
     Parameters
     ----------
@@ -79,16 +74,16 @@ def _handle_manifest(key: str) -> dict[str, object]:
     manifest = json.loads(resp["Body"].read())
     cube_key = manifest["cube_key"]
     survey = manifest["survey"]
-    beta_values = [float(b) for b in manifest["beta_values"]]
-    return _handle_fits(cube_key, survey=survey, beta_values=beta_values)
+    params: dict[str, object] = manifest.get("params", {})
+    return _handle_fits(cube_key, survey=survey, params=params)
 
 
-def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict[str, object]:
+def _handle_fits(key: str, *, survey: str, params: dict[str, object]) -> dict[str, object]:
     """Download a 3-D FITS cube, chunk its spectra, and fan out to SQS.
 
     The cube is reshaped from ``(n_channels, ny, nx)`` into individual
     spectra, split into chunks of ``CHUNK_SIZE``, uploaded as ``.npz``
-    files, and one SQS message is sent per ``(chunk, beta)`` pair.
+    files, and one SQS message is sent per chunk.
 
     Parameters
     ----------
@@ -96,8 +91,8 @@ def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict[str
         S3 key of the ``.fits`` cube.
     survey : str
         Survey identifier carried through to worker messages.
-    beta_values : list[float]
-        Persistence thresholds (in multiples of RMS) to sweep.
+    params : dict[str, object]
+        ``fit_gaussians`` keyword arguments forwarded to each worker.
 
     Returns
     -------
@@ -152,62 +147,46 @@ def _handle_fits(key: str, *, survey: str, beta_values: list[float]) -> dict[str
         os.remove(chunk_path)
         chunk_keys.append(chunk_key)
 
-    # Send one SQS message per (chunk, beta) pair
-    messages_sent = 0
-    for chunk_key in chunk_keys:
-        for beta in beta_values:
-            sqs.send_message(
-                QueueUrl=QUEUE_URL,
-                MessageBody=json.dumps(
-                    {
-                        "chunk_key": chunk_key,
-                        "survey": survey,
-                        "beta": beta,
-                        "run_id": run_id,
-                    }
-                ),
-            )
-            messages_sent += 1
-
-    dynamodb.put_item(
-        TableName=TABLE_NAME,
-        Item={
-            "run_id": {"S": run_id},
-            "survey": {"S": survey},
-            "created_at": {"S": datetime.now(timezone.utc).isoformat()},
-            "jobs_total": {"N": str(messages_sent)},
-            "jobs_completed": {"N": "0"},
-            "jobs_failed": {"N": "0"},
-            "beta_values": {"L": [{"N": str(b)} for b in beta_values]},
-            "n_spectra": {"N": str(n_spectra)},
-            "n_chunks": {"N": str(len(chunk_keys))},
-        },
-    )
-
-    return {
-        "statusCode": 200,
-        "body": {
-            "run_id": run_id,
-            "n_spectra": n_spectra,
-            "n_chunks": len(chunk_keys),
-            "n_messages": messages_sent,
-            "beta_values": beta_values,
-        },
+    # Send one SQS message per chunk
+    msg_payload: dict[str, object] = {
+        "chunk_key": "",
+        "survey": survey,
+        "run_id": run_id,
     }
+    if params:
+        msg_payload["params"] = params
 
+    for chunk_key in chunk_keys:
+        msg_payload["chunk_key"] = chunk_key
+        sqs.send_message(
+            QueueUrl=QUEUE_URL,
+            MessageBody=json.dumps(msg_payload),
+        )
 
-def _survey_from_key(key: str) -> str:
-    """Derive a survey name from an S3 key by taking the lowercase file stem.
+    messages_sent = len(chunk_keys)
 
-    Parameters
-    ----------
-    key : str
-        S3 object key (e.g. ``uploads/NGC1234.fits``).
+    ddb_item: dict[str, dict[str, str]] = {
+        "PK": {"S": run_id},
+        "survey": {"S": survey},
+        "created_at": {"S": datetime.now(timezone.utc).isoformat()},
+        "jobs_total": {"N": str(messages_sent)},
+        "jobs_completed": {"N": "0"},
+        "jobs_failed": {"N": "0"},
+        "n_spectra": {"N": str(n_spectra)},
+        "n_chunks": {"N": str(len(chunk_keys))},
+    }
+    if params:
+        ddb_item["params"] = {"S": json.dumps(params)}
 
-    Returns
-    -------
-    str
-        Lowercase filename without extension (e.g. ``ngc1234``).
-    """
-    basename = os.path.basename(key)
-    return os.path.splitext(basename)[0].lower()
+    dynamodb.put_item(TableName=TABLE_NAME, Item=ddb_item)
+
+    body: dict[str, object] = {
+        "run_id": run_id,
+        "n_spectra": n_spectra,
+        "n_chunks": len(chunk_keys),
+        "n_messages": messages_sent,
+    }
+    if params:
+        body["params"] = params
+
+    return {"statusCode": 200, "body": body}

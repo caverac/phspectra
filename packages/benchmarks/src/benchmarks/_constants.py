@@ -36,7 +36,6 @@ DOCKER_IMAGE = "phspectra-gausspyplus-bench"
 
 # Default decomposition parameters
 
-DEFAULT_BETA = 3.8
 DEFAULT_SEED = 2026_02_12
 DEFAULT_N_SPECTRA = 400
 DEFAULT_MAX_COMPONENTS = 10
