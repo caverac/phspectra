@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import { AnalyticsStack } from 'lib/analytics.stack'
 import { DataLakeStack } from 'lib/data-lake.stack'
+import { GitHubOIDCStack } from 'lib/github-oidc.stack'
 import { ProcessingStack } from 'lib/processing.stack'
 import { ResourcesStack } from 'lib/resources.stack'
 import { SplitterStack } from 'lib/splitter.stack'
@@ -48,5 +49,11 @@ new AnalyticsStack(app, 'PHSAnalytics', {
 
 new ResourcesStack(app, 'PHSResources', {
   deploymentEnvironment: env.ENVIRONMENT,
+  env: cdkEnv
+})
+
+new GitHubOIDCStack(app, 'PHSGitHubOIDC', {
+  githubRepo: 'caverac/phspectra',
+  existingProviderArn: `arn:aws:iam::${env.AWS_ACCOUNT}:oidc-provider/token.actions.githubusercontent.com`,
   env: cdkEnv
 })

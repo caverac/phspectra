@@ -51,20 +51,7 @@ export class SplitterStack extends cdk.Stack {
     props.queue.grantSendMessages(splitterFn)
     props.table.grant(splitterFn, 'dynamodb:PutItem')
 
-    // Rule 1: FITS file uploaded to cubes/ -> auto-process with default beta
-    new events.Rule(this, 'FitsUploadRule', {
-      eventPattern: {
-        source: ['aws.s3'],
-        detailType: ['Object Created'],
-        detail: {
-          bucket: { name: [props.bucket.bucketName] },
-          object: { key: [{ suffix: '.fits' }] }
-        }
-      },
-      targets: [new targets.LambdaFunction(splitterFn)]
-    })
-
-    // Rule 2: JSON manifest uploaded to manifests/ -> beta sweep
+    // Manifest uploaded to manifests/ -> splitter fans out to SQS
     new events.Rule(this, 'ManifestUploadRule', {
       eventPattern: {
         source: ['aws.s3'],

@@ -9,9 +9,9 @@ describe('ProcessingStack', () => {
     template.resourceCountIs('AWS::SQS::Queue', 2)
   })
 
-  test('main queue has 6-minute visibility timeout and 14-day retention', () => {
+  test('main queue has 16-minute visibility timeout and 14-day retention', () => {
     template.hasResourceProperties('AWS::SQS::Queue', {
-      VisibilityTimeout: 360,
+      VisibilityTimeout: 960,
       MessageRetentionPeriod: 1209600
     })
   })
@@ -24,12 +24,12 @@ describe('ProcessingStack', () => {
     })
   })
 
-  test('Worker Lambda: ARM64, 512MB, 5-minute timeout', () => {
+  test('Worker Lambda: ARM64, 1024MB, 15-minute timeout', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'phspectra__worker',
       Architectures: ['arm64'],
-      MemorySize: 512,
-      Timeout: 300
+      MemorySize: 1024,
+      Timeout: 900
     })
   })
 

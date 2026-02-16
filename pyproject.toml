@@ -96,6 +96,7 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 explicit_package_bases = true
+exclude = ["packages/infrastructure/lambda/worker/phspectra-src"]
 mypy_path = [
     "packages/phspectra/src",
     "packages/benchmarks/src",

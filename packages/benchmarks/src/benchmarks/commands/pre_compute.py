@@ -18,7 +18,6 @@ import numpy.typing as npt
 from benchmarks._console import console
 from benchmarks._constants import (
     CACHE_DIR,
-    DEFAULT_BETA,
     DEFAULT_SEED,
 )
 from benchmarks._data import ensure_fits
@@ -73,7 +72,7 @@ def _merge_extra_pixels(
 
 @click.command("pre-compute")
 @click.option("--n-spectra", default=None, type=int, help="Number of spectra (default: all eligible).")
-@click.option("--beta", default=DEFAULT_BETA, show_default=True)
+@click.option("--beta", default=3.8, show_default=True)
 @click.option("--seed", default=DEFAULT_SEED, show_default=True)
 @click.option("--output-dir", default=os.path.join(CACHE_DIR, "compare-docker"), show_default=True)
 @click.option(

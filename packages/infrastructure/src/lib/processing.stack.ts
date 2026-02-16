@@ -1,4 +1,3 @@
-import { execSync } from 'child_process'
 import fs = require('fs')
 import path = require('path')
 
@@ -38,7 +37,7 @@ export class ProcessingStack extends cdk.Stack {
 
     this.queue = new sqs.Queue(this, 'ChunkQueue', {
       queueName: 'phspectra-chunks',
-      visibilityTimeout: cdk.Duration.minutes(6),
+      visibilityTimeout: cdk.Duration.minutes(16),
       retentionPeriod: cdk.Duration.days(14),
       deadLetterQueue: {
         queue: deadLetterQueue,
@@ -52,23 +51,27 @@ export class ProcessingStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY
     })
 
-    // Build phspectra wheel into worker Docker context
+    // Copy phspectra source into the Docker context so it can be built
+    // from source inside the container (C extension needs linux/arm64).
     const workerDir = path.join(__dirname, '..', '..', 'lambda', 'worker')
     const phspectraDir = path.resolve(workerDir, '..', '..', '..', 'phspectra')
-    for (const f of fs.readdirSync(workerDir).filter((f: string) => f.endsWith('.whl'))) {
-      fs.unlinkSync(path.join(workerDir, f))
+    const vendorDir = path.join(workerDir, 'phspectra-src')
+
+    // Copy only what pip needs to build from source
+    fs.mkdirSync(vendorDir, { recursive: true })
+    for (const name of ['pyproject.toml', 'setup.py', 'src']) {
+      fs.cpSync(path.join(phspectraDir, name), path.join(vendorDir, name), {
+        recursive: true,
+        force: true
+      })
     }
-    execSync('uv build --wheel --out-dir "' + workerDir + '"', {
-      cwd: phspectraDir,
-      stdio: 'inherit'
-    })
 
     const workerFn = new lambda.DockerImageFunction(this, 'WorkerFn', {
       functionName: 'phspectra__worker',
       code: lambda.DockerImageCode.fromImageAsset(workerDir),
       architecture: lambda.Architecture.ARM_64,
-      memorySize: 512,
-      timeout: cdk.Duration.minutes(5),
+      memorySize: 1024,
+      timeout: cdk.Duration.minutes(15),
       logGroup: workerLogGroup,
       environment: {
         BUCKET_NAME: props.bucket.bucketName,

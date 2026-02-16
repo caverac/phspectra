@@ -21,22 +21,8 @@ describe('SplitterStack', () => {
     })
   })
 
-  test('creates 2 EventBridge rules', () => {
-    template.resourceCountIs('AWS::Events::Rule', 2)
-  })
-
-  test('FITS rule matches .fits suffix', () => {
-    template.hasResourceProperties('AWS::Events::Rule', {
-      EventPattern: Match.objectLike({
-        source: ['aws.s3'],
-        'detail-type': ['Object Created'],
-        detail: Match.objectLike({
-          object: {
-            key: [{ suffix: '.fits' }]
-          }
-        })
-      })
-    })
+  test('creates 1 EventBridge rule (manifest only)', () => {
+    template.resourceCountIs('AWS::Events::Rule', 1)
   })
 
   test('Manifest rule matches manifests/ prefix and .json suffix', () => {

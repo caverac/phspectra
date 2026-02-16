@@ -12,7 +12,7 @@ import pytest
 
 # -- helpers -----------------------------------------------------------------
 
-MSG_BASE = {"chunk_key": "chunks/run/chunk-0000000.npz", "survey": "grs", "beta": 5.0, "run_id": "run-001"}
+MSG_BASE = {"chunk_key": "chunks/run/chunk-0000000.npz", "survey": "grs", "params": {"beta": 5.0}, "run_id": "run-001"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +104,61 @@ def test_with_components(worker: Any, sqs_event: Any, lambda_context: MagicMock)
     assert table.column("component_stddevs").to_pylist() == [[2.0, 3.5]]
 
 
+def test_beta_column_in_parquet(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """Beta value appears as a regular column in the Parquet table."""
+    event = sqs_event(MSG_BASE)
+    chunk = _make_chunk(1)
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", return_value=[]),
+        patch.object(worker, "pq") as mock_pq,
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        worker.handler(event, lambda_context)
+
+    table = mock_pq.write_table.call_args[0][0]
+    assert table.column("beta").to_pylist() == [5.0]
+
+
+def test_min_persistence_from_params(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """When ``min_persistence`` is in params, it overrides beta * rms."""
+    msg = {**MSG_BASE, "params": {"beta": 5.0, "min_persistence": 0.42}}
+    event = sqs_event(msg)
+    chunk = _make_chunk(1)
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", return_value=[]),
+        patch.object(worker, "pq") as mock_pq,
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        worker.handler(event, lambda_context)
+
+    table = mock_pq.write_table.call_args[0][0]
+    assert table.column("min_persistence").to_pylist() == [0.42]
+
+
 def test_multiple_spectra(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
     """3 spectra -> all processed, correct count in response."""
     event = sqs_event(MSG_BASE)
@@ -135,9 +190,9 @@ def test_multiple_spectra(worker: Any, sqs_event: Any, lambda_context: MagicMock
 @pytest.mark.parametrize(
     ("survey", "beta", "expected_prefix"),
     [
-        ("grs", 5.0, "decompositions/survey=grs/beta=5.00/"),
-        ("vgps", 1.5, "decompositions/survey=vgps/beta=1.50/"),
-        ("ngc1234", 10.0, "decompositions/survey=ngc1234/beta=10.00/"),
+        ("grs", 5.0, "decompositions/survey=grs/"),
+        ("vgps", 1.5, "decompositions/survey=vgps/"),
+        ("ngc1234", 10.0, "decompositions/survey=ngc1234/"),
     ],
     ids=["grs-default", "vgps-custom", "ngc-large-beta"],
 )
@@ -149,9 +204,9 @@ def test_output_key_format(
     beta: float,
     expected_prefix: str,
 ) -> None:
-    """Output key follows ``decompositions/survey=.../beta=.../`` pattern."""
+    """Output key follows ``decompositions/survey=.../`` pattern (beta is a column, not a partition)."""
     event = sqs_event(
-        {"chunk_key": "chunks/run/chunk-0000000.npz", "survey": survey, "beta": beta, "run_id": "run-001"}
+        {"chunk_key": "chunks/run/chunk-0000000.npz", "survey": survey, "params": {"beta": beta}, "run_id": "run-001"}
     )
     chunk = _make_chunk(1)
 
@@ -234,6 +289,37 @@ def test_response_structure(worker: Any, sqs_event: Any, lambda_context: MagicMo
     assert result["body"]["n_spectra"] == 2
 
 
+def test_build_fit_kwargs_int_and_bool(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """Int and bool params are cast correctly by ``_build_fit_kwargs``."""
+    msg = {**MSG_BASE, "params": {"beta": 5.0, "max_refine_iter": 2, "refine": False}}
+    event = sqs_event(msg)
+    chunk = _make_chunk(1)
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", return_value=[]) as mock_fit,
+        patch.object(worker, "pq"),
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        worker.handler(event, lambda_context)
+
+    kwargs = mock_fit.call_args[1]
+    assert kwargs["max_refine_iter"] == 2
+    assert isinstance(kwargs["max_refine_iter"], int)
+    assert kwargs["refine"] is False
+    assert isinstance(kwargs["refine"], bool)
+
+
 # -- DynamoDB progress tracking tests ----------------------------------------
 
 
@@ -262,7 +348,7 @@ def test_jobs_completed_incremented_on_success(worker: Any, sqs_event: Any, lamb
 
     mock_update.assert_called_once_with(
         TableName="phspectra-development-runs",
-        Key={"run_id": {"S": "run-001"}},
+        Key={"PK": {"S": "run-001"}},
         UpdateExpression="ADD jobs_completed :one",
         ExpressionAttributeValues={":one": {"N": "1"}},
     )
@@ -294,7 +380,7 @@ def test_jobs_failed_incremented_on_error(worker: Any, sqs_event: Any, lambda_co
 
     mock_update.assert_called_once_with(
         TableName="phspectra-development-runs",
-        Key={"run_id": {"S": "run-001"}},
+        Key={"PK": {"S": "run-001"}},
         UpdateExpression="ADD jobs_failed :one",
         ExpressionAttributeValues={":one": {"N": "1"}},
     )

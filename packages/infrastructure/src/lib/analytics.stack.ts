@@ -35,10 +35,7 @@ export class AnalyticsStack extends cdk.Stack {
           'projection.enabled': 'true',
           'projection.survey.type': 'enum',
           'projection.survey.values': 'grs,vgps,cgps,sgps,thor',
-          'projection.beta.type': 'decimal',
-          'projection.beta.range': '0.5,20.0',
-          'projection.beta.digits': '2',
-          'storage.location.template': `s3://${props.bucket.bucketName}/decompositions/survey=\${survey}/beta=\${beta}/`
+          'storage.location.template': `s3://${props.bucket.bucketName}/decompositions/survey=\${survey}/`
         },
         storageDescriptor: {
           location: `s3://${props.bucket.bucketName}/decompositions/`,
@@ -50,6 +47,7 @@ export class AnalyticsStack extends cdk.Stack {
           columns: [
             { name: 'x', type: 'int' },
             { name: 'y', type: 'int' },
+            { name: 'beta', type: 'double' },
             { name: 'rms', type: 'double' },
             { name: 'min_persistence', type: 'double' },
             { name: 'n_components', type: 'int' },
@@ -58,10 +56,7 @@ export class AnalyticsStack extends cdk.Stack {
             { name: 'component_stddevs', type: 'array<double>' }
           ]
         },
-        partitionKeys: [
-          { name: 'survey', type: 'string' },
-          { name: 'beta', type: 'string' }
-        ]
+        partitionKeys: [{ name: 'survey', type: 'string' }]
       }
     })
 

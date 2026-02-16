@@ -34,7 +34,8 @@ def _bucket_name(env: str) -> str:
 
 def _table_name(env: str) -> str:
     """Return the DynamoDB table name for the given environment."""
-    return f"phspectra-{env}-runs"
+    del env  # table name is not environment-prefixed
+    return "phspectra-runs"
 
 
 def _survey_from_path(path: str) -> str:
@@ -49,16 +50,45 @@ def _upload_fits(s3_client: Any, bucket: str, local_path: str, cube_key: str) ->
     console.print("  Upload complete.", style="green")
 
 
+ALLOWED_PARAMS = {
+    "beta",
+    "min_persistence",
+    "max_components",
+    "refine",
+    "max_refine_iter",
+    "snr_min",
+    "mf_snr_min",
+    "f_sep",
+    "neg_thresh",
+}
+
+
+def _parse_params(raw: tuple[str, ...]) -> dict[str, object]:
+    """Parse ``--param key=value`` strings into a dict, JSON-decoding values."""
+    params: dict[str, object] = {}
+    for item in raw:
+        if "=" not in item:
+            raise click.UsageError(f"Invalid --param format (expected key=value): {item!r}")
+        key, raw_value = item.split("=", 1)
+        if key not in ALLOWED_PARAMS:
+            raise click.UsageError(f"Unknown param {key!r}. Allowed: {', '.join(sorted(ALLOWED_PARAMS))}")
+        params[key] = json.loads(raw_value)
+    return params
+
+
 def _upload_manifest(
     s3_client: Any,
     bucket: str,
     cube_key: str,
     survey: str,
-    beta_values: tuple[float, ...],
+    params: dict[str, object],
 ) -> str:
     """Build and upload a manifest JSON to S3. Returns the manifest key."""
     manifest_key = f"manifests/{uuid.uuid4()}.json"
-    body = json.dumps({"cube_key": cube_key, "survey": survey, "beta_values": list(beta_values)})
+    manifest: dict[str, object] = {"cube_key": cube_key, "survey": survey}
+    if params:
+        manifest["params"] = params
+    body = json.dumps(manifest)
     console.print(f"Uploading manifest to [blue]s3://{bucket}/{manifest_key}[/blue]")
     s3_client.put_object(Bucket=bucket, Key=manifest_key, Body=body)
     console.print("  Manifest uploaded.", style="green")
@@ -92,7 +122,7 @@ def _discover_run_id(
         items = resp.get("Items", [])
         if items:
             items.sort(key=lambda it: it["created_at"]["S"], reverse=True)
-            run_id: str = items[0]["run_id"]["S"]
+            run_id: str = items[0]["PK"]["S"]
             console.print(f"  Discovered run [bold]{run_id}[/bold]", style="green")
             return run_id
         time.sleep(interval)
@@ -103,7 +133,7 @@ def _discover_run_id(
 
 def _get_run_item(dynamodb_client: Any, table: str, run_id: str) -> dict[str, Any]:
     """Fetch a single run item from DynamoDB. Exits on missing item."""
-    resp = dynamodb_client.get_item(TableName=table, Key={"run_id": {"S": run_id}})
+    resp = dynamodb_client.get_item(TableName=table, Key={"PK": {"S": run_id}})
     item: dict[str, Any] | None = resp.get("Item")
     if item is None:
         console.print(f"Run [bold]{run_id}[/bold] not found.", style="bold red")
@@ -116,8 +146,13 @@ def _poll_progress(
     table: str,
     run_id: str,
     poll_interval: float = 5,
+    stall_timeout: float = 1800,
 ) -> dict[str, Any]:
-    """Poll DynamoDB until all jobs are done. Returns the final item."""
+    """Poll DynamoDB until all jobs are done. Returns the final item.
+
+    If progress (``jobs_completed + jobs_failed``) does not change for
+    *stall_timeout* seconds the function prints a warning and exits.
+    """
     progress = Progress(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
@@ -126,6 +161,8 @@ def _poll_progress(
         TextColumn("{task.fields[failed_text]}"),
         console=console,
     )
+    last_done = -1
+    last_change = time.monotonic()
     with progress:
         task_id = progress.add_task("Jobs", total=None, failed_text="")
         while True:
@@ -135,11 +172,24 @@ def _poll_progress(
             failed = int(item.get("jobs_failed", {}).get("N", "0"))
             done = completed + failed
 
+            if done != last_done:
+                last_done = done
+                last_change = time.monotonic()
+
             progress.update(task_id, total=jobs_total, completed=done)
             if failed:
                 progress.update(task_id, failed_text=f"[red]{failed} failed[/red]")
             if 0 < jobs_total <= done:
                 break
+
+            if 0 < stall_timeout <= time.monotonic() - last_change:
+                console.print(
+                    f"\nNo progress for {stall_timeout:.0f}s — possible stall "
+                    f"(workers may have timed out). Exiting.",
+                    style="bold red",
+                )
+                sys.exit(1)
+
             time.sleep(poll_interval)
 
     return item
@@ -151,10 +201,18 @@ def _poll_progress(
 @click.option("--cube-key", default=None, help="S3 key for the cube (manifest mode).")
 @click.option("--survey", default=None, help="Survey name (default: filename stem).")
 @click.option(
-    "--beta",
+    "--param",
+    "raw_params",
     multiple=True,
+    type=str,
+    help="fit_gaussians param as key=value (e.g. --param beta=3.8).",
+)
+@click.option(
+    "--stall-timeout",
+    default=1800.0,
+    show_default=True,
     type=float,
-    help="Beta value(s). Repeatable. Default: 3.8.",
+    help="Seconds without progress before exiting (0 to disable).",
 )
 @click.option(
     "--environment",
@@ -174,7 +232,8 @@ def pipeline(
     manifest_mode: bool,
     cube_key: str | None,
     survey: str | None,
-    beta: tuple[float, ...],
+    raw_params: tuple[str, ...],
+    stall_timeout: float,
     environment: str,
     poll_interval: float,
 ) -> None:
@@ -191,7 +250,7 @@ def pipeline(
         if fits_file is None:
             raise click.UsageError("FITS_FILE is required in direct mode.")
 
-    beta_values = beta if beta else (3.8,)
+    params = _parse_params(raw_params)
 
     # -- clients --------------------------------------------------------------
     s3_client = boto3.client("s3")
@@ -207,13 +266,13 @@ def pipeline(
         _upload_fits(s3_client, bucket, fits_file, cube_key)  # type: ignore[arg-type]
 
     not_before = datetime.now(timezone.utc).isoformat()
-    _upload_manifest(s3_client, bucket, cube_key, survey, beta_values)  # type: ignore[arg-type]
+    _upload_manifest(s3_client, bucket, cube_key, survey, params)  # type: ignore[arg-type]
 
     # -- discover run ---------------------------------------------------------
     run_id = _discover_run_id(dynamodb_client, table, survey, not_before)  # type: ignore[arg-type]
 
     # -- poll progress --------------------------------------------------------
-    final = _poll_progress(dynamodb_client, table, run_id, poll_interval)
+    final = _poll_progress(dynamodb_client, table, run_id, poll_interval, stall_timeout)
 
     # -- summary --------------------------------------------------------------
     completed = int(final.get("jobs_completed", {}).get("N", "0"))

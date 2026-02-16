@@ -2,7 +2,9 @@ import * as cdk from 'aws-cdk-lib'
 import { Template } from 'aws-cdk-lib/assertions'
 import { AnalyticsStack } from 'lib/analytics.stack'
 import { DataLakeStack } from 'lib/data-lake.stack'
+import { GitHubOIDCStack } from 'lib/github-oidc.stack'
 import { ProcessingStack } from 'lib/processing.stack'
+import { ResourcesStack } from 'lib/resources.stack'
 import { SplitterStack } from 'lib/splitter.stack'
 import { DeploymentEnvironment } from 'utils/types'
 
@@ -67,6 +69,32 @@ export function createAnalyticsTemplate(
   const stack = new AnalyticsStack(app, 'TestAnalytics', {
     deploymentEnvironment: environment,
     bucket: dataLake.bucket,
+    env: { account: '123456789012', region: 'us-east-1' }
+  })
+  return Template.fromStack(stack)
+}
+
+export function createResourcesTemplate(
+  environment: DeploymentEnvironment = 'development'
+): Template {
+  const app = new cdk.App()
+  const stack = new ResourcesStack(app, 'TestResources', {
+    deploymentEnvironment: environment,
+    env: { account: '123456789012', region: 'us-east-1' }
+  })
+  return Template.fromStack(stack)
+}
+
+export function createGitHubOIDCTemplate(
+  githubRepo = 'caverac/phspectra',
+  allowedEnvironments?: DeploymentEnvironment[],
+  existingProviderArn?: string
+): Template {
+  const app = new cdk.App()
+  const stack = new GitHubOIDCStack(app, 'TestGitHubOIDC', {
+    githubRepo,
+    allowedEnvironments,
+    existingProviderArn,
     env: { account: '123456789012', region: 'us-east-1' }
   })
   return Template.fromStack(stack)
