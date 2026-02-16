@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/caverac/phspectra/compare/v1.2.0...v1.2.1) (2026-02-16)
+
+### Bug Fixes
+
+- deleted status of beta as a first-class citizen ([893348e](https://github.com/caverac/phspectra/commit/893348ec43ac204e26e7889f5316f8c08e79ee49))
+
 # [1.2.0](https://github.com/caverac/phspectra/compare/v1.1.1...v1.2.0) (2026-02-16)
 
 ### Features
