@@ -1,6 +1,6 @@
 """phspectra -- persistent homology spectral line decomposition."""
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 from phspectra._types import GaussianComponent
 from phspectra.decompose import DEFAULT_BETA, fit_gaussians
