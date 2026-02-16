@@ -14,6 +14,13 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+try:
+    from phspectra._gaussfit import find_peaks as _c_find_peaks
+
+    _HAS_C_EXT: bool = True
+except ImportError:  # pragma: no cover
+    _HAS_C_EXT = False
+
 
 @dataclass(frozen=True, slots=True)
 class PersistentPeak:
@@ -69,6 +76,10 @@ def find_peaks_by_persistence(
     n = len(signal)
     if n == 0:
         return []
+
+    if _HAS_C_EXT:
+        raw = _c_find_peaks(signal, min_persistence)
+        return [PersistentPeak(*t) for t in raw]  # pylint: disable=not-an-iterable
 
     # Union-Find ---------------------------------------------------------------
     parent = np.arange(n)

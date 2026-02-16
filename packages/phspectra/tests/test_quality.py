@@ -36,6 +36,13 @@ def test_aicc_overparameterized() -> None:
     assert result == float("inf")
 
 
+def test_aicc_zero_residuals() -> None:
+    """Zero residuals (perfect fit) should not produce -inf or NaN."""
+    residuals = np.zeros(50)
+    result = aicc(residuals, n_params=3)
+    assert math.isfinite(result)
+
+
 # ---- validate_components tests --------------------------------------------
 
 

@@ -135,6 +135,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group test-lambda
 
+      - name: Verify C extension compiled
+        run: uv run python -c "from phspectra._gaussfit import bounded_lm_fit, find_peaks; print('OK')"
+
       - name: Test phspectra
         working-directory: packages/phspectra
         run: uv run python -m pytest tests/ -v

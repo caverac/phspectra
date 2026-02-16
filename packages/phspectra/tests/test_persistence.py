@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import numpy as np
 import numpy.typing as npt
 
@@ -47,6 +49,25 @@ def test_plateau_same_component() -> None:
     peaks = find_peaks_by_persistence(signal, min_persistence=0.5)
     # Should find exactly 1 peak (the plateau at 5.0)
     assert len(peaks) == 1
+
+
+def test_c_ext_matches_python() -> None:
+    """C and Python persistence paths produce identical results."""
+    x = np.linspace(0, 100, 500, dtype=np.float64)
+    signal = _make_gaussian(x, 5.0, 30.0, 3.0) + _make_gaussian(x, 3.0, 70.0, 4.0)
+
+    c_peaks = find_peaks_by_persistence(signal, min_persistence=1.0)
+
+    with patch("phspectra.persistence._HAS_C_EXT", False):
+        py_peaks = find_peaks_by_persistence(signal, min_persistence=1.0)
+
+    assert len(c_peaks) == len(py_peaks)
+    for cp, pp in zip(c_peaks, py_peaks):
+        assert cp.index == pp.index
+        assert cp.birth == pp.birth
+        assert cp.death == pp.death
+        assert cp.persistence == pp.persistence
+        assert cp.saddle_index == pp.saddle_index
 
 
 def test_fit_gaussians_recovers_params() -> None:

@@ -14,33 +14,31 @@ uv run benchmarks performance-plot
 
 We benchmark the wall-clock time for decomposing all 4200 spectra in the GRS test field (424 channels each) using both PHSpectra and GaussPy+ ([Riener et al. 2019](https://arxiv.org/abs/1906.10506)). Each spectrum is processed individually through the full pipeline of each tool to ensure a fair per-spectrum comparison. Both algorithms are run with their recommended configurations:
 
-- **PHSpectra**: $\beta = 3.8$ (default), pure Python
+- **PHSpectra**: $\beta = 3.8$ (default), C-accelerated Levenberg-Marquardt solver and persistence peak detection
 - **GaussPy+**: two-phase decomposition with $\alpha_1 = 2.89$, $\alpha_2 = 6.65$ (trained values from [Riener et al. 2019](https://arxiv.org/abs/1906.10506), Sect. 4.1), SNR threshold = 3.0
 
 ### Results
 
 | Metric                    | PHSpectra | GaussPy+  | Factor         |
 | ------------------------- | --------- | --------- | -------------- |
-| Total time (4200 spectra) | 1274.9 s  | 1549.8 s  | **1.2&times;** |
-| Mean per spectrum         | 303.6 ms  | 367.6 ms  | 1.2&times;     |
-| Median per spectrum       | 155.7 ms  | 44.1 ms   | &mdash;        |
-| P95 per spectrum          | 1045.8 ms | 746.7 ms  | &mdash;        |
-| P99 per spectrum          | 3479.9 ms | 8478.5 ms | 2.4&times;     |
+| Total time (4200 spectra) | 666.4 s   | 1319.1 s  | **2.0&times;** |
+| Mean per spectrum         | 158.7 ms  | 312.9 ms  | 2.0&times;     |
+| Median per spectrum       | 31.8 ms   | 34.8 ms   | 1.1&times;     |
+| P95 per spectrum          | 510.0 ms  | 583.0 ms  | 1.1&times;     |
+| P99 per spectrum          | 3913.8 ms | 7521.4 ms | 1.9&times;     |
 | Mean components detected  | 2.35      | 2.44      | &mdash;        |
 
-PHSpectra is **1.2&times; faster** than GaussPy+ in aggregate (total and mean time). By median, GaussPy+ is faster on typical spectra &mdash; PHSpectra's overall advantage comes from the tail: it has far fewer extreme outliers, with P99 at 3.5 s vs 8.5 s for GaussPy+.
+PHSpectra is **2&times; faster** than GaussPy+ across all metrics. The two tools are now comparable on typical spectra (median 31.8 ms vs 34.8 ms), while PHSpectra maintains a significant advantage on complex spectra where GaussPy+ exhibits long optimization tails (P99 at 3.9 s vs 7.5 s).
 
 ![Performance benchmark](/img/results/performance-benchmark.png)
 
 ### Timing characteristics
 
-The two tools have different timing profiles:
+The two tools now have similar median performance but differ in tail behaviour:
 
-- **GaussPy+** is faster on the majority of spectra (lower median), but its execution time has extreme variance. A small fraction of spectra trigger long optimization chains, with P99 reaching 8.5 s. These outliers dominate the mean and total time.
+- **PHSpectra** matches GaussPy+ on typical spectra and is faster across the board. A custom C extension implements both the bounded Levenberg-Marquardt solver (with analytic Jacobian) and the persistence-based peak detection, eliminating the Python-to-Fortran boundary crossing overhead that previously dominated per-call cost. The result is a tighter timing distribution with fewer extreme outliers.
 
-- **PHSpectra** has a higher median but more predictable execution time, with a tighter distribution and fewer extreme outliers. The bounded optimization (`curve_fit` with Trust Region Reflective) provides reliable convergence at the cost of a higher per-call baseline.
-
-Both tools use `scipy` nonlinear least-squares optimization internally. GaussPy+ calls `scipy.optimize.leastsq` (unbounded Levenberg-Marquardt), while PHSpectra uses `scipy.optimize.curve_fit` with parameter bounds (Trust Region Reflective). The bounded method is slower per iteration but prevents divergence.
+- **GaussPy+** has comparable median performance but much higher variance. A small fraction of spectra trigger long optimization chains, with P99 reaching 7.5 s. These outliers dominate the mean and total time.
 
 ### Algorithmic differences
 
@@ -53,6 +51,6 @@ Both tools use `scipy` nonlinear least-squares optimization internally. GaussPy+
 ### Benchmark details
 
 - **Hardware**: single-core sequential processing for both tools (no parallelization)
-- **PHSpectra**: native Python 3.14, run directly
+- **PHSpectra**: native Python 3.14, C extension for LM solver and peak detection
 - **GaussPy+**: Python 3.10 in Docker (required for compatibility with legacy numpy/scipy); each spectrum is processed individually through the full `GaussPyDecompose` pipeline (init, decompose, improve_fitting, save)
 - **Spectra**: all 4200 GRS test-field pixels, 424 velocity channels each

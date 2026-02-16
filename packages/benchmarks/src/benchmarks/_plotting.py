@@ -70,9 +70,13 @@ def configure_axes(ax: Axes) -> None:
     """Apply the shared tick style to *ax*.
 
     Sets minor/major tick locators and draws inward ticks on all four sides.
+    Skips ``AutoMinorLocator`` on log-scaled axes (matplotlib handles
+    minor ticks automatically for log scales).
     """
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    if ax.get_xscale() == "linear":
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+    if ax.get_yscale() == "linear":
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
     ax.tick_params(which="minor", length=3, color="gray", direction="in")
     ax.tick_params(which="major", length=6, direction="in")
     ax.tick_params(top=True, right=True, which="both")
