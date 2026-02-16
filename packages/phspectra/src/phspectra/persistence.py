@@ -79,7 +79,7 @@ def find_peaks_by_persistence(
 
     if _HAS_C_EXT:
         raw = _c_find_peaks(signal, min_persistence)
-        return [PersistentPeak(*t) for t in raw]
+        return [PersistentPeak(*t) for t in raw]  # pylint: disable=not-an-iterable
 
     # Union-Find ---------------------------------------------------------------
     parent = np.arange(n)

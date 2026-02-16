@@ -70,6 +70,7 @@ line_length = 120
 
 [tool.pylint.main]
 init-hook = "import sys, os; sys.path.insert(0, os.path.join(os.getcwd(), 'packages', 'benchmarks', 'docker'))"
+ignore-patterns = ['.*\.pyi$']
 
 [tool.pylint.format]
 max-line-length = 120
