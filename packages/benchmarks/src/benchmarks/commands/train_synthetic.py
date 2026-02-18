@@ -239,7 +239,7 @@ def _evaluate_one(args: _WorkItem) -> _EvalResult:
     x = np.arange(len(signal), dtype=np.float64)
 
     try:
-        detected_raw = fit_gaussians(signal, beta=args.beta, max_components=12)
+        detected_raw = fit_gaussians(signal, beta=args.beta)
     except (LinAlgError, ValueError):
         detected_raw = []
 

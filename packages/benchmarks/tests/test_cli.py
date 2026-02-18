@@ -31,6 +31,8 @@ def test_cli_lists_commands() -> None:
         "ncomp-rms-plot",
         "survey-map-plot",
         "pipeline",
+        "pipeline-grs",
+        "grs-map-plot",
     ]:
         assert cmd in result.output, f"Missing command: {cmd}"
 
@@ -109,4 +111,18 @@ def test_survey_map_plot_help() -> None:
     """``benchmarks survey-map-plot --help`` should succeed."""
     runner = CliRunner()
     result = runner.invoke(main, ["survey-map-plot", "--help"])
+    assert result.exit_code == 0
+
+
+def test_pipeline_grs_help() -> None:
+    """``benchmarks pipeline-grs --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["pipeline-grs", "--help"])
+    assert result.exit_code == 0
+
+
+def test_grs_map_plot_help() -> None:
+    """``benchmarks grs-map-plot --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["grs-map-plot", "--help"])
     assert result.exit_code == 0

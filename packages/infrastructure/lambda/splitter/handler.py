@@ -165,10 +165,14 @@ def _handle_fits(key: str, *, survey: str, params: dict[str, object]) -> dict[st
 
     messages_sent = len(chunk_keys)
 
+    created_at = datetime.now(timezone.utc).isoformat()
     ddb_item: dict[str, dict[str, str]] = {
         "PK": {"S": run_id},
+        "SK": {"S": "RUN"},
+        "GSI1_PK": {"S": survey},
+        "GSI1_SK": {"S": created_at},
         "survey": {"S": survey},
-        "created_at": {"S": datetime.now(timezone.utc).isoformat()},
+        "created_at": {"S": created_at},
         "jobs_total": {"N": str(messages_sent)},
         "jobs_completed": {"N": "0"},
         "jobs_failed": {"N": "0"},
@@ -180,6 +184,9 @@ def _handle_fits(key: str, *, survey: str, params: dict[str, object]) -> dict[st
 
     dynamodb.put_item(TableName=TABLE_NAME, Item=ddb_item)
 
+    # Batch-write chunk items as PENDING (max 25 per batch_write_item call)
+    _batch_write_chunk_items(run_id, chunk_keys, created_at)
+
     body: dict[str, object] = {
         "run_id": run_id,
         "n_spectra": n_spectra,
@@ -190,3 +197,47 @@ def _handle_fits(key: str, *, survey: str, params: dict[str, object]) -> dict[st
         body["params"] = params
 
     return {"statusCode": 200, "body": body}
+
+
+def _batch_write_chunk_items(
+    run_id: str,
+    chunk_keys: list[str],
+    created_at: str,
+) -> None:
+    """Batch-write PENDING chunk items to DynamoDB.
+
+    Parameters
+    ----------
+    run_id : str
+        Partition key shared with the run record.
+    chunk_keys : list[str]
+        S3 keys of the ``.npz`` chunk files.
+    created_at : str
+        ISO timestamp for all chunk items.
+    """
+    items: list[dict[str, object]] = []
+    for chunk_key in chunk_keys:
+        basename = chunk_key.rsplit("/", 1)[-1].replace(".npz", "")
+        items.append(
+            {
+                "PutRequest": {
+                    "Item": {
+                        "PK": {"S": run_id},
+                        "SK": {"S": f"CHUNK#{basename}"},
+                        "status": {"S": "PENDING"},
+                        "chunk_key": {"S": chunk_key},
+                        "n_spectra": {"N": str(CHUNK_SIZE)},
+                        "created_at": {"S": created_at},
+                    }
+                }
+            }
+        )
+
+    for i in range(0, len(items), 25):
+        batch = items[i : i + 25]
+        resp = dynamodb.batch_write_item(RequestItems={TABLE_NAME: batch})
+        # Retry unprocessed items
+        unprocessed = resp.get("UnprocessedItems", {}).get(TABLE_NAME, [])
+        while unprocessed:
+            resp = dynamodb.batch_write_item(RequestItems={TABLE_NAME: unprocessed})
+            unprocessed = resp.get("UnprocessedItems", {}).get(TABLE_NAME, [])

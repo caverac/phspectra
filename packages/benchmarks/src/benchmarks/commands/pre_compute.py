@@ -138,7 +138,7 @@ def pre_compute(
     for i in range(n_select):
         t0 = time.perf_counter()
         try:
-            comps = fit_gaussians(signals[i], beta=beta, max_components=12, mf_snr_min=5.0)
+            comps = fit_gaussians(signals[i], beta=beta, mf_snr_min=5.0)
         except (LinAlgError, ValueError):
             comps = []
         ph_times.append(time.perf_counter() - t0)

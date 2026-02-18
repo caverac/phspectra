@@ -12,16 +12,22 @@ from benchmarks.cli import main
 from benchmarks.commands.pipeline import (
     _bucket_name,
     _discover_run_id,
+    _finish_pipeline,
     _get_run_item,
     _parse_params,
     _poll_progress,
+    _s3_key_exists,
     _survey_from_path,
     _table_name,
+    _upload_fits,
     _upload_manifest,
 )
+from botocore.exceptions import ClientError
 from click.testing import CliRunner
 
 MOCK_BOTO3 = "benchmarks.commands.pipeline.boto3"
+
+_NOT_FOUND = ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +45,7 @@ def _make_run_item(
 ) -> dict[str, dict[str, str]]:
     return {
         "PK": {"S": run_id},
+        "SK": {"S": "RUN"},
         "survey": {"S": survey},
         "created_at": {"S": created_at},
         "jobs_total": {"N": str(jobs_total)},
@@ -100,7 +107,8 @@ class TestPipelineValidation:
         assert result.exit_code != 0
         assert "--survey is required" in result.output
 
-    def test_manifest_mode_rejects_fits_file(self, tmp_path: Path) -> None:
+    @patch(MOCK_BOTO3)
+    def test_manifest_mode_rejects_fits_file(self, _mock_boto3: MagicMock, tmp_path: Path) -> None:
         """Manifest mode with a positional FITS_FILE should fail."""
         fits = tmp_path / "test.fits"
         fits.write_bytes(b"fake")
@@ -134,11 +142,12 @@ class TestPipelineDirectMode:
         fits = tmp_path / "GRS.fits"
         fits.write_bytes(b"fake")
         s3 = MagicMock()
+        s3.head_object.side_effect = _NOT_FOUND
         ddb = MagicMock()
         mock_boto3.client.side_effect = lambda svc: s3 if svc == "s3" else ddb
 
         item = _make_run_item()
-        ddb.scan.return_value = {"Items": [item]}
+        ddb.query.return_value = {"Items": [item]}
         ddb.get_item.return_value = {"Item": item}
 
         result = CliRunner().invoke(
@@ -158,16 +167,42 @@ class TestPipelineDirectMode:
         assert body["survey"] == "grs"
 
     @patch(MOCK_BOTO3)
+    def test_direct_mode_skips_upload_when_exists(self, mock_boto3: MagicMock, tmp_path: Path) -> None:
+        """Direct mode skips FITS upload when cube already exists in S3."""
+        fits = tmp_path / "GRS.fits"
+        fits.write_bytes(b"fake")
+        s3 = MagicMock()
+        s3.head_object.return_value = {}  # file exists
+        ddb = MagicMock()
+        mock_boto3.client.side_effect = lambda svc: s3 if svc == "s3" else ddb
+
+        item = _make_run_item()
+        ddb.query.return_value = {"Items": [item]}
+        ddb.get_item.return_value = {"Item": item}
+
+        result = CliRunner().invoke(
+            main,
+            ["pipeline", str(fits), "--poll-interval", "0"],
+        )
+        assert result.exit_code == 0
+
+        # FITS upload skipped, only manifest uploaded
+        s3.upload_file.assert_not_called()
+        s3.put_object.assert_called_once()
+        assert "already exists" in result.output
+
+    @patch(MOCK_BOTO3)
     def test_direct_mode_with_param(self, mock_boto3: MagicMock, tmp_path: Path) -> None:
         """Direct mode with --param beta=3.8 includes params in manifest."""
         fits = tmp_path / "GRS.fits"
         fits.write_bytes(b"fake")
         s3 = MagicMock()
+        s3.head_object.side_effect = _NOT_FOUND
         ddb = MagicMock()
         mock_boto3.client.side_effect = lambda svc: s3 if svc == "s3" else ddb
 
         item = _make_run_item()
-        ddb.scan.return_value = {"Items": [item]}
+        ddb.query.return_value = {"Items": [item]}
         ddb.get_item.return_value = {"Item": item}
 
         result = CliRunner().invoke(
@@ -197,7 +232,7 @@ class TestPipelineManifestMode:
         mock_boto3.client.side_effect = lambda svc: s3 if svc == "s3" else ddb
 
         item = _make_run_item()
-        ddb.scan.return_value = {"Items": [item]}
+        ddb.query.return_value = {"Items": [item]}
         ddb.get_item.return_value = {"Item": item}
 
         result = CliRunner().invoke(
@@ -232,28 +267,40 @@ class TestDiscoverRunId:
     """Discovery loop behaviour."""
 
     def test_timeout_exits(self) -> None:
-        """Scan timeout should cause SystemExit."""
+        """Query timeout should cause SystemExit."""
         ddb = MagicMock()
-        ddb.scan.return_value = {"Items": []}
+        ddb.query.return_value = {"Items": []}
 
         with pytest.raises(SystemExit):
             _discover_run_id(ddb, "t", "grs", "2025-01-01T00:00:00", timeout=0)
 
     def test_finds_run(self) -> None:
-        """Scan returning a matching item should return its run_id."""
+        """GSI1 query returning a matching item should return its run_id."""
         ddb = MagicMock()
         item = _make_run_item(run_id="abc-123")
-        ddb.scan.return_value = {"Items": [item]}
+        ddb.query.return_value = {"Items": [item]}
 
         run_id = _discover_run_id(ddb, "t", "grs", "2025-01-01T00:00:00")
         assert run_id == "abc-123"
 
+    def test_query_uses_gsi1(self) -> None:
+        """Discovery should query GSI1 with correct parameters."""
+        ddb = MagicMock()
+        item = _make_run_item(run_id="abc-123")
+        ddb.query.return_value = {"Items": [item]}
+
+        _discover_run_id(ddb, "t", "grs", "2025-01-01T00:00:00")
+        call_kwargs = ddb.query.call_args[1]
+        assert call_kwargs["IndexName"] == "GSI1"
+        assert call_kwargs["ScanIndexForward"] is False
+        assert call_kwargs["Limit"] == 1
+
     @patch("benchmarks.commands.pipeline.time.sleep")
     def test_retries_before_finding(self, mock_sleep: MagicMock) -> None:
-        """Discovery retries when scan returns empty, then succeeds."""
+        """Discovery retries when query returns empty, then succeeds."""
         ddb = MagicMock()
         item = _make_run_item(run_id="retry-ok")
-        ddb.scan.side_effect = [{"Items": []}, {"Items": [item]}]
+        ddb.query.side_effect = [{"Items": []}, {"Items": [item]}]
 
         run_id = _discover_run_id(ddb, "t", "grs", "2025-01-01T00:00:00")
         assert run_id == "retry-ok"
@@ -263,6 +310,18 @@ class TestDiscoverRunId:
 # ---------------------------------------------------------------------------
 # TestPollProgress
 # ---------------------------------------------------------------------------
+
+
+class TestFinishPipeline:
+    """Summary message formatting."""
+
+    def test_prints_failures(self) -> None:
+        """Summary message includes failure count when jobs_failed > 0."""
+        ddb = MagicMock()
+        item = _make_run_item(jobs_total=10, jobs_completed=8, jobs_failed=2)
+        ddb.get_item.return_value = {"Item": item}
+
+        _finish_pipeline(ddb, "t", "run-1", poll_interval=0, stall_timeout=0)
 
 
 class TestPollProgress:
@@ -361,7 +420,8 @@ class TestParseParams:
         with pytest.raises(click.UsageError, match="Invalid --param format"):
             _parse_params(("beta",))
 
-    def test_cli_rejects_invalid_param(self) -> None:
+    @patch(MOCK_BOTO3)
+    def test_cli_rejects_invalid_param(self, _mock_boto3: MagicMock) -> None:
         """CLI exits with error for unknown param key."""
         result = CliRunner().invoke(
             main,
@@ -398,3 +458,29 @@ class TestHelperFunctions:
 
         with pytest.raises(SystemExit):
             _get_run_item(ddb, "t", "missing-id")
+
+    def test_s3_key_exists_true(self) -> None:
+        """``_s3_key_exists`` returns True when head_object succeeds."""
+        s3 = MagicMock()
+        s3.head_object.return_value = {}
+        assert _s3_key_exists(s3, "bucket", "key") is True
+
+    def test_s3_key_exists_false(self) -> None:
+        """``_s3_key_exists`` returns False when head_object raises ClientError."""
+        s3 = MagicMock()
+        s3.head_object.side_effect = _NOT_FOUND
+        assert _s3_key_exists(s3, "bucket", "key") is False
+
+    def test_upload_fits_skips_existing(self) -> None:
+        """``_upload_fits`` skips upload when the key already exists."""
+        s3 = MagicMock()
+        s3.head_object.return_value = {}
+        _upload_fits(s3, "bucket", "/tmp/test.fits", "cubes/test.fits")
+        s3.upload_file.assert_not_called()
+
+    def test_upload_fits_uploads_missing(self) -> None:
+        """``_upload_fits`` uploads when the key does not exist."""
+        s3 = MagicMock()
+        s3.head_object.side_effect = _NOT_FOUND
+        _upload_fits(s3, "bucket", "/tmp/test.fits", "cubes/test.fits")
+        s3.upload_file.assert_called_once_with("/tmp/test.fits", "bucket", "cubes/test.fits")

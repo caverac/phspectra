@@ -26,8 +26,16 @@ export class ProcessingStack extends cdk.Stack {
     this.table = new dynamodb.Table(this, 'RunsTable', {
       tableName: `phspectra-runs`,
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY
+    })
+
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'GSI1',
+      partitionKey: { name: 'GSI1_PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI1_SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL
     })
 
     const deadLetterQueue = new sqs.Queue(this, 'DeadLetterQueue', {
@@ -45,8 +53,26 @@ export class ProcessingStack extends cdk.Stack {
       }
     })
 
+    const slowDeadLetterQueue = new sqs.Queue(this, 'SlowDeadLetterQueue', {
+      queueName: 'phspectra-slow-dead-letter',
+      retentionPeriod: cdk.Duration.days(14)
+    })
+
+    const slowQueue = new sqs.Queue(this, 'SlowQueue', {
+      queueName: 'phspectra-slow-spectra',
+      visibilityTimeout: cdk.Duration.minutes(16),
+      retentionPeriod: cdk.Duration.days(14),
+      deadLetterQueue: { queue: slowDeadLetterQueue, maxReceiveCount: 1 }
+    })
+
     const workerLogGroup = new logs.LogGroup(this, 'WorkerLogGroup', {
       logGroupName: '/aws/lambda/phspectra__worker',
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    })
+
+    const slowWorkerLogGroup = new logs.LogGroup(this, 'SlowWorkerLogGroup', {
+      logGroupName: '/aws/lambda/phspectra__slow_worker',
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY
     })
@@ -75,7 +101,8 @@ export class ProcessingStack extends cdk.Stack {
       logGroup: workerLogGroup,
       environment: {
         BUCKET_NAME: props.bucket.bucketName,
-        TABLE_NAME: this.table.tableName
+        TABLE_NAME: this.table.tableName,
+        SLOW_QUEUE_URL: slowQueue.queueUrl
       }
     })
 
@@ -87,6 +114,30 @@ export class ProcessingStack extends cdk.Stack {
     )
 
     props.bucket.grantReadWrite(workerFn)
-    this.table.grant(workerFn, 'dynamodb:UpdateItem')
+    this.table.grant(workerFn, 'dynamodb:UpdateItem', 'dynamodb:PutItem')
+    slowQueue.grantSendMessages(workerFn)
+
+    const slowWorkerFn = new lambda.DockerImageFunction(this, 'SlowWorkerFn', {
+      functionName: 'phspectra__slow_worker',
+      code: lambda.DockerImageCode.fromImageAsset(workerDir, {
+        cmd: ['slow_handler.handler']
+      }),
+      architecture: lambda.Architecture.ARM_64,
+      memorySize: 1024,
+      timeout: cdk.Duration.minutes(15),
+      logGroup: slowWorkerLogGroup,
+      environment: {
+        BUCKET_NAME: props.bucket.bucketName
+      }
+    })
+
+    slowWorkerFn.addEventSource(
+      new lambdaEventSources.SqsEventSource(slowQueue, {
+        batchSize: 1,
+        maxConcurrency: 10
+      })
+    )
+
+    props.bucket.grantReadWrite(slowWorkerFn)
   }
 }

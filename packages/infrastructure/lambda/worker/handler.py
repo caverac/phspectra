@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import signal as signal_mod
+import time
 import uuid
+from datetime import datetime, timezone
 from typing import TypedDict
 
 import boto3
@@ -18,10 +21,21 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 from phspectra import estimate_rms, fit_gaussians
 
 s3 = boto3.client("s3")
+sqs = boto3.client("sqs")
 dynamodb = boto3.client("dynamodb")
 
 BUCKET = os.environ["BUCKET_NAME"]
 TABLE_NAME = os.environ["TABLE_NAME"]
+SPECTRUM_TIMEOUT = int(os.environ.get("SPECTRUM_TIMEOUT", "5"))
+SLOW_QUEUE_URL = os.environ.get("SLOW_QUEUE_URL", "")
+
+
+class _SpectrumTimeout(Exception):
+    """Raised when a single spectrum exceeds the per-spectrum time budget."""
+
+
+def _alarm_handler(signum: int, frame: object) -> None:
+    raise _SpectrumTimeout
 
 
 def handler(event: dict[str, object], context: LambdaContext) -> dict[str, object]:
@@ -55,13 +69,44 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     params: dict[str, object] = msg.get("params", {})
     run_id: str = msg["run_id"]
 
+    chunk_basename = os.path.basename(chunk_key).replace(".npz", "")
+    chunk_sk = f"CHUNK#{chunk_basename}"
+
+    _write_chunk_in_progress(run_id, chunk_sk)
+    t0 = time.monotonic()
+
     try:
         result = _process_chunk(chunk_key, survey, params)
-    except Exception:
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        _write_chunk_failed(run_id, chunk_sk, duration_ms, str(exc)[:1024])
         _increment_counter(run_id, "jobs_failed")
         raise
 
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    body = result["body"]
+    assert isinstance(body, dict)
+    output_key: str = body["output_key"]
+    n_spectra: int = body["n_spectra"]
+    _write_chunk_completed(run_id, chunk_sk, duration_ms, output_key, n_spectra)
     _increment_counter(run_id, "jobs_completed")
+
+    failed_indices = body.get("failed_indices", [])
+    if failed_indices and SLOW_QUEUE_URL:
+        sqs.send_message(
+            QueueUrl=SLOW_QUEUE_URL,
+            MessageBody=json.dumps(
+                {
+                    "chunk_key": chunk_key,
+                    "output_key": output_key,
+                    "survey": survey,
+                    "run_id": run_id,
+                    "params": params,
+                    "failed_indices": failed_indices,
+                }
+            ),
+        )
+
     return result
 
 
@@ -77,9 +122,58 @@ def _increment_counter(run_id: str, attribute: str) -> None:
     """
     dynamodb.update_item(
         TableName=TABLE_NAME,
-        Key={"PK": {"S": run_id}},
+        Key={"PK": {"S": run_id}, "SK": {"S": "RUN"}},
         UpdateExpression=f"ADD {attribute} :one",
         ExpressionAttributeValues={":one": {"N": "1"}},
+    )
+
+
+def _write_chunk_in_progress(run_id: str, chunk_sk: str) -> None:
+    """Mark a chunk as IN_PROGRESS in DynamoDB."""
+    dynamodb.put_item(
+        TableName=TABLE_NAME,
+        Item={
+            "PK": {"S": run_id},
+            "SK": {"S": chunk_sk},
+            "status": {"S": "IN_PROGRESS"},
+            "started_at": {"S": datetime.now(timezone.utc).isoformat()},
+        },
+    )
+
+
+def _write_chunk_completed(run_id: str, chunk_sk: str, duration_ms: int, output_key: str, n_spectra: int) -> None:
+    """Mark a chunk as COMPLETED in DynamoDB."""
+    dynamodb.update_item(
+        TableName=TABLE_NAME,
+        Key={"PK": {"S": run_id}, "SK": {"S": chunk_sk}},
+        UpdateExpression=(
+            "SET #st = :status, completed_at = :completed_at, "
+            "duration_ms = :dur, output_key = :okey, n_spectra = :ns"
+        ),
+        ExpressionAttributeNames={"#st": "status"},
+        ExpressionAttributeValues={
+            ":status": {"S": "COMPLETED"},
+            ":completed_at": {"S": datetime.now(timezone.utc).isoformat()},
+            ":dur": {"N": str(duration_ms)},
+            ":okey": {"S": output_key},
+            ":ns": {"N": str(n_spectra)},
+        },
+    )
+
+
+def _write_chunk_failed(run_id: str, chunk_sk: str, duration_ms: int, error: str) -> None:
+    """Mark a chunk as FAILED in DynamoDB."""
+    dynamodb.update_item(
+        TableName=TABLE_NAME,
+        Key={"PK": {"S": run_id}, "SK": {"S": chunk_sk}},
+        UpdateExpression=("SET #st = :status, completed_at = :completed_at, " "duration_ms = :dur, #err = :error"),
+        ExpressionAttributeNames={"#st": "status", "#err": "error"},
+        ExpressionAttributeValues={
+            ":status": {"S": "FAILED"},
+            ":completed_at": {"S": datetime.now(timezone.utc).isoformat()},
+            ":dur": {"N": str(duration_ms)},
+            ":error": {"S": error},
+        },
     )
 
 
@@ -88,7 +182,6 @@ class _FitKwargs(TypedDict, total=False):
 
     beta: float
     min_persistence: float
-    max_components: int
     refine: bool
     max_refine_iter: int
     snr_min: float
@@ -111,7 +204,7 @@ def _build_fit_kwargs(params: dict[str, object]) -> _FitKwargs:
         Typed keyword arguments safe to unpack into ``fit_gaussians``.
     """
     _FLOAT_KEYS = {"beta", "min_persistence", "snr_min", "mf_snr_min", "f_sep", "neg_thresh"}
-    _INT_KEYS = {"max_components", "max_refine_iter"}
+    _INT_KEYS = {"max_refine_iter"}
     _BOOL_KEYS = {"refine"}
 
     kwargs = _FitKwargs()
@@ -156,11 +249,21 @@ def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> di
     fit_kwargs = _build_fit_kwargs(params)
     beta = fit_kwargs.get("beta", 3.8)
 
+    signal_mod.signal(signal_mod.SIGALRM, _alarm_handler)
+    failed_indices: list[int] = []
+
     rows: list[dict[str, object]] = []
     for idx, spectrum in enumerate(spectra):
         rms = estimate_rms(spectrum)
         min_persistence = fit_kwargs.get("min_persistence", beta * rms)
-        components = fit_gaussians(spectrum, **fit_kwargs)
+
+        signal_mod.alarm(SPECTRUM_TIMEOUT)
+        try:
+            components = fit_gaussians(spectrum, **fit_kwargs)
+            signal_mod.alarm(0)
+        except _SpectrumTimeout:
+            components = []
+            failed_indices.append(idx)
 
         rows.append(
             {
@@ -169,12 +272,14 @@ def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> di
                 "beta": float(beta),
                 "rms": float(rms),
                 "min_persistence": float(min_persistence),
-                "n_components": len(components),
+                "n_components": -1 if idx in failed_indices else len(components),
                 "component_amplitudes": [c.amplitude for c in components],
                 "component_means": [c.mean for c in components],
                 "component_stddevs": [c.stddev for c in components],
             }
         )
+
+    signal_mod.alarm(0)
 
     # Build PyArrow table
     table = pa.table(
@@ -209,10 +314,11 @@ def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> di
     s3.upload_file(local_parquet, BUCKET, output_key)
     os.remove(local_parquet)
 
-    return {
-        "statusCode": 200,
-        "body": {
-            "output_key": output_key,
-            "n_spectra": len(rows),
-        },
+    body: dict[str, object] = {
+        "output_key": output_key,
+        "n_spectra": len(rows),
     }
+    if failed_indices:
+        body["failed_indices"] = failed_indices
+
+    return {"statusCode": 200, "body": body}

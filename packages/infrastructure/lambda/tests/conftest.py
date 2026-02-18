@@ -23,8 +23,8 @@ os.environ.setdefault("TABLE_NAME", "phspectra-development-runs")
 LAMBDA_DIR = Path(__file__).resolve().parent.parent
 
 
-def _load_handler(module_name: str, handler_dir: str) -> Any:
-    """Import a ``handler.py`` under a distinct ``sys.modules`` name.
+def _load_handler(module_name: str, handler_dir: str, filename: str = "handler.py") -> Any:
+    """Import a handler module under a distinct ``sys.modules`` name.
 
     Parameters
     ----------
@@ -32,13 +32,15 @@ def _load_handler(module_name: str, handler_dir: str) -> Any:
         Name to register in ``sys.modules`` (e.g. ``"splitter_handler"``).
     handler_dir : str
         Subdirectory name under ``lambda/`` (e.g. ``"splitter"``).
+    filename : str
+        Python file to import (default ``"handler.py"``).
 
     Returns
     -------
     module
         The imported handler module.
     """
-    handler_path = LAMBDA_DIR / handler_dir / "handler.py"
+    handler_path = LAMBDA_DIR / handler_dir / filename
     spec = importlib.util.spec_from_file_location(module_name, handler_path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
@@ -57,6 +59,12 @@ def splitter() -> Any:
 def worker() -> Any:
     """Load the worker handler module."""
     return _load_handler("worker_handler", "worker")
+
+
+@pytest.fixture(scope="session")
+def slow_worker() -> Any:
+    """Load the slow worker handler module."""
+    return _load_handler("slow_worker_handler", "worker", "slow_handler.py")
 
 
 @pytest.fixture()

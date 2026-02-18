@@ -57,15 +57,15 @@ flowchart TB
 
 ### What each component does
 
-| Component           | Role                                                                                                                                                                                                                                      |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **EventBridge**     | Watches the S3 bucket for new objects. A `.json` file in `manifests/` triggers the splitter.                                                                                                                                              |
-| **Splitter Lambda** | Reads the FITS cube with `astropy`, reshapes the data into a flat array of spectra, groups them into chunks of 500, writes each chunk as a compressed `.npz` file, sends one SQS message per chunk, and creates a run record in DynamoDB. |
-| **SQS Queue**       | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection.                                                               |
-| **Worker Lambda**   | Reads a single `.npz` chunk from S3, runs `fit_gaussians(spectrum, **params)` on each spectrum, builds a PyArrow table, writes the result as a Snappy-compressed Parquet file, and increments the DynamoDB progress counter.              |
-| **DynamoDB**        | Tracks run progress. The splitter creates a record with `jobs_total`; each worker atomically increments `jobs_completed` or `jobs_failed`. The CLI polls this table to display a progress bar.                                            |
-| **S3 (Parquet)**    | Results are written under `decompositions/survey={name}/`. The `beta` value is stored as a regular column inside the Parquet files.                                                                                                       |
-| **Glue + Athena**   | The Glue table uses partition projection (survey only) -- no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys immediately after the workers finish writing.                                                  |
+| Component           | Role                                                                                                                                                                                                                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **EventBridge**     | Watches the S3 bucket for new objects. A `.json` file in `manifests/` triggers the splitter.                                                                                                                                                                                                              |
+| **Splitter Lambda** | Reads the FITS cube with `astropy`, reshapes the data into a flat array of spectra, groups them into chunks of 500, writes each chunk as a compressed `.npz` file, sends one SQS message per chunk, and creates a run record in DynamoDB.                                                                 |
+| **SQS Queue**       | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection.                                                                                                                               |
+| **Worker Lambda**   | Reads a single `.npz` chunk from S3, marks its chunk item as `IN_PROGRESS`, runs `fit_gaussians(spectrum, **params)` on each spectrum, builds a PyArrow table, writes the result as a Snappy-compressed Parquet file, marks the chunk `COMPLETED` (or `FAILED`), and increments the DynamoDB run counter. |
+| **DynamoDB**        | Tracks run and chunk progress. The splitter creates a run record with `jobs_total` and batch-writes one chunk item per chunk (`PENDING`). Workers update chunk status and atomically increment `jobs_completed` or `jobs_failed` on the run record. The CLI polls this table to display a progress bar.   |
+| **S3 (Parquet)**    | Results are written under `decompositions/survey={name}/`. The `beta` value is stored as a regular column inside the Parquet files.                                                                                                                                                                       |
+| **Glue + Athena**   | The Glue table uses partition projection (survey only) -- no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys immediately after the workers finish writing.                                                                                                                  |
 
 ## S3 bucket layout
 
@@ -73,7 +73,7 @@ A single bucket holds all data:
 
 ```
 phspectra-{env}-data/
-|-- raw/                               # FITS files uploaded by the CLI
+|-- cubes/{survey}.fits                # FITS cubes (deterministic key, idempotent re-upload)
 |-- manifests/                         # JSON manifests (trigger)
 |-- chunks/{run-id}/chunk-*.npz        # Temporary spectrum chunks (7-day TTL)
 |-- decompositions/                    # Results (Parquet, partitioned by survey)
@@ -100,7 +100,7 @@ uv run benchmarks pipeline my-survey.fits --param beta=3.8
 uv run benchmarks pipeline my-survey.fits --param beta=3.8 --param snr_min=2.0
 
 # Re-process an already-uploaded cube
-uv run benchmarks pipeline --manifest --cube-key raw/abc-123 --survey grs --param beta=4.0
+uv run benchmarks pipeline --manifest --cube-key cubes/grs.fits --survey grs --param beta=4.0
 ```
 
 ### Uploading a manifest directly
@@ -109,7 +109,7 @@ To trigger the pipeline without the CLI, upload a JSON manifest to `manifests/`:
 
 ```json
 {
-  "cube_key": "raw/grs-test-field.fits",
+  "cube_key": "cubes/grs.fits",
   "survey": "grs",
   "params": { "beta": 3.8, "snr_min": 2.0 }
 }
@@ -119,25 +119,30 @@ To trigger the pipeline without the CLI, upload a JSON manifest to `manifests/`:
 aws s3 cp manifest.json s3://phspectra-development-data/manifests/manifest.json
 ```
 
-The splitter fans out one SQS message per chunk. For a cube with 1,200 spectra this produces $\lceil 1200/500 \rceil = 3$ worker invocations, all running in parallel.
+The splitter fans out one SQS message per chunk. For the GRS test field with 4,200 spectra this produces $\lceil 4200/500 \rceil = 9$ worker invocations, all running in parallel.
 
 ## DynamoDB run tracking
 
-Each pipeline run creates a record in the `phspectra-runs` DynamoDB table:
+The `phspectra-runs` table uses a composite key (`PK` + `SK`) to store both **run-level** and **chunk-level** items under the same partition. The splitter creates the run item and batch-writes one `PENDING` chunk item per chunk. Workers update their chunk to `IN_PROGRESS` on start and `COMPLETED`/`FAILED` on finish.
 
-| Attribute        | Type   | Description                                          |
-| ---------------- | ------ | ---------------------------------------------------- |
-| `PK`             | String | Run ID (partition key, UUID)                         |
-| `survey`         | String | Survey name                                          |
-| `created_at`     | String | ISO 8601 timestamp                                   |
-| `jobs_total`     | Number | Total chunks to process                              |
-| `jobs_completed` | Number | Atomically incremented by each successful worker     |
-| `jobs_failed`    | Number | Atomically incremented on worker failure             |
-| `params`         | String | JSON-encoded fit_gaussians params (omitted if empty) |
-| `n_spectra`      | Number | Total spectra in the cube                            |
-| `n_chunks`       | Number | Number of chunks created                             |
+| Attribute        | Type   | Description                                                   |
+| ---------------- | ------ | ------------------------------------------------------------- |
+| `PK`             | String | Run ID (partition key, UUID)                                  |
+| `SK`             | String | `"RUN"` for run items, `"CHUNK#chunk-{start:07d}"` for chunks |
+| `survey`         | String | Survey name                                                   |
+| `created_at`     | String | ISO 8601 timestamp                                            |
+| `jobs_total`     | Number | Total chunks to process                                       |
+| `jobs_completed` | Number | Atomically incremented by each successful worker              |
+| `jobs_failed`    | Number | Atomically incremented on worker failure                      |
+| `params`         | String | JSON-encoded fit_gaussians params (omitted if empty)          |
+| `n_spectra`      | Number | Total spectra in the cube                                     |
+| `n_chunks`       | Number | Number of chunks created                                      |
+
+A GSI (`GSI1`) indexes run items by survey and creation time, enabling efficient lookups without full-table scans.
 
 The CLI polls this table every 5 seconds (configurable with `--poll-interval`) and displays a rich progress bar. A run is complete when `jobs_completed + jobs_failed >= jobs_total`. If progress stalls for `--stall-timeout` seconds (default 1800s), the CLI prints a warning and exits -- this guards against Lambda timeouts that kill workers before they can increment the failure counter.
+
+For the full chunk-level schema, access patterns, and operational queries, see [Pipeline Visibility](./visibility.md).
 
 ## Querying results with Athena
 
@@ -230,11 +235,11 @@ sequenceDiagram
     participant Q as SQS Queue
     participant W as Worker Lambda (xN)
 
-    CLI->>S3: PUT raw/{uuid} (FITS cube)
+    CLI->>S3: PUT cubes/{survey}.fits
     CLI->>S3: PUT manifests/{uuid}.json
     S3->>EB: Object Created event
     EB->>Sp: Invoke
-    Sp->>S3: GET raw/{uuid}
+    Sp->>S3: GET cubes/{survey}.fits
     Sp->>Sp: Read FITS, reshape to (n_spectra, n_channels)
 
     loop Every 500 spectra
@@ -242,13 +247,16 @@ sequenceDiagram
         Sp->>Q: SendMessage {chunk_key, survey, params, run_id}
     end
 
-    Sp->>DDB: PutItem (run record, jobs_total=N)
+    Sp->>DDB: PutItem (run record, SK="RUN")
+    Sp->>DDB: BatchWriteItem (chunk items, status=PENDING)
 
     loop Each message
         Q->>W: Deliver message (batch=1)
+        W->>DDB: PutItem (chunk status=IN_PROGRESS)
         W->>S3: GET chunk .npz
         W->>W: fit_gaussians() per spectrum
         W->>S3: PUT decompositions/survey=.../chunk-*.parquet
+        W->>DDB: UpdateItem (chunk status=COMPLETED)
         W->>DDB: UpdateItem ADD jobs_completed :one
     end
 
@@ -334,9 +342,9 @@ Resource names include the environment: `phspectra-development` or `phspectra-pr
 
 ## Cost estimates
 
-| Scenario                       | Lambda invocations | Estimated cost |
-| ------------------------------ | ------------------ | -------------- |
-| GRS test field (1,200 spectra) | 3                  | < $0.01        |
-| Full GRS survey (2.3M spectra) | ~4,600             | ~$4            |
+| Scenario                       | Lambda invocations  | Estimated cost |
+| ------------------------------ | ------------------- | -------------- |
+| GRS test field (4,200 spectra) | 9 + 1 splitter      | < $0.01        |
+| Full GRS survey (2.3M spectra) | ~4,600 + 1 splitter | ~$1            |
 
-The dominant cost is Lambda compute. S3 storage for Parquet results is negligible (a few cents per GB-month). Athena charges \$5/TB scanned -- a typical query over one survey scans well under 1 GB.
+Pricing assumes ARM64 (Graviton2) at \$0.0000133334/GB-s, ~30 ms per spectrum, 500 spectra per chunk. Worker: 1024 MB, Splitter: 2048 MB. The dominant cost is Lambda compute. S3 storage for Parquet results is negligible (a few cents per GB-month). Athena charges \$5/TB scanned -- a typical query over one survey scans well under 1 GB.

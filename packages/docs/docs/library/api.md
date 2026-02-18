@@ -16,7 +16,6 @@ components = fit_gaussians(
     *,
     beta=3.8,            # persistence threshold in units of noise sigma
     min_persistence=None, # absolute threshold (overrides beta)
-    max_components=None, # cap on number of Gaussians
     refine=True,         # enable iterative refinement
     max_refine_iter=3,   # maximum refinement iterations
     snr_min=1.5,         # minimum amplitude SNR
@@ -33,7 +32,6 @@ components = fit_gaussians(
 | `signal`          | `NDArray[np.floating]` | _(required)_ | 1-D spectrum (flux values)                                                                                                           |
 | `beta`            | `float`                | `3.8`        | Persistence threshold in units of $\sigma_\mathrm{rms}$. Ignored when `min_persistence` is set.                                      |
 | `min_persistence` | `float \| None`        | `None`       | Absolute persistence threshold. Overrides `beta` when set.                                                                           |
-| `max_components`  | `int \| None`          | `None`       | Maximum number of Gaussians to fit.                                                                                                  |
 | `refine`          | `bool`                 | `True`       | Enable iterative refinement (residual search, dip splitting, blended merging).                                                       |
 | `max_refine_iter` | `int`                  | `3`          | Maximum refinement iterations.                                                                                                       |
 | `snr_min`         | `float`                | `1.5`        | Minimum amplitude $A / \sigma_\mathrm{rms}$ for a component to survive validation.                                                   |

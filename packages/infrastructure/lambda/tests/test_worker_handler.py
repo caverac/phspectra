@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import numpy.typing as npt
 import pytest
+
+# pylint: disable=protected-access
 
 # -- helpers -----------------------------------------------------------------
 
@@ -51,6 +54,7 @@ def test_no_components(worker: Any, sqs_event: Any, lambda_context: MagicMock) -
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -89,6 +93,7 @@ def test_with_components(worker: Any, sqs_event: Any, lambda_context: MagicMock)
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -119,6 +124,7 @@ def test_beta_column_in_parquet(worker: Any, sqs_event: Any, lambda_context: Mag
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -147,6 +153,7 @@ def test_min_persistence_from_params(worker: Any, sqs_event: Any, lambda_context
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -174,6 +181,7 @@ def test_multiple_spectra(worker: Any, sqs_event: Any, lambda_context: MagicMock
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -220,6 +228,7 @@ def test_output_key_format(
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -246,6 +255,7 @@ def test_s3_upload_called(worker: Any, sqs_event: Any, lambda_context: MagicMock
         patch.object(worker.s3, "upload_file") as mock_upload,
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -275,6 +285,7 @@ def test_response_structure(worker: Any, sqs_event: Any, lambda_context: MagicMo
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -305,6 +316,7 @@ def test_build_fit_kwargs_int_and_bool(worker: Any, sqs_event: Any, lambda_conte
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -324,7 +336,7 @@ def test_build_fit_kwargs_int_and_bool(worker: Any, sqs_event: Any, lambda_conte
 
 
 def test_jobs_completed_incremented_on_success(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
-    """On success, ``dynamodb.update_item`` increments ``jobs_completed``."""
+    """On success, ``dynamodb.update_item`` increments ``jobs_completed`` and marks chunk COMPLETED."""
     event = sqs_event(MSG_BASE)
     chunk = _make_chunk(1)
 
@@ -338,6 +350,7 @@ def test_jobs_completed_incremented_on_success(worker: Any, sqs_event: Any, lamb
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item") as mock_update,
+        patch.object(worker.dynamodb, "put_item") as mock_put,
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -346,16 +359,28 @@ def test_jobs_completed_incremented_on_success(worker: Any, sqs_event: Any, lamb
 
         worker.handler(event, lambda_context)
 
-    mock_update.assert_called_once_with(
+    # put_item for IN_PROGRESS chunk status
+    mock_put.assert_called_once()
+    put_item = mock_put.call_args[1]["Item"]
+    assert put_item["PK"] == {"S": "run-001"}
+    assert put_item["SK"] == {"S": "CHUNK#chunk-0000000"}
+    assert put_item["status"] == {"S": "IN_PROGRESS"}
+
+    # update_item calls: chunk COMPLETED + run counter
+    assert mock_update.call_count == 2
+    # Find the run counter call (the one with ADD expression)
+    run_counter_call = [c for c in mock_update.call_args_list if "ADD" in c.kwargs.get("UpdateExpression", "")]
+    assert len(run_counter_call) == 1
+    assert run_counter_call[0] == call(
         TableName="phspectra-development-runs",
-        Key={"PK": {"S": "run-001"}},
+        Key={"PK": {"S": "run-001"}, "SK": {"S": "RUN"}},
         UpdateExpression="ADD jobs_completed :one",
         ExpressionAttributeValues={":one": {"N": "1"}},
     )
 
 
 def test_jobs_failed_incremented_on_error(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
-    """On processing error, ``dynamodb.update_item`` increments ``jobs_failed`` then re-raises."""
+    """On processing error, ``dynamodb.update_item`` marks chunk FAILED and increments ``jobs_failed``."""
     event = sqs_event(MSG_BASE)
     chunk = _make_chunk(1)
 
@@ -369,6 +394,7 @@ def test_jobs_failed_incremented_on_error(worker: Any, sqs_event: Any, lambda_co
         patch.object(worker.s3, "upload_file"),
         patch.object(worker, "uuid") as mock_uuid,
         patch.object(worker.dynamodb, "update_item") as mock_update,
+        patch.object(worker.dynamodb, "put_item") as mock_put,
     ):
         mock_np.load.return_value = chunk
         mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
@@ -378,9 +404,175 @@ def test_jobs_failed_incremented_on_error(worker: Any, sqs_event: Any, lambda_co
         with pytest.raises(RuntimeError, match="boom"):
             worker.handler(event, lambda_context)
 
-    mock_update.assert_called_once_with(
+    # put_item for IN_PROGRESS chunk status
+    mock_put.assert_called_once()
+
+    # update_item calls: chunk FAILED + run counter
+    assert mock_update.call_count == 2
+    run_counter_call = [c for c in mock_update.call_args_list if "ADD" in c.kwargs.get("UpdateExpression", "")]
+    assert len(run_counter_call) == 1
+    assert run_counter_call[0] == call(
         TableName="phspectra-development-runs",
-        Key={"PK": {"S": "run-001"}},
+        Key={"PK": {"S": "run-001"}, "SK": {"S": "RUN"}},
         UpdateExpression="ADD jobs_failed :one",
         ExpressionAttributeValues={":one": {"N": "1"}},
     )
+
+
+# -- Per-spectrum timeout tests -----------------------------------------------
+
+
+def test_spectrum_timeout_produces_sentinel(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """A timed-out spectrum gets ``n_components = -1`` sentinel row."""
+    event = sqs_event(MSG_BASE)
+    chunk = _make_chunk(3)
+
+    call_count = 0
+
+    def _fit_side_effect(*_args: object, **_kwargs: object) -> list[object]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise worker._SpectrumTimeout
+        return [FakeGaussianComponent(amplitude=1.0, mean=5.0, stddev=1.0)]
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", side_effect=_fit_side_effect),
+        patch.object(worker, "pq") as mock_pq,
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
+        patch.object(worker.sqs, "send_message"),
+        patch.object(worker.signal_mod, "signal"),
+        patch.object(worker.signal_mod, "alarm"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        result = worker.handler(event, lambda_context)
+
+    table = mock_pq.write_table.call_args[0][0]
+    n_components = table.column("n_components").to_pylist()
+    assert n_components == [1, -1, 1]
+    assert result["body"]["failed_indices"] == [1]
+
+
+def test_slow_queue_message_sent_on_timeout(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """Timed-out spectra trigger an SQS message to the slow queue."""
+    event = sqs_event(MSG_BASE)
+    chunk = _make_chunk(2)
+
+    call_count = 0
+
+    def _fit_side_effect(*_args: object, **_kwargs: object) -> list[object]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise worker._SpectrumTimeout
+        return []
+
+    slow_url = "https://sqs.us-east-1.amazonaws.com/123456789012/slow-queue"
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", side_effect=_fit_side_effect),
+        patch.object(worker, "pq"),
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
+        patch.object(worker.sqs, "send_message") as mock_send,
+        patch.object(worker, "SLOW_QUEUE_URL", slow_url),
+        patch.object(worker.signal_mod, "signal"),
+        patch.object(worker.signal_mod, "alarm"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        worker.handler(event, lambda_context)
+
+    mock_send.assert_called_once()
+    sent_body = json.loads(mock_send.call_args[1]["MessageBody"])
+    assert sent_body["failed_indices"] == [0]
+    assert sent_body["chunk_key"] == MSG_BASE["chunk_key"]
+    assert mock_send.call_args[1]["QueueUrl"] == slow_url
+
+
+def test_no_slow_queue_when_all_succeed(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """No SQS message sent when all spectra succeed."""
+    event = sqs_event(MSG_BASE)
+    chunk = _make_chunk(2)
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", return_value=[]),
+        patch.object(worker, "pq"),
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
+        patch.object(worker.sqs, "send_message") as mock_send,
+        patch.object(worker, "SLOW_QUEUE_URL", "https://some-url"),
+        patch.object(worker.signal_mod, "signal"),
+        patch.object(worker.signal_mod, "alarm"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        worker.handler(event, lambda_context)
+
+    mock_send.assert_not_called()
+
+
+def test_no_slow_queue_when_env_unset(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """No SQS message sent when ``SLOW_QUEUE_URL`` is empty (backward compat)."""
+    event = sqs_event(MSG_BASE)
+    chunk = _make_chunk(1)
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", side_effect=worker._SpectrumTimeout),
+        patch.object(worker, "pq"),
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
+        patch.object(worker.sqs, "send_message") as mock_send,
+        patch.object(worker, "SLOW_QUEUE_URL", ""),
+        patch.object(worker.signal_mod, "signal"),
+        patch.object(worker.signal_mod, "alarm"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        worker.handler(event, lambda_context)
+
+    mock_send.assert_not_called()
+
+
+def test_alarm_handler_raises_spectrum_timeout(worker: Any) -> None:
+    """``_alarm_handler`` raises ``_SpectrumTimeout`` when invoked."""
+    with pytest.raises(worker._SpectrumTimeout):
+        worker._alarm_handler(14, None)

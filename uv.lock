@@ -88,6 +88,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "phspectra" },
+    { name = "pyarrow" },
     { name = "rich" },
     { name = "scipy" },
 ]
@@ -105,6 +106,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "phspectra", editable = "packages/phspectra" },
+    { name = "pyarrow", specifier = ">=15.0" },
     { name = "rich", specifier = ">=13.0" },
     { name = "scipy", specifier = ">=1.12" },
 ]
