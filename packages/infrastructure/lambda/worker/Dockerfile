@@ -12,5 +12,6 @@ COPY phspectra-src/ /tmp/phspectra-src/
 RUN pip install --no-cache-dir --no-build-isolation /tmp/phspectra-src/ && rm -rf /tmp/phspectra-src/
 
 COPY handler.py ${LAMBDA_TASK_ROOT}/
+COPY slow_handler.py ${LAMBDA_TASK_ROOT}/
 
 CMD ["handler.handler"]

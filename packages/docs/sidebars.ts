@@ -15,12 +15,18 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Results',
-      items: ['results/beta', 'results/accuracy', 'results/performance', 'results/reproducing']
+      items: [
+        'results/beta',
+        'results/accuracy',
+        'results/performance',
+        'results/grs-survey',
+        'results/reproducing'
+      ]
     },
     {
       type: 'category',
       label: 'Infrastructure',
-      items: ['infrastructure/aws-pipeline']
+      items: ['infrastructure/aws-pipeline', 'infrastructure/visibility']
     },
     {
       type: 'category',

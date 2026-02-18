@@ -286,7 +286,6 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
     mf_snr_min: float,
     neg_thresh: float,
     f_sep: float,
-    max_components: int | None,
 ) -> tuple[list[GaussianComponent], NDArray[np.floating], float, bool]:
     """Run one refinement iteration: residual peaks, dip split, blended merge."""
     changed = False
@@ -295,8 +294,6 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
     new_peaks = _find_residual_peaks(residual, rms, snr_min, mf_snr_min)
     if new_peaks:
         candidate = list(components) + new_peaks
-        if max_components is not None:
-            candidate = candidate[:max_components]
         new_comps, new_resid, current_aicc, accepted = _try_refit(x, signal, candidate, n_channels, current_aicc)
         if accepted:
             components, residual = new_comps, new_resid
@@ -336,7 +333,6 @@ def fit_gaussians(
     peaks: list[PersistentPeak] | None = None,
     beta: float = 3.8,
     min_persistence: float | None = None,
-    max_components: int | None = None,
     refine: bool = True,
     max_refine_iter: int = 3,
     snr_min: float = 1.5,
@@ -372,8 +368,6 @@ def fit_gaussians(
         *min_persistence* is given explicitly.
     min_persistence:
         Absolute persistence threshold.  When set, overrides *beta*.
-    max_components:
-        Cap on the number of Gaussians to fit.
     refine:
         Enable iterative refinement.  Set to ``False`` for legacy behaviour.
     max_refine_iter:
@@ -409,9 +403,6 @@ def fit_gaussians(
         if min_persistence is None:
             min_persistence = beta * rms
         peaks = find_peaks_by_persistence(signal, min_persistence=min_persistence)
-
-    if max_components is not None:
-        peaks = peaks[:max_components]
 
     if not peaks:
         return []
@@ -455,7 +446,6 @@ def fit_gaussians(
             mf_snr_min=mf_snr_min,
             neg_thresh=neg_thresh,
             f_sep=f_sep,
-            max_components=max_components,
         )
         if not changed:
             break

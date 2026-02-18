@@ -13,6 +13,7 @@ TAP_URL = "https://tapvizier.cds.unistra.fr/TAPVizieR/tap/sync"
 # S3 public resources
 
 RESOURCES_BUCKET_TEMPLATE = "phspectra-{environment}-resources"
+DATA_BUCKET_TEMPLATE = "phspectra-{environment}-data"
 RESOURCES_BASE_URL_TEMPLATE = "https://phspectra-{environment}-resources.s3.amazonaws.com"
 RESOURCE_FITS = "grs-test-field.fits"
 RESOURCE_CATALOG = "gausspy-catalog.votable"

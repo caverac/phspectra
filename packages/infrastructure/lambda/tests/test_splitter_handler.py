@@ -92,6 +92,7 @@ def test_handle_fits_single_chunk(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item"),
+        patch.object(splitter.dynamodb, "batch_write_item", return_value={"UnprocessedItems": {}}),
         patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
@@ -125,6 +126,7 @@ def test_handle_fits_multiple_chunks(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item"),
+        patch.object(splitter.dynamodb, "batch_write_item", return_value={"UnprocessedItems": {}}),
         patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
@@ -185,6 +187,7 @@ def test_handle_fits_nan_replacement(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item"),
+        patch.object(splitter.dynamodb, "batch_write_item", return_value={"UnprocessedItems": {}}),
         patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
@@ -214,6 +217,7 @@ def test_handle_fits_puts_run_record(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message"),
         patch.object(splitter.dynamodb, "put_item") as mock_put,
+        patch.object(splitter.dynamodb, "batch_write_item", return_value={"UnprocessedItems": {}}),
         patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul
@@ -229,6 +233,9 @@ def test_handle_fits_puts_run_record(splitter: Any) -> None:
     mock_put.assert_called_once()
     item = mock_put.call_args[1]["Item"]
     assert item["PK"] == {"S": run_id}
+    assert item["SK"] == {"S": "RUN"}
+    assert item["GSI1_PK"] == {"S": "grs"}
+    assert item["GSI1_SK"] == item["created_at"]
     assert item["survey"] == {"S": "grs"}
     assert item["jobs_total"] == {"N": "1"}
     assert item["jobs_completed"] == {"N": "0"}
@@ -237,6 +244,84 @@ def test_handle_fits_puts_run_record(splitter: Any) -> None:
     assert item["n_chunks"] == {"N": "1"}
     assert json.loads(item["params"]["S"]) == {"beta": 5.0}
     assert "created_at" in item
+
+
+def test_handle_fits_batch_writes_chunk_items(splitter: Any) -> None:
+    """After fan-out, ``dynamodb.batch_write_item`` is called for PENDING chunk items."""
+    hdul = _make_mock_hdul((4, 10, 10))
+    run_id = "fixed-uuid"
+
+    with (
+        patch.object(splitter.s3, "download_file"),
+        patch.object(splitter, "fits") as mock_fits_mod,
+        patch.object(splitter, "os") as mock_os,
+        patch.object(splitter, "np") as mock_np,
+        patch.object(splitter.s3, "upload_file"),
+        patch.object(splitter.sqs, "send_message"),
+        patch.object(splitter.dynamodb, "put_item"),
+        patch.object(splitter.dynamodb, "batch_write_item", return_value={"UnprocessedItems": {}}) as mock_batch,
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
+    ):
+        mock_fits_mod.open.return_value = hdul
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_np.nan_to_num.side_effect = np.nan_to_num
+        mock_np.mgrid = np.mgrid
+        mock_np.savez_compressed = MagicMock()
+        mock_np.float64 = np.float64
+
+        splitter._handle_fits("cubes/test.fits", survey="grs", params={})
+
+    mock_batch.assert_called_once()
+    request_items = mock_batch.call_args[1]["RequestItems"]
+    table_items = request_items["phspectra-development-runs"]
+    assert len(table_items) == 1  # 100 spectra / 500 = 1 chunk
+    chunk_item = table_items[0]["PutRequest"]["Item"]
+    assert chunk_item["PK"] == {"S": run_id}
+    assert chunk_item["SK"]["S"].startswith("CHUNK#chunk-")
+    assert chunk_item["status"] == {"S": "PENDING"}
+    assert "chunk_key" in chunk_item
+    assert "created_at" in chunk_item
+
+
+def test_handle_fits_retries_unprocessed_items(splitter: Any) -> None:
+    """Unprocessed items from ``batch_write_item`` are retried until empty."""
+    hdul = _make_mock_hdul((4, 10, 10))
+    run_id = "fixed-uuid"
+    table_name = "phspectra-development-runs"
+
+    leftover = [{"PutRequest": {"Item": {"PK": {"S": "leftover"}}}}]
+    mock_batch = MagicMock(
+        side_effect=[
+            {"UnprocessedItems": {table_name: leftover}},
+            {"UnprocessedItems": {}},
+        ]
+    )
+
+    with (
+        patch.object(splitter.s3, "download_file"),
+        patch.object(splitter, "fits") as mock_fits_mod,
+        patch.object(splitter, "os") as mock_os,
+        patch.object(splitter, "np") as mock_np,
+        patch.object(splitter.s3, "upload_file"),
+        patch.object(splitter.sqs, "send_message"),
+        patch.object(splitter.dynamodb, "put_item"),
+        patch.object(splitter.dynamodb, "batch_write_item", mock_batch),
+        patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
+    ):
+        mock_fits_mod.open.return_value = hdul
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_np.nan_to_num.side_effect = np.nan_to_num
+        mock_np.mgrid = np.mgrid
+        mock_np.savez_compressed = MagicMock()
+        mock_np.float64 = np.float64
+
+        result = splitter._handle_fits("cubes/test.fits", survey="grs", params={})
+
+    assert result["statusCode"] == 200
+    # First call: original batch; second call: retry unprocessed
+    assert mock_batch.call_count == 2
 
 
 def test_handle_fits_sqs_message_body(splitter: Any) -> None:
@@ -258,6 +343,7 @@ def test_handle_fits_sqs_message_body(splitter: Any) -> None:
         patch.object(splitter.s3, "upload_file"),
         patch.object(splitter.sqs, "send_message", side_effect=capture_send),
         patch.object(splitter.dynamodb, "put_item"),
+        patch.object(splitter.dynamodb, "batch_write_item", return_value={"UnprocessedItems": {}}),
         patch.object(splitter.uuid, "uuid4", return_value=MagicMock(hex=run_id, __str__=lambda _: run_id)),
     ):
         mock_fits_mod.open.return_value = hdul

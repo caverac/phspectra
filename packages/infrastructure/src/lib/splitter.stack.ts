@@ -49,7 +49,7 @@ export class SplitterStack extends cdk.Stack {
 
     props.bucket.grantReadWrite(splitterFn)
     props.queue.grantSendMessages(splitterFn)
-    props.table.grant(splitterFn, 'dynamodb:PutItem')
+    props.table.grant(splitterFn, 'dynamodb:PutItem', 'dynamodb:BatchWriteItem')
 
     // Manifest uploaded to manifests/ -> splitter fans out to SQS
     new events.Rule(this, 'ManifestUploadRule', {

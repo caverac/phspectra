@@ -50,12 +50,12 @@ describe('SplitterStack', () => {
     })
   })
 
-  test('Splitter has dynamodb:PutItem IAM policy', () => {
+  test('Splitter has dynamodb:PutItem and dynamodb:BatchWriteItem IAM policy', () => {
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: 'dynamodb:PutItem',
+            Action: Match.arrayWith(['dynamodb:PutItem', 'dynamodb:BatchWriteItem']),
             Effect: 'Allow'
           })
         ])

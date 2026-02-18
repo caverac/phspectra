@@ -18,6 +18,7 @@ from typing import Any
 import boto3
 import click
 from benchmarks._console import console
+from botocore.exceptions import ClientError
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -43,8 +44,23 @@ def _survey_from_path(path: str) -> str:
     return Path(path).stem.lower()
 
 
+def _s3_key_exists(s3_client: Any, bucket: str, key: str) -> bool:
+    """Return True if an S3 object exists at the given key."""
+    try:
+        s3_client.head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError:
+        return False
+
+
 def _upload_fits(s3_client: Any, bucket: str, local_path: str, cube_key: str) -> None:
-    """Upload a FITS file to S3."""
+    """Upload a FITS file to S3, skipping if already present."""
+    if _s3_key_exists(s3_client, bucket, cube_key):
+        console.print(
+            f"Cube already exists at [blue]s3://{bucket}/{cube_key}[/blue], skipping upload.",
+            style="yellow",
+        )
+        return
     console.print(f"Uploading FITS to [blue]s3://{bucket}/{cube_key}[/blue]")
     s3_client.upload_file(local_path, bucket, cube_key)
     console.print("  Upload complete.", style="green")
@@ -53,7 +69,6 @@ def _upload_fits(s3_client: Any, bucket: str, local_path: str, cube_key: str) ->
 ALLOWED_PARAMS = {
     "beta",
     "min_persistence",
-    "max_components",
     "refine",
     "max_refine_iter",
     "snr_min",
@@ -100,10 +115,10 @@ def _discover_run_id(
     table: str,
     survey: str,
     not_before: str,
-    timeout: float = 60,
+    timeout: float = 180,
     interval: float = 2,
 ) -> str:
-    """Scan DynamoDB for a run matching *survey* created at or after *not_before*.
+    """Query GSI1 for a run matching *survey* created at or after *not_before*.
 
     Returns the ``run_id`` of the most recent matching item.  Calls
     ``sys.exit(1)`` if no item is found within *timeout* seconds.
@@ -111,17 +126,19 @@ def _discover_run_id(
     console.print("Waiting for run record in DynamoDB ...", style="bold cyan")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        resp = dynamodb_client.scan(
+        resp = dynamodb_client.query(
             TableName=table,
-            FilterExpression="survey = :s AND created_at >= :t",
+            IndexName="GSI1",
+            KeyConditionExpression="GSI1_PK = :s AND GSI1_SK >= :t",
             ExpressionAttributeValues={
                 ":s": {"S": survey},
                 ":t": {"S": not_before},
             },
+            ScanIndexForward=False,
+            Limit=1,
         )
         items = resp.get("Items", [])
         if items:
-            items.sort(key=lambda it: it["created_at"]["S"], reverse=True)
             run_id: str = items[0]["PK"]["S"]
             console.print(f"  Discovered run [bold]{run_id}[/bold]", style="green")
             return run_id
@@ -133,7 +150,7 @@ def _discover_run_id(
 
 def _get_run_item(dynamodb_client: Any, table: str, run_id: str) -> dict[str, Any]:
     """Fetch a single run item from DynamoDB. Exits on missing item."""
-    resp = dynamodb_client.get_item(TableName=table, Key={"PK": {"S": run_id}})
+    resp = dynamodb_client.get_item(TableName=table, Key={"PK": {"S": run_id}, "SK": {"S": "RUN"}})
     item: dict[str, Any] | None = resp.get("Item")
     if item is None:
         console.print(f"Run [bold]{run_id}[/bold] not found.", style="bold red")
@@ -207,6 +224,7 @@ def _poll_progress(
     type=str,
     help="fit_gaussians param as key=value (e.g. --param beta=3.8).",
 )
+@click.option("--run-id", default=None, help="Resume polling an existing run (skip upload).")
 @click.option(
     "--stall-timeout",
     default=1800.0,
@@ -233,11 +251,25 @@ def pipeline(
     cube_key: str | None,
     survey: str | None,
     raw_params: tuple[str, ...],
+    run_id: str | None,
     stall_timeout: float,
     environment: str,
     poll_interval: float,
 ) -> None:
     """Upload FITS to S3 and monitor pipeline progress in DynamoDB."""
+    # -- clients --------------------------------------------------------------
+    dynamodb_client = boto3.client("dynamodb")
+    table = _table_name(environment)
+
+    # -- resume existing run --------------------------------------------------
+    if run_id is not None:
+        if fits_file is not None or manifest_mode or cube_key is not None:
+            raise click.UsageError("--run-id cannot be combined with FITS_FILE, --manifest, or --cube-key.")
+        console.print(f"Resuming run [bold]{run_id}[/bold]", style="bold cyan")
+        _get_run_item(dynamodb_client, table, run_id)  # validate it exists
+        _finish_pipeline(dynamodb_client, table, run_id, poll_interval, stall_timeout)
+        return
+
     # -- validation -----------------------------------------------------------
     if manifest_mode:
         if fits_file is not None:
@@ -254,15 +286,12 @@ def pipeline(
 
     # -- clients --------------------------------------------------------------
     s3_client = boto3.client("s3")
-    dynamodb_client = boto3.client("dynamodb")
-
     bucket = _bucket_name(environment)
-    table = _table_name(environment)
 
     # -- upload ---------------------------------------------------------------
     if not manifest_mode:
-        cube_key = f"raw/{uuid.uuid4()}"
         survey = survey or _survey_from_path(fits_file)  # type: ignore[arg-type]
+        cube_key = f"cubes/{survey}.fits"
         _upload_fits(s3_client, bucket, fits_file, cube_key)  # type: ignore[arg-type]
 
     not_before = datetime.now(timezone.utc).isoformat()
@@ -271,10 +300,19 @@ def pipeline(
     # -- discover run ---------------------------------------------------------
     run_id = _discover_run_id(dynamodb_client, table, survey, not_before)  # type: ignore[arg-type]
 
-    # -- poll progress --------------------------------------------------------
+    _finish_pipeline(dynamodb_client, table, run_id, poll_interval, stall_timeout)
+
+
+def _finish_pipeline(
+    dynamodb_client: Any,
+    table: str,
+    run_id: str,
+    poll_interval: float,
+    stall_timeout: float,
+) -> None:
+    """Poll progress and print summary."""
     final = _poll_progress(dynamodb_client, table, run_id, poll_interval, stall_timeout)
 
-    # -- summary --------------------------------------------------------------
     completed = int(final.get("jobs_completed", {}).get("N", "0"))
     failed = int(final.get("jobs_failed", {}).get("N", "0"))
     total = int(final.get("jobs_total", {}).get("N", "0"))

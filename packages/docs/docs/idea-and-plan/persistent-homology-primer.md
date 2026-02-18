@@ -115,7 +115,7 @@ $$
 
 This provides a physically grounded initial width from the topology alone. For the global maximum (which never dies and has no saddle), the estimate falls back to $\sigma_0 = 1.0$.
 
-The peaks are ordered by persistence (most significant first), so if a `max_components` cap is set, the least significant surviving peaks are dropped. This ordering also means the solver starts with the strongest features anchored in place, which improves convergence.
+The peaks are ordered by persistence (most significant first), so the solver starts with the strongest features anchored in place, which improves convergence.
 
 This initial guess is then passed to `scipy.optimize.curve_fit`, which fits a sum of Gaussians to the full signal:
 

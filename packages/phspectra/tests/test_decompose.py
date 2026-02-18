@@ -326,34 +326,6 @@ def test_merge_blended_zero_weights() -> None:
     # Should not crash; w_total falls back to 1.0
 
 
-def test_max_components_trims_peaks() -> None:
-    """fit_gaussians with max_components should limit the number of peaks."""
-    x = np.arange(300, dtype=np.float64)
-    rng = np.random.default_rng(42)
-    signal = (
-        _make_gaussian(x, 8.0, 50.0, 5.0)
-        + _make_gaussian(x, 6.0, 150.0, 5.0)
-        + _make_gaussian(x, 4.0, 250.0, 5.0)
-        + rng.normal(0, 0.2, size=300)
-    )
-    result = fit_gaussians(signal, beta=3.0, max_components=1, refine=False)
-    assert len(result) == 1
-
-
-def test_refinement_with_max_components_cap() -> None:
-    """Refinement should respect max_components when adding residual peaks."""
-    x = np.arange(300, dtype=np.float64)
-    rng = np.random.default_rng(42)
-    signal = (
-        _make_gaussian(x, 8.0, 50.0, 5.0)
-        + _make_gaussian(x, 6.0, 150.0, 5.0)
-        + _make_gaussian(x, 4.0, 250.0, 5.0)
-        + rng.normal(0, 0.2, size=300)
-    )
-    result = fit_gaussians(signal, beta=3.0, max_components=2, snr_min=1.0, mf_snr_min=2.0)
-    assert len(result) <= 2
-
-
 def test_negative_dip_split_in_refinement() -> None:
     """Refinement should split a broad component when a negative dip is detected."""
     x = np.arange(200, dtype=np.float64)
@@ -426,7 +398,6 @@ def test_refine_iteration_dip_split_accepted() -> None:
         mf_snr_min=999.0,
         neg_thresh=0.5,  # easy dip detection
         f_sep=0.0,  # suppress blended-merge path
-        max_components=None,
     )
     assert changed
     assert len(new_comps) >= 2
@@ -462,7 +433,6 @@ def test_refine_iteration_blended_merge_accepted() -> None:
         mf_snr_min=999.0,
         neg_thresh=999.0,  # suppress dip-split path
         f_sep=5.0,  # aggressive blended detection
-        max_components=None,
     )
     assert changed
     assert len(new_comps) == 1
