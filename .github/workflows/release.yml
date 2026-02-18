@@ -162,6 +162,14 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT }}:role/PHSpectra-GitHubActions-Role
           aws-region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
 
+      - name: Set up QEMU (ARM64 emulation for Docker builds)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
