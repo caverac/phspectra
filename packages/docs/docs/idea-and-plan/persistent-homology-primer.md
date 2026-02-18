@@ -137,9 +137,7 @@ flowchart TD
     B --> C["Persistence peak detection<br/>threshold = beta * sigma_rms"]
     C --> D["Convert peaks to<br/>initial Gaussian guesses<br/>(amplitude, mean, sigma from saddle)"]
     D --> E["Least-squares fit<br/>(scipy curve_fit)"]
-    E --> F{"Refine?"}
-    F -- No --> G["Return components"]
-    F -- Yes --> H["Validate components<br/>(SNR, matched-filter SNR, FWHM)"]
+    E --> H["Validate components<br/>(SNR, matched-filter SNR, FWHM)"]
     H --> I["Refit if any removed"]
     I --> J["Compute AICc baseline"]
     J --> K["Refinement loop<br/>(up to 3 iterations)"]
@@ -209,7 +207,7 @@ These are fitted simultaneously as a sum of Gaussians via `scipy.optimize.curve_
 
 ### Step 4: Validation and iterative refinement
 
-When `refine=True` (default), the fitted components first pass through a **one-time validation** step. Components are rejected if they fail any of:
+After the initial fit, the fitted components pass through a **one-time validation** step. Components are rejected if they fail any of:
 
 - FWHM $< 1$ channel
 - Mean outside spectrum bounds

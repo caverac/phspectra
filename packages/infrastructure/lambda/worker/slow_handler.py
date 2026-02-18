@@ -21,17 +21,14 @@ s3 = boto3.client("s3")
 
 BUCKET = os.environ["BUCKET_NAME"]
 
-_FLOAT_KEYS = {"beta", "min_persistence", "snr_min", "mf_snr_min", "f_sep", "neg_thresh"}
+_FLOAT_KEYS = {"beta", "snr_min", "mf_snr_min", "f_sep", "neg_thresh"}
 _INT_KEYS = {"max_refine_iter"}
-_BOOL_KEYS = {"refine"}
 
 
 class _FitKwargs(TypedDict, total=False):
     """Typed keyword arguments for ``fit_gaussians``."""
 
     beta: float
-    min_persistence: float
-    refine: bool
     max_refine_iter: int
     snr_min: float
     mf_snr_min: float
@@ -59,8 +56,6 @@ def _build_fit_kwargs(params: dict[str, object]) -> _FitKwargs:
             kwargs[key] = float(val)  # type: ignore[literal-required]
         elif key in _INT_KEYS:
             kwargs[key] = int(float(val))  # type: ignore[literal-required]
-        elif key in _BOOL_KEYS:
-            kwargs[key] = val.lower() not in ("false", "0", "")  # type: ignore[literal-required]
     return kwargs
 
 

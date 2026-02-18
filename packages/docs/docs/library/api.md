@@ -15,8 +15,6 @@ components = fit_gaussians(
     signal,              # 1-D NumPy array of flux values
     *,
     beta=3.8,            # persistence threshold in units of noise sigma
-    min_persistence=None, # absolute threshold (overrides beta)
-    refine=True,         # enable iterative refinement
     max_refine_iter=3,   # maximum refinement iterations
     snr_min=1.5,         # minimum amplitude SNR
     mf_snr_min=5.0,      # minimum matched-filter SNR
@@ -30,9 +28,7 @@ components = fit_gaussians(
 | Parameter         | Type                   | Default      | Description                                                                                                                          |
 | ----------------- | ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `signal`          | `NDArray[np.floating]` | _(required)_ | 1-D spectrum (flux values)                                                                                                           |
-| `beta`            | `float`                | `3.8`        | Persistence threshold in units of $\sigma_\mathrm{rms}$. Ignored when `min_persistence` is set.                                      |
-| `min_persistence` | `float \| None`        | `None`       | Absolute persistence threshold. Overrides `beta` when set.                                                                           |
-| `refine`          | `bool`                 | `True`       | Enable iterative refinement (residual search, dip splitting, blended merging).                                                       |
+| `beta`            | `float`                | `3.8`        | Persistence threshold in units of $\sigma_\mathrm{rms}$. The threshold is computed as $\beta \times \sigma_\mathrm{rms}$.            |
 | `max_refine_iter` | `int`                  | `3`          | Maximum refinement iterations.                                                                                                       |
 | `snr_min`         | `float`                | `1.5`        | Minimum amplitude $A / \sigma_\mathrm{rms}$ for a component to survive validation.                                                   |
 | `mf_snr_min`      | `float`                | `5.0`        | Minimum matched-filter SNR: $\mathrm{SNR}_\mathrm{mf} = (A/\sigma_\mathrm{rms})\sqrt{\sigma}\;\pi^{1/4}$                             |

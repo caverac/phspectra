@@ -68,8 +68,6 @@ def _upload_fits(s3_client: Any, bucket: str, local_path: str, cube_key: str) ->
 
 ALLOWED_PARAMS = {
     "beta",
-    "min_persistence",
-    "refine",
     "max_refine_iter",
     "snr_min",
     "mf_snr_min",

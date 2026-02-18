@@ -137,35 +137,6 @@ def test_beta_column_in_parquet(worker: Any, sqs_event: Any, lambda_context: Mag
     assert table.column("beta").to_pylist() == [5.0]
 
 
-def test_min_persistence_from_params(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
-    """When ``min_persistence`` is in params, it overrides beta * rms."""
-    msg = {**MSG_BASE, "params": {"beta": 5.0, "min_persistence": 0.42}}
-    event = sqs_event(msg)
-    chunk = _make_chunk(1)
-
-    with (
-        patch.object(worker.s3, "download_file"),
-        patch.object(worker, "np") as mock_np,
-        patch.object(worker, "os") as mock_os,
-        patch.object(worker, "estimate_rms", return_value=0.1),
-        patch.object(worker, "fit_gaussians", return_value=[]),
-        patch.object(worker, "pq") as mock_pq,
-        patch.object(worker.s3, "upload_file"),
-        patch.object(worker, "uuid") as mock_uuid,
-        patch.object(worker.dynamodb, "update_item"),
-        patch.object(worker.dynamodb, "put_item"),
-    ):
-        mock_np.load.return_value = chunk
-        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
-        mock_os.remove = MagicMock()
-        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
-
-        worker.handler(event, lambda_context)
-
-    table = mock_pq.write_table.call_args[0][0]
-    assert table.column("min_persistence").to_pylist() == [0.42]
-
-
 def test_multiple_spectra(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
     """3 spectra -> all processed, correct count in response."""
     event = sqs_event(MSG_BASE)
@@ -300,9 +271,9 @@ def test_response_structure(worker: Any, sqs_event: Any, lambda_context: MagicMo
     assert result["body"]["n_spectra"] == 2
 
 
-def test_build_fit_kwargs_int_and_bool(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
-    """Int and bool params are cast correctly by ``_build_fit_kwargs``."""
-    msg = {**MSG_BASE, "params": {"beta": 5.0, "max_refine_iter": 2, "refine": False}}
+def test_build_fit_kwargs_int_cast(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """Int params are cast correctly by ``_build_fit_kwargs``."""
+    msg = {**MSG_BASE, "params": {"beta": 5.0, "max_refine_iter": 2}}
     event = sqs_event(msg)
     chunk = _make_chunk(1)
 
@@ -328,8 +299,6 @@ def test_build_fit_kwargs_int_and_bool(worker: Any, sqs_event: Any, lambda_conte
     kwargs = mock_fit.call_args[1]
     assert kwargs["max_refine_iter"] == 2
     assert isinstance(kwargs["max_refine_iter"], int)
-    assert kwargs["refine"] is False
-    assert isinstance(kwargs["refine"], bool)
 
 
 # -- DynamoDB progress tracking tests ----------------------------------------
