@@ -740,5 +740,8 @@ PyMODINIT_FUNC
 PyInit__gaussfit(void)
 {
     import_array();
-    return PyModule_Create(&gaussfit_module);
+    PyObject *mod = PyModule_Create(&gaussfit_module);
+    if (mod)
+        PyModule_AddIntConstant(mod, "MAX_PARAMS", MAX_PARAMS);
+    return mod;
 }

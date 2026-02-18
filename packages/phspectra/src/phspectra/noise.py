@@ -11,8 +11,8 @@ _MAD_TO_SIGMA = 1.4826  # 1 / 0.6745
 def estimate_rms_simple(signal: NDArray[np.floating]) -> float:
     """Estimate noise RMS via the median absolute deviation of the full signal.
 
-    This is the original (v0) estimator, preserved for benchmarking and the
-    ``refine=False`` path.
+    This is the original (v0) estimator, used internally as a fallback by
+    :func:`estimate_rms` when fewer than 5 channels survive masking.
     """
     signal = np.asarray(signal, dtype=np.float64).ravel()
     if len(signal) == 0:

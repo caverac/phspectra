@@ -12,20 +12,18 @@ flowchart TD
     IG --> FIT["Bounded Levenberg-Marquardt<br/>curve fitting"]
     FIT --> VAL["Component validation<br/>(SNR, matched-filter SNR, FWHM)"]
     VAL --> AICC["Compute AICc baseline"]
-    AICC --> REF{"Refinement<br/>needed?"}
-    REF -- "No" --> OUT["Return sorted components"]
-    REF -- "Yes" --> LOOP["Refinement iteration"]
+    AICC --> LOOP["Refinement iteration"]
     LOOP --> RES["Search residual for<br/>missed peaks"]
     RES --> DIP["Check for negative<br/>dips (blended peaks)"]
     DIP --> MRG["Merge blended<br/>pairs"]
     MRG --> ACC{"AICc<br/>improved?"}
     ACC -- "Yes" --> AGAIN{"Max iterations<br/>reached?"}
-    ACC -- "No" --> OUT
+    ACC -- "No" --> OUT["Return sorted components"]
     AGAIN -- "No" --> LOOP
     AGAIN -- "Yes" --> OUT
 ```
 
-Each refinement step (residual peak addition, negative-dip splitting, blended-pair merging) is accepted only if it improves the corrected Akaike Information Criterion (AICc). This prevents over-fitting while allowing the model to recover missed structure.
+Refinement always runs after the initial fit. Each refinement step (residual peak addition, negative-dip splitting, blended-pair merging) is accepted only if it improves the corrected Akaike Information Criterion (AICc). This prevents over-fitting while allowing the model to recover missed structure.
 
 ## Step 1: Noise estimation
 

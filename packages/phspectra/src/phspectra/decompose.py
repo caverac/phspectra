@@ -1,4 +1,9 @@
-"""Gaussian decomposition driven by persistent-homology peak detection."""
+"""Gaussian decomposition driven by persistent-homology peak detection.
+
+After the initial fit, an iterative refinement loop validates components,
+searches the residual for missed peaks, splits blended peaks at negative dips,
+and merges redundant components.  Each step is accepted only if it improves AICc.
+"""
 
 from __future__ import annotations
 
@@ -7,21 +12,24 @@ from numpy.typing import NDArray
 from scipy.optimize import curve_fit
 
 from phspectra._types import GaussianComponent
-from phspectra.noise import estimate_rms, estimate_rms_simple
+from phspectra.noise import estimate_rms
 from phspectra.persistence import PersistentPeak, find_peaks_by_persistence
 from phspectra.quality import aicc, find_blended_pairs, validate_components
 
 try:
+    from phspectra._gaussfit import MAX_PARAMS as _C_MAX_PARAMS
     from phspectra._gaussfit import bounded_lm_fit as _c_bounded_lm_fit
 
     _HAS_C_EXT: bool = True
 except ImportError:  # pragma: no cover
     _HAS_C_EXT = False
+    _C_MAX_PARAMS = 96  # fallback matches the C default
+
+_MAX_FIT_COMPONENTS = _C_MAX_PARAMS // 3  # 3 params per Gaussian
 
 __all__ = [
     "GaussianComponent",
     "estimate_rms",
-    "estimate_rms_simple",
     "fit_gaussians",
 ]
 
@@ -79,21 +87,8 @@ def _fit_components(
                 np.array(upper, dtype=np.float64),
                 maxfev,
             )
-        except RuntimeError:
+        except (RuntimeError, ValueError):
             popt = np.array(p0)
-        except ValueError:
-            # Too many parameters for C solver; fall back to scipy
-            try:
-                popt, _ = curve_fit(
-                    _multi_gaussian,
-                    x,
-                    signal,
-                    p0=p0,
-                    bounds=(lower, upper),
-                    maxfev=maxfev,
-                )
-            except (RuntimeError, np.linalg.LinAlgError):
-                popt = np.array(p0)
     else:  # pragma: no cover
         try:
             popt, _ = curve_fit(
@@ -178,6 +173,60 @@ def _find_residual_peaks(
         snr_min=snr_min,
         mf_snr_min=mf_snr_min,
     )
+
+
+def _staged_initial_fit(
+    x: NDArray[np.floating],
+    signal: NDArray[np.floating],
+    peaks: list[PersistentPeak],
+    n_channels: int,
+) -> tuple[list[GaussianComponent], NDArray[np.floating]]:
+    """Fit peaks in stages when the count exceeds _MAX_FIT_COMPONENTS.
+
+    Stage 1 fits the most persistent peaks against the full signal.
+    Each subsequent stage fits remaining peaks against the residual
+    left by earlier stages.  After all stages, surviving components
+    are combined into a single joint refit against the original signal.
+    """
+    all_components: list[GaussianComponent] = []
+    residual = signal.copy()
+
+    for batch_start in range(0, len(peaks), _MAX_FIT_COMPONENTS):
+        batch = peaks[batch_start : batch_start + _MAX_FIT_COMPONENTS]
+
+        if batch_start == 0:
+            guesses = _peaks_to_components(batch, signal)
+        else:
+            # Later stages: use residual amplitude, skip peaks that
+            # are no longer above zero in the residual.
+            guesses = []
+            for pk in batch:
+                amp = float(residual[pk.index])
+                if amp > 0:
+                    guesses.append(
+                        GaussianComponent(
+                            amplitude=amp,
+                            mean=float(pk.index),
+                            stddev=_estimate_stddev(pk),
+                        )
+                    )
+            if not guesses:
+                break
+
+        batch_comps, batch_resid = _fit_components(
+            x,
+            residual,
+            guesses,
+            n_channels,
+        )
+        all_components.extend(batch_comps)
+        residual = batch_resid
+
+    # Joint refit of all surviving components against the original signal
+    if len(all_components) <= _MAX_FIT_COMPONENTS:
+        return _fit_components(x, signal, all_components, n_channels)
+
+    return all_components, residual
 
 
 def _has_negative_dip(
@@ -330,10 +379,7 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
 def fit_gaussians(
     signal: NDArray[np.floating],
     *,
-    peaks: list[PersistentPeak] | None = None,
     beta: float = 3.8,
-    min_persistence: float | None = None,
-    refine: bool = True,
     max_refine_iter: int = 3,
     snr_min: float = 1.5,
     mf_snr_min: float = 5.0,
@@ -346,7 +392,7 @@ def fit_gaussians(
     *rms* is estimated from the signal via signal-masked MAD estimation.
     This makes **beta** the single free parameter of the model.
 
-    When *refine* is ``True`` (default), an iterative refinement loop applies:
+    After the initial fit, an iterative refinement loop applies:
 
     * Component quality validation (SNR, matched-filter SNR, FWHM)
     * Residual peak search (adds missed components)
@@ -359,17 +405,9 @@ def fit_gaussians(
     ----------
     signal:
         1-D spectrum (flux values).
-    peaks:
-        Pre-computed peaks.  If *None*, :func:`find_peaks_by_persistence` is
-        called with the computed persistence threshold.
     beta:
-        Persistence threshold in units of noise sigma.  ``min_persistence`` is
-        computed as ``beta * estimate_rms(signal)``.  Ignored when
-        *min_persistence* is given explicitly.
-    min_persistence:
-        Absolute persistence threshold.  When set, overrides *beta*.
-    refine:
-        Enable iterative refinement.  Set to ``False`` for legacy behaviour.
+        Persistence threshold in units of noise sigma.  The persistence
+        threshold is computed as ``beta * estimate_rms(signal)``.
     max_refine_iter:
         Maximum number of refinement iterations.
     snr_min:
@@ -393,27 +431,20 @@ def fit_gaussians(
     x = np.arange(n_channels, dtype=np.float64)
 
     # --- Step 1: RMS estimation --------------------------------------------
-    if refine:
-        rms = estimate_rms(signal)
-    else:
-        rms = estimate_rms_simple(signal)
+    rms = estimate_rms(signal)
 
     # --- Step 2: Peak detection --------------------------------------------
-    if peaks is None:
-        if min_persistence is None:
-            min_persistence = beta * rms
-        peaks = find_peaks_by_persistence(signal, min_persistence=min_persistence)
+    peaks = find_peaks_by_persistence(signal, min_persistence=beta * rms)
 
     if not peaks:
         return []
 
     # --- Step 3: Initial fit -----------------------------------------------
-    initial_guesses = _peaks_to_components(peaks, signal)
-    components, residual = _fit_components(x, signal, initial_guesses, n_channels)
-
-    if not refine:
-        components.sort(key=lambda c: c.mean)
-        return components
+    if len(peaks) <= _MAX_FIT_COMPONENTS:
+        initial_guesses = _peaks_to_components(peaks, signal)
+        components, residual = _fit_components(x, signal, initial_guesses, n_channels)
+    else:
+        components, residual = _staged_initial_fit(x, signal, peaks, n_channels)
 
     # --- Step 4: Validation ------------------------------------------------
     validated = validate_components(components, rms, n_channels, snr_min=snr_min, mf_snr_min=mf_snr_min)

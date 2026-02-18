@@ -3,6 +3,8 @@
 import numpy as np
 from numpy.typing import NDArray
 
+MAX_PARAMS: int
+
 def bounded_lm_fit(
     x: NDArray[np.float64],
     y: NDArray[np.float64],

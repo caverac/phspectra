@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 from unittest.mock import patch
 
 import numpy as np
@@ -10,12 +11,14 @@ import numpy.typing as npt
 
 from phspectra._types import GaussianComponent
 from phspectra.decompose import (
+    _MAX_FIT_COMPONENTS,
     _estimate_stddev,
     _fit_components,
     _has_negative_dip,
     _merge_blended,
     _refine_iteration,
     _split_component_at,
+    _staged_initial_fit,
     fit_gaussians,
 )
 from phspectra.noise import estimate_rms
@@ -37,15 +40,6 @@ def test_backward_compat() -> None:
     result = fit_gaussians(signal, beta=5.2)
     assert isinstance(result, list)
     assert all(isinstance(c, GaussianComponent) for c in result)
-
-
-def test_refine_false_matches_legacy() -> None:
-    """refine=False should give the same number of components as old behavior."""
-    x = np.arange(200, dtype=np.float64)
-    rng = np.random.default_rng(42)
-    signal = _make_gaussian(x, 5.0, 60.0, 5.0) + _make_gaussian(x, 3.0, 140.0, 4.0) + rng.normal(0, 0.3, size=200)
-    result = fit_gaussians(signal, beta=5.2, refine=False)
-    assert len(result) >= 1  # should find at least one component
 
 
 # ---- Refinement tests ------------------------------------------------------
@@ -194,24 +188,7 @@ def test_fit_components_c_ext_failure() -> None:
 
 
 def test_fit_components_c_ext_value_error_fallback() -> None:
-    """_fit_components should fall back to curve_fit on ValueError from C ext."""
-    x = np.arange(50, dtype=np.float64)
-    signal = _make_gaussian(x, 3.0, 25.0, 4.0)
-    guess = [GaussianComponent(amplitude=2.5, mean=24.0, stddev=3.0)]
-    with (
-        patch("phspectra.decompose._HAS_C_EXT", True),
-        patch(
-            "phspectra.decompose._c_bounded_lm_fit",
-            side_effect=ValueError("Too many parameters"),
-        ),
-    ):
-        comps, _ = _fit_components(x, signal, guess, 50)
-    assert len(comps) == 1
-    assert abs(comps[0].amplitude - 3.0) < 0.5
-
-
-def test_fit_components_c_ext_value_error_then_curvefit_failure() -> None:
-    """When C ext raises ValueError and curve_fit also fails, fall back to p0."""
+    """_fit_components should fall back to p0 on ValueError from C ext."""
     x = np.arange(50, dtype=np.float64)
     signal = np.zeros(50)
     guess = [GaussianComponent(amplitude=1.0, mean=25.0, stddev=3.0)]
@@ -220,10 +197,6 @@ def test_fit_components_c_ext_value_error_then_curvefit_failure() -> None:
         patch(
             "phspectra.decompose._c_bounded_lm_fit",
             side_effect=ValueError("Too many parameters"),
-        ),
-        patch(
-            "phspectra.decompose.curve_fit",
-            side_effect=RuntimeError("maxfev exceeded"),
         ),
     ):
         comps, _ = _fit_components(x, signal, guess, 50)
@@ -338,24 +311,6 @@ def test_negative_dip_split_in_refinement() -> None:
     assert len(result) >= 2
 
 
-def test_precomputed_peaks() -> None:
-    """fit_gaussians should accept pre-computed peaks."""
-    x = np.arange(200, dtype=np.float64)
-    signal = _make_gaussian(x, 5.0, 100.0, 5.0)
-    peaks = [PersistentPeak(index=100, birth=5.0, death=0.0, persistence=5.0, saddle_index=-1)]
-    result = fit_gaussians(signal, peaks=peaks, refine=False)
-    assert len(result) == 1
-
-
-def test_min_persistence_overrides_beta() -> None:
-    """Explicit min_persistence should override beta * rms."""
-    x = np.arange(200, dtype=np.float64)
-    signal = _make_gaussian(x, 5.0, 100.0, 5.0)
-    # Very high min_persistence should suppress the peak
-    result = fit_gaussians(signal, min_persistence=100.0, refine=False)
-    assert result == []
-
-
 def test_validation_removes_all_components() -> None:
     """When validation rejects all components, return empty list."""
     x = np.arange(200, dtype=np.float64)
@@ -436,3 +391,105 @@ def test_refine_iteration_blended_merge_accepted() -> None:
     )
     assert changed
     assert len(new_comps) == 1
+
+
+# ---- Staged initial fit tests ------------------------------------------------
+
+
+def test_staged_initial_fit_splits_batches() -> None:
+    """_staged_initial_fit should never pass > _MAX_FIT_COMPONENTS to _fit_components."""
+    n = 300
+    x = np.arange(n, dtype=np.float64)
+    signal = np.zeros(n, dtype=np.float64)
+
+    # Create 40 fake peaks (above _MAX_FIT_COMPONENTS)
+    peaks = []
+    for i in range(40):
+        idx = 10 + i * 7  # spread them out
+        signal[idx] = 3.0
+        peaks.append(PersistentPeak(index=idx, birth=3.0, death=0.5, persistence=2.5, saddle_index=idx + 3))
+
+    call_sizes: list[int] = []
+    original_fit = _fit_components
+
+    def tracking_fit(*args: Any, **kw: Any) -> Any:
+        call_sizes.append(len(args[2]))
+        return original_fit(*args, **kw)
+
+    with patch("phspectra.decompose._fit_components", side_effect=tracking_fit):
+        _staged_initial_fit(x, signal, peaks, n)
+
+    assert all(s <= _MAX_FIT_COMPONENTS for s in call_sizes)
+    assert len(call_sizes) >= 2  # at least two batches
+
+
+def test_staged_initial_fit_skips_dead_residual_peaks() -> None:
+    """Second batch peaks where residual <= 0 should trigger the break path."""
+    n = 200
+    x = np.arange(n, dtype=np.float64)
+    signal = np.ones(n, dtype=np.float64)
+
+    # First batch: 32 peaks
+    peaks = [
+        PersistentPeak(index=i * 5, birth=3.0, death=0.5, persistence=2.5, saddle_index=i * 5 + 2)
+        for i in range(_MAX_FIT_COMPONENTS)
+    ]
+    # Second batch: 5 peaks at positions that will have residual <= 0
+    dead_positions = [10, 20, 30, 40, 50]
+    for pos in dead_positions:
+        peaks.append(PersistentPeak(index=pos, birth=2.0, death=0.5, persistence=1.5, saddle_index=pos + 2))
+
+    batch1_comps = [GaussianComponent(amplitude=1.0, mean=float(i), stddev=1.0) for i in range(5)]
+    # Residual that is <= 0 everywhere the second batch has peaks
+    dead_residual = np.full(n, -0.1, dtype=np.float64)
+
+    call_count = 0
+    original_fit = _fit_components
+
+    def mock_fit(*args: Any, **kw: Any) -> Any:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # First batch: return some components and a dead residual
+            return batch1_comps, dead_residual
+        # Should not reach here — the break should fire
+        return original_fit(*args, **kw)  # pragma: no cover
+
+    with patch("phspectra.decompose._fit_components", side_effect=mock_fit):
+        comps, _resid = _staged_initial_fit(x, signal, peaks, n)
+
+    # The break path fired: only 1 batch call + 1 joint refit
+    assert call_count == 2
+    assert len(comps) == len(batch1_comps)
+
+
+def test_fit_gaussians_many_peaks_uses_staged() -> None:
+    """fit_gaussians with > 32 persistence peaks should complete without hanging."""
+    n = 500
+    x = np.arange(n, dtype=np.float64)
+    rng = np.random.default_rng(42)
+
+    # Build a signal with many narrow peaks that persistence will detect
+    signal = rng.normal(0, 0.05, size=n)
+    for i in range(40):
+        mu = 10 + i * 12
+        signal += _make_gaussian(x, 2.0 + rng.uniform(0, 1), mu, 1.5)
+
+    start = time.perf_counter()
+    result = fit_gaussians(signal, beta=2.0)
+    elapsed = time.perf_counter() - start
+
+    assert isinstance(result, list)
+    assert len(result) >= 1
+    # Must complete in bounded time (no hang)
+    assert elapsed < 30.0
+
+
+def test_staged_below_limit_is_noop() -> None:
+    """When peaks <= _MAX_FIT_COMPONENTS, _staged_initial_fit should not be called."""
+    x = np.arange(200, dtype=np.float64)
+    signal = _make_gaussian(x, 5.0, 100.0, 5.0)
+
+    with patch("phspectra.decompose._staged_initial_fit") as mock_staged:
+        fit_gaussians(signal)
+        mock_staged.assert_not_called()
