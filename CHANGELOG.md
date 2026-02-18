@@ -1,3 +1,9 @@
+## [1.2.2](https://github.com/caverac/phspectra/compare/v1.2.1...v1.2.2) (2026-02-18)
+
+### Bug Fixes
+
+- **phspectra:** clean up public api ([d7897c6](https://github.com/caverac/phspectra/commit/d7897c6ccc95d27ccbc12fc960c7c111a431659d))
+
 ## [1.2.1](https://github.com/caverac/phspectra/compare/v1.2.0...v1.2.1) (2026-02-16)
 
 ### Bug Fixes
