@@ -76,7 +76,7 @@ def _load_training_set(
     show_default=True,
     help="Directory with spectra.npz from ``pre-compute``.",
 )
-@click.option("--beta-min", default=3.8, show_default=True)
+@click.option("--beta-min", default=2.0, show_default=True)
 @click.option("--beta-max", default=4.5, show_default=True)
 @click.option("--beta-steps", default=16, show_default=True)
 @click.option(

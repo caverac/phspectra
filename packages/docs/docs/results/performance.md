@@ -14,7 +14,7 @@ uv run benchmarks performance-plot
 
 We benchmark the wall-clock time for decomposing all 4200 spectra in the GRS test field (424 channels each) using both PHSpectra and GaussPy+ ([Riener et al. 2019](https://arxiv.org/abs/1906.10506)). Each spectrum is processed individually through the full pipeline of each tool to ensure a fair per-spectrum comparison. Both algorithms are run with their recommended configurations:
 
-- **PHSpectra**: $\beta = 3.8$ (default), C-accelerated Levenberg-Marquardt solver and persistence peak detection
+- **PHSpectra**: $\beta = 3.5$ (default), C-accelerated Levenberg-Marquardt solver and persistence peak detection
 - **GaussPy+**: two-phase decomposition with $\alpha_1 = 2.89$, $\alpha_2 = 6.65$ (trained values from [Riener et al. 2019](https://arxiv.org/abs/1906.10506), Sect. 4.1), SNR threshold = 3.0
 
 ### Results

@@ -20,7 +20,7 @@ signal = (
 )
 
 # Decompose
-components = fit_gaussians(signal, beta=3.8)
+components = fit_gaussians(signal, beta=3.5)
 
 for c in components:
     print(f"  amplitude={c.amplitude:.2f}  mean={c.mean:.1f}  stddev={c.stddev:.2f}")
@@ -56,7 +56,7 @@ For diagnostic purposes, you can inspect the raw persistence diagram before fitt
 from phspectra import find_peaks_by_persistence, estimate_rms
 
 rms = estimate_rms(signal)
-peaks = find_peaks_by_persistence(signal, min_persistence=3.8 * rms)
+peaks = find_peaks_by_persistence(signal, min_persistence=3.5 * rms)
 
 for pk in peaks:
     print(f"  channel={pk.index}  persistence={pk.persistence:.3f}  birth={pk.birth:.3f}  death={pk.death:.3f}")

@@ -379,7 +379,7 @@ def _refine_iteration(  # pylint: disable=too-many-arguments
 def fit_gaussians(
     signal: NDArray[np.floating],
     *,
-    beta: float = 3.8,
+    beta: float = 3.5,
     max_refine_iter: int = 3,
     snr_min: float = 1.5,
     mf_snr_min: float = 5.0,

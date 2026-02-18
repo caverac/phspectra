@@ -290,9 +290,9 @@ def _evaluate_one(args: _WorkItem) -> _EvalResult:
 
 @click.command("train-synthetic")
 @click.option("--n-per-category", default=50, show_default=True)
-@click.option("--beta-min", default=3.8, show_default=True)
+@click.option("--beta-min", default=2.0, show_default=True)
 @click.option("--beta-max", default=4.5, show_default=True)
-@click.option("--beta-steps", default=12, show_default=True)
+@click.option("--beta-steps", default=16, show_default=True)
 @click.option("--seed", default=2026_02_12, show_default=True)
 def train_synthetic(
     n_per_category: int,

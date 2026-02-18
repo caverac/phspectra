@@ -220,7 +220,7 @@ def _poll_progress(
     "raw_params",
     multiple=True,
     type=str,
-    help="fit_gaussians param as key=value (e.g. --param beta=3.8).",
+    help="fit_gaussians param as key=value (e.g. --param beta=3.5).",
 )
 @click.option("--run-id", default=None, help="Resume polling an existing run (skip upload).")
 @click.option(

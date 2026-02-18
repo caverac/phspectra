@@ -42,7 +42,7 @@ signal = (
 )
 
 # Decompose
-components = fit_gaussians(signal, beta=3.8)
+components = fit_gaussians(signal, beta=3.5)
 
 for c in components:
     print(f"  amplitude={c.amplitude:.2f}  mean={c.mean:.1f}  stddev={c.stddev:.2f}")
@@ -61,7 +61,7 @@ The public API consists of three functions:
 
 | Symbol                                                      | Description                                       |
 | ----------------------------------------------------------- | ------------------------------------------------- |
-| `fit_gaussians(signal, *, beta=3.8, ...)`                   | Decompose a 1-D spectrum into Gaussian components |
+| `fit_gaussians(signal, *, beta=3.5, ...)`                   | Decompose a 1-D spectrum into Gaussian components |
 | `find_peaks_by_persistence(signal, *, min_persistence=0.0)` | Low-level peak detection via persistent homology  |
 | `estimate_rms(signal, *, mask_pad=2, mad_clip=5.0)`         | Signal-masked noise estimation                    |
 
