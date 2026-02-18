@@ -107,7 +107,8 @@ class TestPipelineValidation:
         assert result.exit_code != 0
         assert "--survey is required" in result.output
 
-    def test_manifest_mode_rejects_fits_file(self, tmp_path: Path) -> None:
+    @patch(MOCK_BOTO3)
+    def test_manifest_mode_rejects_fits_file(self, _mock_boto3: MagicMock, tmp_path: Path) -> None:
         """Manifest mode with a positional FITS_FILE should fail."""
         fits = tmp_path / "test.fits"
         fits.write_bytes(b"fake")
@@ -419,7 +420,8 @@ class TestParseParams:
         with pytest.raises(click.UsageError, match="Invalid --param format"):
             _parse_params(("beta",))
 
-    def test_cli_rejects_invalid_param(self) -> None:
+    @patch(MOCK_BOTO3)
+    def test_cli_rejects_invalid_param(self, _mock_boto3: MagicMock) -> None:
         """CLI exits with error for unknown param key."""
         result = CliRunner().invoke(
             main,
