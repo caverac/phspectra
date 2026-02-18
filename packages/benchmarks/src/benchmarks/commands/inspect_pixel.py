@@ -63,7 +63,7 @@ def _compute_zoom(
 )
 @click.option(
     "--betas",
-    default="3.65,3.80,3.95",
+    default="3.35,3.50,3.65",
     show_default=True,
     help="Comma-separated beta values.",
 )

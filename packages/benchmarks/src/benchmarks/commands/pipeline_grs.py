@@ -154,7 +154,7 @@ def _poll_all_progress(
     "raw_params",
     multiple=True,
     type=str,
-    help="fit_gaussians param as key=value (e.g. --param beta=3.8).",
+    help="fit_gaussians param as key=value (e.g. --param beta=3.5).",
 )
 @click.option(
     "--stall-timeout",

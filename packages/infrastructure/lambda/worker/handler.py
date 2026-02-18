@@ -242,7 +242,7 @@ def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> di
     y_coords = data["y"]
 
     fit_kwargs = _build_fit_kwargs(params)
-    beta = fit_kwargs.get("beta", 3.8)
+    beta = fit_kwargs.get("beta", 3.5)
 
     signal_mod.signal(signal_mod.SIGALRM, _alarm_handler)
     failed_indices: list[int] = []

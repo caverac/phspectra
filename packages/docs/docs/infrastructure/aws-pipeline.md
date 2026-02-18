@@ -94,10 +94,10 @@ The `benchmarks pipeline` command handles the full workflow: uploads the FITS cu
 uv run benchmarks pipeline my-survey.fits
 
 # Decompose with a specific beta
-uv run benchmarks pipeline my-survey.fits --param beta=3.8
+uv run benchmarks pipeline my-survey.fits --param beta=3.5
 
 # Pass multiple fit_gaussians parameters
-uv run benchmarks pipeline my-survey.fits --param beta=3.8 --param snr_min=2.0
+uv run benchmarks pipeline my-survey.fits --param beta=3.5 --param snr_min=2.0
 
 # Re-process an already-uploaded cube
 uv run benchmarks pipeline --manifest --cube-key cubes/grs.fits --survey grs --param beta=4.0
@@ -111,7 +111,7 @@ To trigger the pipeline without the CLI, upload a JSON manifest to `manifests/`:
 {
   "cube_key": "cubes/grs.fits",
   "survey": "grs",
-  "params": { "beta": 3.8, "snr_min": 2.0 }
+  "params": { "beta": 3.5, "snr_min": 2.0 }
 }
 ```
 

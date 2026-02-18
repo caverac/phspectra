@@ -13,7 +13,7 @@ This project explores a novel approach to decomposing astronomical spectra into 
 
 The main tuning parameter in phspectra is $\beta$, the persistence threshold in units of the estimated noise $\sigma_\mathrm{rms}$. A peak in the spectrum is retained as a candidate Gaussian component only if its topological persistence -- the height difference between its birth (peak value) and death (the level at which it merges with a taller neighbor) -- exceeds $\beta \cdot \sigma_\mathrm{rms}$. In other words, $\beta$ sets the minimum significance, in units of $\sigma$, for a peak to be considered real rather than noise.
 
-The default value $\beta = 3.8$ works well across both real and synthetic data. Performance is remarkably insensitive to $\beta$: sweeping from 3.8 to 4.5 changes $F_1$ by less than 0.01 (see [Beta sensitivity](results/beta)). Because $\beta$ has a direct physical interpretation -- minimum peak significance in units of $\sigma$ -- a single default generalizes across surveys without a training step.
+The default value $\beta = 3.5$ works well across both real and synthetic data. Performance is remarkably insensitive to $\beta$: sweeping from 2.0 to 4.5 changes $F_1$ by less than 0.09 (see [Beta sensitivity](results/beta)). Because $\beta$ has a direct physical interpretation -- minimum peak significance in units of $\sigma$ -- a single default generalizes across surveys without a training step.
 
 ## What problem does this solve?
 

@@ -72,7 +72,7 @@ def _merge_extra_pixels(
 
 @click.command("pre-compute")
 @click.option("--n-spectra", default=None, type=int, help="Number of spectra (default: all eligible).")
-@click.option("--beta", default=3.8, show_default=True)
+@click.option("--beta", default=3.5, show_default=True)
 @click.option("--seed", default=DEFAULT_SEED, show_default=True)
 @click.option("--output-dir", default=os.path.join(CACHE_DIR, "compare-docker"), show_default=True)
 @click.option(
