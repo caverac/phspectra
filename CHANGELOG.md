@@ -1,3 +1,9 @@
+## [1.2.4](https://github.com/caverac/phspectra/compare/v1.2.3...v1.2.4) (2026-02-19)
+
+### Bug Fixes
+
+- **infrastructure:** ensure worker sends to slow queue before lambda times out ([10ecdbd](https://github.com/caverac/phspectra/commit/10ecdbd70fc41c5c63dc89a7c3884c5b015a8c2b))
+
 ## [1.2.3](https://github.com/caverac/phspectra/compare/v1.2.2...v1.2.3) (2026-02-18)
 
 ### Bug Fixes
