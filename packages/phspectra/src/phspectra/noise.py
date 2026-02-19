@@ -17,6 +17,8 @@ def estimate_rms_simple(signal: NDArray[np.floating]) -> float:
     signal = np.asarray(signal, dtype=np.float64).ravel()
     if len(signal) == 0:
         return 0.0
+    if np.any(np.isnan(signal)):
+        raise ValueError("signal contains NaN values; caller must handle missing channels before fitting")
     med = float(np.median(signal))
     mad = float(np.median(np.abs(signal - med)))
     return mad / 0.6745
@@ -52,6 +54,8 @@ def estimate_rms(
     n = len(signal)
     if n == 0:
         return 0.0
+    if np.any(np.isnan(signal)):
+        raise ValueError("signal contains NaN values; caller must handle missing channels before fitting")
 
     # --- Step 1: mask runs of consecutive positive channels > 2 wide --------
     positive = signal > 0

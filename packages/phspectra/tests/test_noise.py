@@ -105,3 +105,17 @@ def test_few_surviving_after_clip_fallback() -> None:
     result = estimate_rms(signal)
     expected = estimate_rms_simple(signal)
     assert result == pytest.approx(expected)
+
+
+def test_estimate_rms_simple_rejects_nan() -> None:
+    """estimate_rms_simple should raise ValueError when signal contains NaN."""
+    signal = np.array([1.0, 2.0, np.nan, 4.0])
+    with pytest.raises(ValueError, match="NaN"):
+        estimate_rms_simple(signal)
+
+
+def test_estimate_rms_rejects_nan() -> None:
+    """estimate_rms should raise ValueError when signal contains NaN."""
+    signal = np.array([1.0, 2.0, np.nan, 4.0])
+    with pytest.raises(ValueError, match="NaN"):
+        estimate_rms(signal)
