@@ -1,3 +1,9 @@
+## [1.2.5](https://github.com/caverac/phspectra/compare/v1.2.4...v1.2.5) (2026-02-19)
+
+### Bug Fixes
+
+- **phspectra:** handle input nan-values ([5eb9dba](https://github.com/caverac/phspectra/commit/5eb9dbaef83f5de0d3b683e3aaf4c76ce55acc1b))
+
 ## [1.2.4](https://github.com/caverac/phspectra/compare/v1.2.3...v1.2.4) (2026-02-19)
 
 ### Bug Fixes
