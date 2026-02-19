@@ -28,6 +28,7 @@ BUCKET = os.environ["BUCKET_NAME"]
 TABLE_NAME = os.environ["TABLE_NAME"]
 SPECTRUM_TIMEOUT = int(os.environ.get("SPECTRUM_TIMEOUT", "5"))
 SLOW_QUEUE_URL = os.environ.get("SLOW_QUEUE_URL", "")
+DEADLINE_MARGIN_MS = 60_000  # bail out 60 s before Lambda timeout
 
 
 class _SpectrumTimeout(Exception):
@@ -59,7 +60,6 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     dict[str, object]
         Response with ``statusCode`` 200 and the output S3 key.
     """
-    del context  # unused
     parsed = SQSEvent(event)
     record: SQSRecord = next(parsed.records)
     msg = json.loads(record.body)
@@ -76,7 +76,7 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     t0 = time.monotonic()
 
     try:
-        result = _process_chunk(chunk_key, survey, params)
+        result = _process_chunk(chunk_key, survey, params, context)
     except Exception as exc:
         duration_ms = int((time.monotonic() - t0) * 1000)
         _write_chunk_failed(run_id, chunk_sk, duration_ms, str(exc)[:1024])
@@ -214,7 +214,7 @@ def _build_fit_kwargs(params: dict[str, object]) -> _FitKwargs:
     return kwargs
 
 
-def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> dict[str, object]:
+def _process_chunk(chunk_key: str, survey: str, params: dict[str, object], context: LambdaContext) -> dict[str, object]:
     """Download a chunk, decompose spectra, and upload Parquet results.
 
     Parameters
@@ -225,6 +225,8 @@ def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> di
         Survey identifier.
     params : dict[str, object]
         ``fit_gaussians`` keyword arguments.
+    context : LambdaContext
+        Lambda runtime context, used for wall-clock deadline checks.
 
     Returns
     -------
@@ -249,6 +251,24 @@ def _process_chunk(chunk_key: str, survey: str, params: dict[str, object]) -> di
 
     rows: list[dict[str, object]] = []
     for idx, spectrum in enumerate(spectra):
+        if context.get_remaining_time_in_millis() < DEADLINE_MARGIN_MS:
+            for remaining_idx in range(idx, len(spectra)):
+                rows.append(
+                    {
+                        "x": int(x_coords[remaining_idx]),
+                        "y": int(y_coords[remaining_idx]),
+                        "beta": float(beta),
+                        "rms": 0.0,
+                        "min_persistence": 0.0,
+                        "n_components": -1,
+                        "component_amplitudes": [],
+                        "component_means": [],
+                        "component_stddevs": [],
+                    }
+                )
+                failed_indices.append(remaining_idx)
+            break
+
         rms = estimate_rms(spectrum)
         min_persistence = beta * rms
 

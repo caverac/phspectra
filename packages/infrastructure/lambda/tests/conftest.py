@@ -75,6 +75,7 @@ def lambda_context() -> MagicMock:
     ctx.memory_limit_in_mb = 128
     ctx.invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test"
     ctx.aws_request_id = "test-request-id"
+    ctx.get_remaining_time_in_millis.return_value = 900_000
     return ctx
 
 

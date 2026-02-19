@@ -45,7 +45,7 @@ from benchmarks._plotting import configure_axes, docs_figure
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec, SubplotSpec
+from matplotlib.gridspec import GridSpec
 
 
 @dataclass
@@ -387,9 +387,9 @@ def _build_figure(
     fig = plt.figure(figsize=(8, 7))
     outer = GridSpec(
         2,
-        2,
+        3,
         figure=fig,
-        width_ratios=[1, 1.06],
+        width_ratios=[1, 1, 0.04],
         left=0.08,
         right=0.96,
         bottom=0.06,
@@ -402,13 +402,13 @@ def _build_figure(
     ax_a = fig.add_subplot(outer[0, 0])
     ax_c = fig.add_subplot(outer[1, 0], sharex=ax_a)
 
-    # Right column: image + thin colorbar side-by-side
-    def _split_with_cbar(cell: SubplotSpec) -> tuple[Axes, Axes]:
-        inner = GridSpecFromSubplotSpec(1, 2, subplot_spec=cell, width_ratios=[1, 0.04], wspace=0.05)
-        return fig.add_subplot(inner[0]), fig.add_subplot(inner[1])
+    # Right column: image panels
+    ax_b = fig.add_subplot(outer[0, 1])
+    ax_d = fig.add_subplot(outer[1, 1])
 
-    ax_b, cax_b = _split_with_cbar(outer[0, 1])
-    ax_d, cax_d = _split_with_cbar(outer[1, 1])
+    # Colorbar column
+    cax_b = fig.add_subplot(outer[0, 2])
+    cax_d = fig.add_subplot(outer[1, 2])
 
     ax_b.sharey(ax_a)
     ax_c.sharex(ax_a)
