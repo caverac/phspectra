@@ -541,6 +541,53 @@ def test_no_slow_queue_when_env_unset(worker: Any, sqs_event: Any, lambda_contex
     mock_send.assert_not_called()
 
 
+def test_deadline_triggers_early_bail(worker: Any, sqs_event: Any, lambda_context: MagicMock) -> None:
+    """When remaining Lambda time drops below margin, remaining spectra get sentinel rows."""
+    event = sqs_event(MSG_BASE)
+    chunk = _make_chunk(3)
+    components = [FakeGaussianComponent(amplitude=1.0, mean=5.0, stddev=1.0)]
+
+    # Plenty of time for spectrum 0, below margin for spectra 1-2
+    lambda_context.get_remaining_time_in_millis.side_effect = [900_000, 30_000, 30_000]
+
+    slow_url = "https://sqs.us-east-1.amazonaws.com/123456789012/slow-queue"
+
+    with (
+        patch.object(worker.s3, "download_file"),
+        patch.object(worker, "np") as mock_np,
+        patch.object(worker, "os") as mock_os,
+        patch.object(worker, "estimate_rms", return_value=0.1),
+        patch.object(worker, "fit_gaussians", return_value=components),
+        patch.object(worker, "pq") as mock_pq,
+        patch.object(worker.s3, "upload_file"),
+        patch.object(worker, "uuid") as mock_uuid,
+        patch.object(worker.dynamodb, "update_item"),
+        patch.object(worker.dynamodb, "put_item"),
+        patch.object(worker.sqs, "send_message") as mock_send,
+        patch.object(worker, "SLOW_QUEUE_URL", slow_url),
+        patch.object(worker.signal_mod, "signal"),
+        patch.object(worker.signal_mod, "alarm"),
+    ):
+        mock_np.load.return_value = chunk
+        mock_os.path.basename.side_effect = lambda p: p.rsplit("/", 1)[-1]
+        mock_os.remove = MagicMock()
+        mock_uuid.uuid4.return_value = MagicMock(hex="deadbeef")
+
+        result = worker.handler(event, lambda_context)
+
+    table = mock_pq.write_table.call_args[0][0]
+    n_components = table.column("n_components").to_pylist()
+    # Spectrum 0 processed normally, spectra 1-2 got sentinel rows
+    assert n_components == [1, -1, -1]
+    assert result["body"]["failed_indices"] == [1, 2]
+
+    # Slow queue message sent with failed indices
+    mock_send.assert_called_once()
+    sent_body = json.loads(mock_send.call_args[1]["MessageBody"])
+    assert sent_body["failed_indices"] == [1, 2]
+    assert mock_send.call_args[1]["QueueUrl"] == slow_url
+
+
 def test_alarm_handler_raises_spectrum_timeout(worker: Any) -> None:
     """``_alarm_handler`` raises ``_SpectrumTimeout`` when invoked."""
     with pytest.raises(worker._SpectrumTimeout):
