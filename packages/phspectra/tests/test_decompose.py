@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 import numpy.typing as npt
+import pytest
 
 from phspectra._types import GaussianComponent
 from phspectra.decompose import (
@@ -493,3 +494,10 @@ def test_staged_below_limit_is_noop() -> None:
     with patch("phspectra.decompose._staged_initial_fit") as mock_staged:
         fit_gaussians(signal)
         mock_staged.assert_not_called()
+
+
+def test_fit_gaussians_rejects_nan() -> None:
+    """fit_gaussians should raise ValueError when signal contains NaN."""
+    signal = np.array([1.0, 2.0, np.nan, 4.0])
+    with pytest.raises(ValueError, match="NaN"):
+        fit_gaussians(signal)

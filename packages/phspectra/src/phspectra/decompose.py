@@ -427,6 +427,8 @@ def fit_gaussians(
         Fitted Gaussians sorted by mean position.
     """
     signal = np.asarray(signal, dtype=np.float64).ravel()
+    if np.any(np.isnan(signal)):
+        raise ValueError("signal contains NaN values; caller must handle missing channels before fitting")
     n_channels = len(signal)
     x = np.arange(n_channels, dtype=np.float64)
 

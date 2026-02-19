@@ -106,7 +106,7 @@ def handler(event: dict[str, object], context: LambdaContext) -> dict[str, objec
     stddevs = table.column("component_stddevs").to_pylist()
 
     for idx in failed_indices:
-        components = fit_gaussians(spectra[idx], **fit_kwargs)
+        components = fit_gaussians(np.nan_to_num(spectra[idx], nan=0.0), **fit_kwargs)
         n_components[idx] = len(components)
         amplitudes[idx] = [c.amplitude for c in components]
         means[idx] = [c.mean for c in components]

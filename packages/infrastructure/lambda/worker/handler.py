@@ -269,6 +269,7 @@ def _process_chunk(chunk_key: str, survey: str, params: dict[str, object], conte
                 failed_indices.append(remaining_idx)
             break
 
+        spectrum = np.nan_to_num(spectrum, nan=0.0)
         rms = estimate_rms(spectrum)
         min_persistence = beta * rms
 
