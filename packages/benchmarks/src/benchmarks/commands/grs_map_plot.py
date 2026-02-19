@@ -1,8 +1,8 @@
 """``benchmarks grs-map-plot`` -- multi-tile GRS survey visualisation.
 
-Downloads decomposition results from all GRS tiles, remaps pixel
-coordinates to a global grid using CRPIX offsets, and renders the
-2x2 survey figure.
+Downloads decomposition results from selected GRS tiles, remaps pixel
+coordinates to a global grid using CRPIX offsets, and renders a
+horizontal bivariate amplitude-velocity strip.
 """
 
 from __future__ import annotations
@@ -17,23 +17,38 @@ from astropy.io import fits
 from benchmarks._console import console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._plotting import docs_figure
-from benchmarks.commands.pipeline_grs import _survey_from_grs_filename
 from benchmarks.commands.survey_map import (
     DecompositionData,
     _download_decompositions,
     _galactic_extent,
     _load_parquet_data,
     _panel_bivariate,
-    _panel_complexity,
-    _panel_dominant_velocity,
-    _panel_velocity_rgb,
     _table_to_arrays,
     _velocity_axis,
 )
 from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec, SubplotSpec
+from matplotlib.gridspec import GridSpec
+
+TILES = ["grs-26", "grs-28", "grs-30", "grs-32", "grs-34"]
+
+
+def _survey_from_grs_filename(filename: str) -> str:
+    """Derive a survey name from a GRS FITS filename.
+
+    Strips the ``-cube`` suffix (if present), lowercases the stem.
+
+    Examples
+    --------
+    >>> _survey_from_grs_filename("grs-15-cube.fits")
+    'grs-15'
+    >>> _survey_from_grs_filename("GRS-15.fits")
+    'grs-15'
+    """
+    stem = Path(filename).stem.lower()
+    if stem.endswith("-cube"):
+        stem = stem[: -len("-cube")]
+    return stem
 
 
 @dataclass
@@ -222,57 +237,22 @@ def _build_grs_figure(
     velocity: npt.NDArray[np.float64],
     grid: GlobalGrid,
 ) -> Figure:
-    """Construct the 2x2 GRS survey map figure.
+    """Construct a horizontal bivariate amplitude-velocity strip.
 
-    Same layout as ``survey_map._build_figure`` but uses the global
-    grid dimensions and a wider aspect ratio for the ~40 deg x ~2 deg
-    GRS field.
+    Single panel showing ``_panel_bivariate`` for the selected GRS
+    tiles (~10 deg x 2 deg field).
     """
     nx = grid.nx
     ny = grid.ny
     extent = _galactic_extent(grid.header, nx, ny)
 
-    fig = plt.figure(figsize=(16, 5))
-    outer = GridSpec(
-        2,
-        2,
-        figure=fig,
-        width_ratios=[1, 1.06],
-        left=0.06,
-        right=0.97,
-        bottom=0.10,
-        top=0.97,
-        wspace=0.05,
-        hspace=0.05,
-    )
+    fig = plt.figure(figsize=(16, 3))
+    gs = GridSpec(1, 1, figure=fig, left=0.06, right=0.97, bottom=0.20, top=0.95)
+    ax = fig.add_subplot(gs[0, 0])
 
-    ax_a = fig.add_subplot(outer[0, 0])
-    ax_c = fig.add_subplot(outer[1, 0], sharex=ax_a)
-
-    def _split_with_cbar(cell: SubplotSpec) -> tuple[Axes, Axes]:
-        inner = GridSpecFromSubplotSpec(1, 2, subplot_spec=cell, width_ratios=[1, 0.04], wspace=0.05)
-        return fig.add_subplot(inner[0]), fig.add_subplot(inner[1])
-
-    ax_b, cax_b = _split_with_cbar(outer[0, 1])
-    ax_d, cax_d = _split_with_cbar(outer[1, 1])
-
-    ax_b.sharey(ax_a)
-    ax_c.sharex(ax_a)
-    ax_d.sharex(ax_b)
-    ax_d.sharey(ax_c)
-
-    _panel_velocity_rgb(ax_a, data, velocity, nx, ny, extent)
-    _panel_complexity(ax_b, data, nx, ny, extent, cax_b)
-    _panel_bivariate(ax_c, data, velocity, nx, ny, extent)
-    _panel_dominant_velocity(ax_d, data, velocity, nx, ny, extent, cax_d)
-
-    ax_a.tick_params(labelbottom=False)
-    ax_b.tick_params(labelbottom=False, labelleft=False)
-    ax_d.tick_params(labelleft=False)
-    ax_c.set_xlabel("Galactic longitude (deg)")
-    ax_d.set_xlabel("Galactic longitude (deg)")
-    ax_a.set_ylabel("Galactic latitude (deg)")
-    ax_c.set_ylabel("Galactic latitude (deg)")
+    _panel_bivariate(ax, data, velocity, nx, ny, extent)
+    ax.set_xlabel("Galactic longitude (deg)")
+    ax.set_ylabel("Galactic latitude (deg)")
 
     return fig
 
@@ -298,9 +278,10 @@ def grs_map_plot(
     cache_dir: str,
     force: bool,
 ) -> None:
-    """Generate 2x2 survey visualisation from all GRS tiles."""
+    """Generate bivariate amplitude-velocity strip from selected GRS tiles."""
     console.print("Reading tile headers ...", style="bold cyan")
-    tiles = _read_tile_infos(input_dir)
+    all_tiles = _read_tile_infos(input_dir)
+    tiles = [t for t in all_tiles if t.survey in TILES]
     if not tiles:
         console.print("No FITS tiles found. Aborting.", style="bold red")
         return

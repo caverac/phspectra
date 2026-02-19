@@ -14,6 +14,10 @@ const pyprojectContent = fs.readFileSync(pyprojectPath, 'utf-8')
 const versionMatch = pyprojectContent.match(/^version\s*=\s*"([^"]+)"/m)
 const phspectraVersion = versionMatch?.[1] ?? '0.0.0'
 
+const rootPkgPath = path.resolve(__dirname, '../../package.json')
+const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf-8'))
+const projectVersion = rootPkg.version ?? '0.0.0'
+
 const config: Config = {
   title: 'PHSpectra',
   tagline: 'Persistent homology for spectral line decomposition',
@@ -29,7 +33,8 @@ const config: Config = {
   onBrokenMarkdownLinks: 'warn',
 
   customFields: {
-    phspectraVersion
+    phspectraVersion,
+    projectVersion
   },
 
   i18n: {
@@ -93,7 +98,11 @@ const config: Config = {
       },
       items: [
         {
-          type: 'custom-versionBadge',
+          type: 'custom-projectVersionBadge',
+          position: 'left'
+        } as never,
+        {
+          type: 'custom-libraryVersionBadge',
           position: 'left'
         } as never,
         {

@@ -63,13 +63,13 @@ def grs_tiles_dir(tmp_path: Path) -> Path:
     h_a = _make_grs_header(naxis1=3, naxis2=2, naxis3=10, crpix1=1.0, crpix2=1.0)
     data_a = np.zeros((10, 2, 3), dtype=np.float32)
     hdu_a = fits.PrimaryHDU(data=data_a, header=h_a)
-    hdu_a.writeto(str(tmp_path / "grs-15-cube.fits"), overwrite=True)
+    hdu_a.writeto(str(tmp_path / "grs-26-cube.fits"), overwrite=True)
 
     # Tile B: 3x2 pixels, CRPIX1=-2 (adjacent, pixels 3..5 in global lon)
     h_b = _make_grs_header(naxis1=3, naxis2=2, naxis3=10, crpix1=-2.0, crpix2=1.0)
     data_b = np.zeros((10, 2, 3), dtype=np.float32)
     hdu_b = fits.PrimaryHDU(data=data_b, header=h_b)
-    hdu_b.writeto(str(tmp_path / "grs-16-cube.fits"), overwrite=True)
+    hdu_b.writeto(str(tmp_path / "grs-28-cube.fits"), overwrite=True)
 
     return tmp_path
 
@@ -119,12 +119,12 @@ class TestReadTileInfos:
         """Extract survey name from the FITS filename."""
         tiles = _read_tile_infos(str(grs_tiles_dir))
         names = {t.survey for t in tiles}
-        assert names == {"grs-15", "grs-16"}
+        assert names == {"grs-26", "grs-28"}
 
     def test_header_values(self, grs_tiles_dir: Path) -> None:
         """Parse NAXIS and CRPIX values from the FITS header."""
         tiles = _read_tile_infos(str(grs_tiles_dir))
-        tile_a = next(t for t in tiles if t.survey == "grs-15")
+        tile_a = next(t for t in tiles if t.survey == "grs-26")
         assert tile_a.naxis1 == 3
         assert tile_a.naxis2 == 2
         assert tile_a.naxis3 == 10
@@ -232,13 +232,13 @@ class TestBuildGrsFigure:
 
     @pytest.mark.usefixtures("docs_img_dir")
     def test_returns_figure_with_axes(self) -> None:
-        """Build a figure with at least four axes (map panels)."""
+        """Build a figure with at least one axis (bivariate panel)."""
         header = _make_grs_header(naxis1=6, naxis2=2)
         grid = GlobalGrid(
             nx=6,
             ny=2,
             naxis3=10,
-            offsets={"grs-15": (0, 0), "grs-16": (3, 0)},
+            offsets={"grs-26": (0, 0), "grs-28": (3, 0)},
             header=header,
         )
         data = DecompositionData(
@@ -253,7 +253,7 @@ class TestBuildGrsFigure:
 
         fig = _build_grs_figure(data, velocity, grid)
         assert fig is not None
-        assert len(fig.axes) >= 4
+        assert len(fig.axes) >= 1
         plt.close(fig)
 
 

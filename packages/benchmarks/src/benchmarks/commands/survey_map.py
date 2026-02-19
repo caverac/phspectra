@@ -280,7 +280,7 @@ def _panel_complexity(
     grid = np.full((ny, nx), np.nan, dtype=np.float64)
     for i, _ in enumerate(data.x):
         xi, yi = int(data.x[i]), int(data.y[i])
-        if data.n_components[i] > 0:
+        if data.n_components[i] >= 0:
             grid[yi, xi] = data.n_components[i]
 
     im = ax.imshow(grid, origin="lower", aspect="auto", cmap="viridis", extent=extent)
@@ -304,9 +304,12 @@ def _panel_dominant_velocity(
 
     for i, _ in enumerate(data.x):
         xi, yi = int(data.x[i]), int(data.y[i])
+        if data.n_components[i] < 0:
+            continue
         amps = data.component_amplitudes[i]
         means = data.component_means[i]
         if not amps:
+            grid[yi, xi] = 0.0
             continue
         idx = int(np.argmax(amps))
         ch = int(np.clip(round(means[idx]), 0, n_vel - 1))

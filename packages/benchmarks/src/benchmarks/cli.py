@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import click
 from benchmarks.commands.compare_plot import compare_plot
+from benchmarks.commands.correlation_plot import correlation_plot
 from benchmarks.commands.download import download
 from benchmarks.commands.generate_logo import generate_logo
 from benchmarks.commands.grs_map_plot import grs_map_plot
@@ -12,7 +13,6 @@ from benchmarks.commands.ncomp_rms_plot import ncomp_rms_plot
 from benchmarks.commands.performance import performance_plot
 from benchmarks.commands.persistence_plot import persistence_plot
 from benchmarks.commands.pipeline import pipeline
-from benchmarks.commands.pipeline_grs import pipeline_grs
 from benchmarks.commands.pre_compute import pre_compute
 from benchmarks.commands.survey_map import survey_map
 from benchmarks.commands.train_beta import train_beta
@@ -36,5 +36,5 @@ main.add_command(persistence_plot)
 main.add_command(ncomp_rms_plot)
 main.add_command(survey_map)
 main.add_command(pipeline)
-main.add_command(pipeline_grs)
 main.add_command(grs_map_plot)
+main.add_command(correlation_plot)
