@@ -32,13 +32,13 @@ sync-figures:
 	done; \
 	echo "Synced $$updated figure(s)"
 
-ZIPDIR   = /tmp/phspectra
-ZIPFILE  = $(ZIPDIR)/phspectra-preprint.zip
+OUTDIR   = /tmp/phspectra
+TARFILE  = $(OUTDIR)/phspectra-preprint.tar
 
 submission:
-	@mkdir -p $(ZIPDIR)
-	@zip -q $(ZIPFILE) $(MAIN).tex $(MAIN).bib $(MAIN).pdf *.png persistence-diagram.tex pipeline-overview.tex water-level.tex
-	@echo "Created $(ZIPFILE)"
+	@mkdir -p $(OUTDIR)
+	@tar cf $(TARFILE) $(MAIN).tex $(MAIN).bib $(MAIN).pdf *.png persistence-diagram.tex pipeline-overview.tex water-level.tex
+	@echo "Created $(TARFILE)"
 
 clean:
 	rm -f $(MAIN).aux $(MAIN).bbl $(MAIN).blg $(MAIN).log $(MAIN).out

@@ -235,7 +235,7 @@ def _load_global_data(
     )
 
 
-@docs_figure("grs-map-plot.png")
+@docs_figure("grs-map-plot.png", dpi=150)
 def _build_grs_figure(
     data: DecompositionData,
     velocity: npt.NDArray[np.float64],

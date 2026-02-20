@@ -22,7 +22,7 @@ A Python library for decomposing 1-D astronomical spectra into Gaussian componen
 pip install phspectra
 ```
 
-**Requirements:** Python >= 3.11, NumPy >= 1.26, SciPy >= 1.12.
+**Requirements:** Python >= 3.11, [NumPy](https://numpy.org/) >= 1.26, [SciPy](https://scipy.org/) >= 1.12.
 
 An optional C extension is compiled automatically from source when available, providing ~2x faster fitting. If compilation fails, the library falls back to SciPy's [`curve_fit`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html) transparently.
 
