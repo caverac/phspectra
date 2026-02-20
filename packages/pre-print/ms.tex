@@ -51,7 +51,7 @@ which sets the persistence threshold in units of noise:
 $\pmin = \beta\,\srms$.  On a synthetic benchmark of 350 spectra spanning
 seven difficulty categories, \phspectra\ achieves an overall $F_1$ score of
 0.925 with performance varying by only 0.040
-across $\beta \in [2.0, 4.5]$.  On 4200 real ${}^{13}$CO spectra from the
+across $2.0 \leq \beta \leq 4.5$.  On 4200 real ${}^{13}$CO spectra from the
 Galactic Ring Survey, the method delivers reliable fits at survey scale while
 maintaining a single, interpretable significance threshold.  The result is a
 survey-ready decomposition method that is robust to tuning choices and
@@ -320,16 +320,16 @@ Otherwise, the model enters an iterative refinement loop of up to three
 iterations.  Each iteration performs three operations:
 
 \begin{enumerate}
-  \item \textbf{Residual peak search.}  The persistence detection algorithm is
-    run on the residual spectrum (data minus model) with a lower threshold of
+  \item Residual peak search:  The persistence detection algorithm is
+    ran on the residual spectrum (data minus model) with a lower threshold of
     $1.5\,\srms$ to find missed components.  Any peaks found are validated and
     added to the model.
 
-  \item \textbf{Negative dip splitting.}  If the residual contains a dip
+  \item Negative dip splitting:  If the residual contains a dip
     exceeding $-5\,\srms$, the broadest Gaussian component overlapping that
     channel is split into two narrower components.
 
-  \item \textbf{Blended pair merging.}  If two components are separated by
+  \item Blended pair merging:  If two components are separated by
     less than $1.2 \times \min(\mathrm{FWHM}_i, \mathrm{FWHM}_j)$, they are
     merged into a single flux-weighted component.
 \end{enumerate}
@@ -409,10 +409,10 @@ Each spectrum has 424 channels with additive Gaussian noise at
 $\sigma = 0.25$~K, matching the properties of the GRS \citep{Jackson2006}.
 Because the true Gaussian components are known exactly, the $F_1$ score measures
 true accuracy rather than agreement with another algorithm.  Component
-matching uses the Hungarian algorithm with the criteria of
+matching uses the Hungarian algorithm with criteria adapted from
 \citet{Lindner2015}: a predicted component matches a true component if the
-amplitude ratio is within $[0.5, 2.0]$, the position difference is less than
-the larger of the two widths, and the width ratio is within $[0.5, 2.0]$.
+amplitude ratio is in $(0, 10)$, the position difference is less than
+$1\sigma$ of the true component, and the width ratio is in $(0.3, 2.5)$.
 $F_1$ is computed as the harmonic mean of precision (fraction of predicted
 components that match a true one) and recall (fraction of true components that
 are matched).
@@ -499,7 +499,7 @@ fit quality against component count in different ways.
 
 Across 6838 matched component pairs (Hungarian matching with a $2\sigma$
 position tolerance), the median log-width ratio
-$\ln(\sigma_{\mathrm{ph}} / \sigma_{\mathrm{GP+}})$ is near zero, indicating
+$\ln(\sigma_{\mathrm{PHSpectra}} / \sigma_{\mathrm{GaussPy+}})$ is near zero, indicating
 no systematic width bias between the two tools.
 
 
@@ -508,9 +508,10 @@ no systematic width bias between the two tools.
 % ---------------------------------------------------------------------------
 \subsection{Survey-scale application}\label{sec:survey}
 
-To demonstrate \phspectra\ at survey scale, five contiguous GRS
-tiles (tiles 26, 28, 30, 32, 34; $\ell \approx 25\degr$--$35\degr$)
-spanning the Scutum--Centaurus arm, where molecular cloud complexes are
+To demonstrate \phspectra\ at survey scale, five GRS tiles
+(tiles 26, 28, 30, 32, 34; $\ell \approx 25\degr$--$35\degr$) are
+decomposed.  These sightlines cross the Scutum--Centaurus arm tangent
+and several intervening features, where molecular cloud complexes are
 densely packed along the line of sight.  Each tile is processed through the
 serverless pipeline described in \S\ref{sec:discussion}, yielding a
 Gaussian decomposition for every spatial pixel.
@@ -542,35 +543,26 @@ moment-1 maps when multiple clouds overlap.
 \end{figure*}
 
 Velocity-spacing statistics provide a complementary view of line-of-sight
-structure.  For each spectrum, adjacent components are ordered by centroid
-velocity and the separations $\Delta v$ are measured; the resulting
-distribution highlights common multi-layer spacings and can be compared
-across regions with different crowding.
+structure (Figure~\ref{fig:velocity_spacing}).  For each spectrum, adjacent
+components are ordered by centroid velocity and the separations $\Delta v$
+are measured; the resulting distribution highlights common multi-layer
+spacings and can be compared across regions with different crowding.  A
+well-behaved, physically interpretable $\Delta v$ distribution indicates
+that the decomposition is extracting coherent kinematic layers rather than
+fitting noise.
 
 \begin{figure}[t!]
   \centering
   \includegraphics[width=\columnwidth]{figures/img/velocity-spacing-plot.png}
   \caption{%
-    Line-of-sight layering in a single statistic.  Normalized distributions
+    Normalized distributions
     of velocity separations $\Delta v$ between adjacent fitted components,
-    shown for all spectra (filled) and split by component count per spectrum:
-    $N = 2$, $N = 3$--4, and $N \ge 5$ (step histograms).  Small $\Delta v$
+    shown for all spectra (solid) and split by component count per spectrum:
+    $N = 2$, $N = 3$--4, and $N \ge 5$.  Small $\Delta v$
     dominates, while higher-component spectra show broader tails, indicating
     richer line-of-sight layering.}
   \label{fig:velocity_spacing}
 \end{figure}
-
-The two-point autocorrelation function $\xi(\theta)$ of each
-derived field across the five-tile strip using FFT-based estimation, with
-spatial-jackknife error bands ($4 \times 4$ block grid).  The structural
-fields ($N_{\mathrm{components}}$ and $I_{\mathrm{tot}}$) exhibit correlation
-lengths of $\sim 0.3\degr$--$0.6\degr$, while the velocity fields
-($\bar{v}$ and $\sigma_v$) decorrelate faster, consistent with the smaller
-coherence scale of gas kinematics.  These scales match the angular sizes of
-giant molecular cloud complexes in the inner Galaxy
-\citep{RomanDuval2009,RomanDuval2010}, indicating that the decomposition
-preserves spatial structure rather than imprinting spurious coherence.
-
 
 % ---------------------------------------------------------------------------
 % §3.4  Computational performance
@@ -657,16 +649,12 @@ $\sim$\$40 in compute cost; the details of this infrastructure are beyond
 the scope of this paper.
 
 \paragraph{Limitations.}
-Three limitations of the current approach should be noted; they are framed as
+Two limitations of the current approach should be noted; they are framed as
 directions for future work.  First, \phspectra\ treats each spectrum
 independently and does not enforce spatial coherence across neighboring
 pixels.  \gausspyp\ uses a spatial refitting stage \citep[Section~3.3
 of][]{Riener2019} that improves consistency across a data cube; a similar
-post-processing step could be added to \phspectra.  Second, a single $\beta$
-is used for all spectra in a survey.  While the synthetic benchmark (\S\ref{sec:synthetic}) shows that
-performance is robust to $\beta$ over a wide range, an adaptive $\beta$
-that responds to local noise conditions could further improve performance
-in surveys with spatially varying sensitivity.  Third, the algorithm assumes
+post-processing step could be added to \phspectra.  Second, the algorithm assumes
 Gaussian line profiles.  Non-Gaussian features such as self-absorption dips,
 outflows, or Lorentzian wings are not modeled; extending the fitting stage
 to support additional profile shapes is a natural next step.
@@ -716,7 +704,8 @@ $2.0\times$ reduction in total wall-clock time and a P99 latency of 3.0\,s
 versus 8.4\,s for \gausspyp.
 
 The software, documentation, and benchmark scripts are publicly available at
-\url{https://github.com/caverac/phspectra}.
+\url{https://github.com/caverac/phspectra}.  The library can be installed
+from PyPI via \texttt{pip install phspectra}.
 
 At survey scale, \phspectra\ turns spectra into physically interpretable
 products: component-count maps that track complexity, spatially coherent
