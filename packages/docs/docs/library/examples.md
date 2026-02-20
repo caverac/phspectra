@@ -66,4 +66,5 @@ for pk in peaks:
   channel=59  persistence=3.101  birth=3.101  death=0.000
   channel=126  persistence=1.954  birth=1.616  death=-0.337
   channel=162  persistence=0.727  birth=0.426  death=-0.301
+  channel=190  persistence=0.618  birth=0.345  death=-0.274
 ```
