@@ -1,3 +1,14 @@
+# [1.4.0](https://github.com/caverac/phspectra/compare/v1.3.0...v1.4.0) (2026-02-20)
+
+### Bug Fixes
+
+- **docs:** updated image sizes ([8afb766](https://github.com/caverac/phspectra/commit/8afb76614644e7e2e1d5878a23d578af0fc28278))
+
+### Features
+
+- **pre-print:** refined sections 1-2 ([1f3b2a8](https://github.com/caverac/phspectra/commit/1f3b2a8a033de9861dacb0860fbb0386d9a3964f))
+- **pre-print:** refined sections 3- ([9d5cbce](https://github.com/caverac/phspectra/commit/9d5cbcee2da19060061978a764e49b302612e83a))
+
 # [1.3.0](https://github.com/caverac/phspectra/compare/v1.2.5...v1.3.0) (2026-02-20)
 
 ### Bug Fixes
