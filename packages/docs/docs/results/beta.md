@@ -89,6 +89,8 @@ This is a known structural limitation of persistence-based peak detection for cl
 
 ### Real data: beta training
 
+The training set used here was built with the [`train-gui`](https://github.com/caverac/phspectra/tree/main/packages/train-gui) package -- an interactive Matplotlib tool for manually curating Gaussian component labels on real GRS spectra. Starting from comparison data produced by `benchmarks compare`, the GUI lets you navigate pixels, toggle individual components, and manually fit new ones. The curated labels are saved to a JSON file that serves as ground truth for the $\beta$ sweep below.
+
 ```bash
 uv run benchmarks download
 uv run benchmarks train --training-set packages/train-gui/data/training_set.json

@@ -348,7 +348,7 @@ Resource names include the environment: `phspectra-development` or `phspectra-pr
 
 ## Design decisions
 
-**Why Lambda, not Batch or EMR?** Each spectrum takes ~30ms to decompose (with C-accelerated persistence detection and LM solver). A chunk of 500 spectra fits well within a 15-minute Lambda timeout and 1024 MB memory. Lambda's per-invocation billing and instant scaling make it far cheaper and simpler than maintaining a Spark cluster for this workload.
+**Why Lambda, not Batch or EMR?** A chunk of 500 spectra fits well within a 15-minute Lambda timeout and 1024 MB memory (~320 s observed average per chunk, including S3 I/O and DynamoDB writes). Lambda's per-invocation billing and instant scaling make it far cheaper and simpler than maintaining a Spark cluster for this workload.
 
 **Why Docker container images?** The scientific Python stack (numpy, scipy, astropy, pyarrow) includes C extensions that exceed Lambda's 250 MB zip layer limit. Container images support up to 10 GB. Additionally, PHSpectra itself has a C extension that must be compiled for the target architecture.
 
@@ -366,9 +366,9 @@ Resource names include the environment: `phspectra-development` or `phspectra-pr
 
 ## Cost estimates
 
-| Scenario                       | Lambda invocations  | Estimated cost |
-| ------------------------------ | ------------------- | -------------- |
-| GRS test field (4,200 spectra) | 9 + 1 splitter      | < $0.01        |
-| Full GRS survey (2.3M spectra) | ~4,600 + 1 splitter | ~$1            |
+| Scenario                        | Lambda invocations                           | Estimated cost |
+| ------------------------------- | -------------------------------------------- | -------------- |
+| Single GRS tile (~116k spectra) | ~233 workers + slow workers + 1 splitter     | ~$2            |
+| Full GRS survey (2.3M spectra)  | ~5,100 workers + slow workers + 22 splitters | ~$40           |
 
-Pricing assumes ARM64 (Graviton2) at \$0.0000133334/GB-s, ~30 ms per spectrum, 500 spectra per chunk. Worker: 1024 MB, Splitter: 2048 MB. The dominant cost is Lambda compute. S3 storage for Parquet results is negligible (a few cents per GB-month). Athena charges \$5/TB scanned -- a typical query over one survey scans well under 1 GB.
+Pricing assumes ARM64 (Graviton2) at \$0.0000133334/GB-s, 500 spectra per chunk. Worker and Slow Worker: 1024 MB, Splitter: 2048 MB. Observed average worker duration is ~320 s per chunk (~640 ms per spectrum including S3 I/O, DynamoDB writes, and cold starts). The slow worker handles spectra that exceed the 5 s per-spectrum alarm and adds ~30% to the worker cost. The dominant cost is Lambda compute. S3 storage for Parquet results is negligible (a few cents per GB-month). Athena charges \$5/TB scanned -- a typical query over one survey scans well under 1 GB.

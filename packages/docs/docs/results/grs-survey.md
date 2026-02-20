@@ -73,5 +73,5 @@ done
 | -------------- | ------ |
 | Tiles          | 22     |
 | Total spectra  | ~2.3M  |
-| Lambda chunks  | ~4,600 |
-| Estimated cost | ~$1    |
+| Lambda chunks  | ~5,100 |
+| Estimated cost | ~$40   |

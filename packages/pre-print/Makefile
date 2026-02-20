@@ -4,7 +4,7 @@ MAIN     = ms
 IMGDIR   = figures/img
 SRCIMGS  = ../docs/static/img/results
 
-.PHONY: all clean distclean link-figures
+.PHONY: all clean distclean sync-figures
 
 all: $(MAIN).pdf
 
@@ -14,12 +14,18 @@ $(MAIN).pdf: $(MAIN).tex $(MAIN).bib $(wildcard figures/tikz/*.tex)
 	$(TEX) $(MAIN)
 	$(TEX) $(MAIN)
 
-link-figures:
+sync-figures:
 	@mkdir -p $(IMGDIR)
-	@for f in $(SRCIMGS)/*.png; do \
-		ln -sf ../../$$f $(IMGDIR)/$$(basename "$$f"); \
-	done
-	@echo "Linked $$(ls $(IMGDIR)/*.png 2>/dev/null | wc -l | tr -d ' ') figures"
+	@updated=0; \
+	for f in $(SRCIMGS)/*.png; do \
+		dest=$(IMGDIR)/$$(basename "$$f"); \
+		if [ ! -f "$$dest" ] || ! cmp -s "$$f" "$$dest"; then \
+			cp "$$f" "$$dest"; \
+			updated=$$((updated + 1)); \
+			echo "  updated: $$(basename $$f)"; \
+		fi; \
+	done; \
+	echo "Synced $$updated figure(s)"
 
 clean:
 	rm -f $(MAIN).aux $(MAIN).bbl $(MAIN).blg $(MAIN).log $(MAIN).out

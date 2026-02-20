@@ -67,13 +67,13 @@ A peak is retained only if its persistence exceeds $\beta \cdot \sigma_\mathrm{r
 
 ### How phspectra compares
 
-|                       | Derivative methods                               | Bayesian / brute-force               | phspectra                                                      |
-| --------------------- | ------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------- |
-| **Peak detection**    | Smoothed derivative zero-crossings               | Random initialisation + optimisation | Persistent homology (all scales simultaneously)                |
-| **Tuning parameters** | $\alpha_1$, $\alpha_2$ (regularisation strength) | Priors, number of restarts           | $\beta$ (persistence threshold in noise units)                 |
-| **Training**          | Supervised, on synthetic spectra                 | Not required, but slow per spectrum  | Not required -- default $\beta = 3.5$ generalises              |
-| **Determinism**       | Deterministic                                    | Stochastic (random seeds / MCMC)     | Deterministic                                                  |
-| **Scalability**       | Survey-scale on CPU                              | Survey-scale with GPU (SPIF)         | Survey-scale on serverless (AWS Lambda); ~2.3M spectra for ~$1 |
+|                       | Derivative methods                               | Bayesian / brute-force               | phspectra                                                        |
+| --------------------- | ------------------------------------------------ | ------------------------------------ | ---------------------------------------------------------------- |
+| **Peak detection**    | Smoothed derivative zero-crossings               | Random initialisation + optimisation | Persistent homology (all scales simultaneously)                  |
+| **Tuning parameters** | $\alpha_1$, $\alpha_2$ (regularisation strength) | Priors, number of restarts           | $\beta$ (persistence threshold in noise units)                   |
+| **Training**          | Supervised, on synthetic spectra                 | Not required, but slow per spectrum  | Not required -- default $\beta = 3.5$ generalises                |
+| **Determinism**       | Deterministic                                    | Stochastic (random seeds / MCMC)     | Deterministic                                                    |
+| **Scalability**       | Survey-scale on CPU                              | Survey-scale with GPU (SPIF)         | Survey-scale on serverless (AWS Lambda); ~2.3M spectra for ~\$40 |
 
 Persistent homology provides principled initial guesses -- peak locations, amplitudes, and widths read directly from the persistence diagram -- so the subsequent least-squares fit converges reliably without random restarts. The result is a method that is **training-free**, **deterministic**, and **scalable** without GPU infrastructure.
 
