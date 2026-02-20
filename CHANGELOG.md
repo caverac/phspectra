@@ -1,3 +1,9 @@
+## [1.4.2](https://github.com/caverac/phspectra/compare/v1.4.1...v1.4.2) (2026-02-20)
+
+### Bug Fixes
+
+- **phspectra:** trigger release ([4b7d683](https://github.com/caverac/phspectra/commit/4b7d6837cb94459619c6f5f4227b4666550bd829))
+
 ## [1.4.1](https://github.com/caverac/phspectra/compare/v1.4.0...v1.4.1) (2026-02-20)
 
 ### Bug Fixes
