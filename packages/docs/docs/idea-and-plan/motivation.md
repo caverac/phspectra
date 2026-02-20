@@ -10,25 +10,9 @@ Along any line of sight, radio-astronomical spectra -- HI 21-cm, ${}^{13}$CO, an
 
 Recovering these individual components -- their amplitudes, centroid velocities, and widths -- is essential for understanding the structure and kinematics of the interstellar medium (ISM). This is a **blind decomposition** problem: given a noisy 1D signal, determine the number of components and fit their parameters without prior knowledge.
 
-## The current approach: GaussPy
+## Persistent homology for peak detection
 
-[GaussPy](https://arxiv.org/abs/1409.2840) and its successor [GaussPy+](https://arxiv.org/abs/1906.10506) use **derivative spectroscopy** to identify features in spectra. The core idea is to compute the second and fourth derivatives of the spectrum and locate their zero-crossings, which mark candidate peak positions and boundaries.
-
-Because finite-difference derivatives amplify noise, GaussPy regularizes them via **Total Variation (TV) regularization**. Instead of convolving with a smoothing kernel, it solves an optimization problem that balances data fidelity against a smoothness penalty:
-
-$$
-R[u] = \alpha \int \sqrt{(D_x u)^2 + \beta_{\mathrm{TV}}^2} \;+\; \int |A_x u - f|^2
-$$
-
-where $u$ is the regularized derivative, $A_x$ is the anti-derivative operator, $f$ is the observed spectrum, and $\alpha$ controls the strength of the regularization. When $\alpha \to 0$ the solution converges to the noisy finite-difference derivative; as $\alpha$ grows the derivative becomes increasingly smooth and piecewise-constant features are preserved.
-
-GaussPy uses a **two-phase decomposition**: $\alpha_1$ sets the regularization for an initial pass that recovers broad features, and $\alpha_2$ is applied to the residual to catch narrower ones. Both parameters **must be trained** on synthetic spectra whose decomposition is known, using a supervised gradient-descent procedure that maximizes the $F_1$ score. The empirical relationship $\delta_\mathrm{chan} \approx 3.7 \times 1.8^{\log \alpha}$ links $\alpha$ to the minimum spatial scale preserved in the derivative.
-
-GaussPy+ adds spatial coherence constraints for spectral cubes, but the fundamental dependence on trained regularization parameters remains.
-
-## A topological alternative: persistent homology
-
-**Persistent homology** offers a fundamentally different approach to peak detection. Instead of smoothing and differentiating, it analyses the **topology** of the function's upper-level sets as a threshold descends from the maximum.
+**Persistent homology** detects peaks by analysing the **topology** of the function's upper-level sets as a threshold descends from the maximum.
 
 The persistence of a peak -- the difference between its birth (height) and death (merge level) -- provides a natural measure of significance. Small-persistence features correspond to noise; large-persistence features are real peaks.
 
@@ -58,17 +42,27 @@ Components that survive validation are kept only if they improve the AICc of the
 
 These thresholds have sensible physical defaults that work across the datasets we have tested. In practice, $\beta$ is the only parameter that meaningfully affects decomposition results -- the validation thresholds act as safety nets rather than tuning knobs.
 
-### Comparison with GaussPy
+## Benchmark: GaussPy
 
-|                       | GaussPy                                                     | phspectra                                         |
-| --------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
-| **Peak detection**    | TV-regularized 2nd/4th derivative zero-crossings            | Persistent homology (all scales simultaneously)   |
-| **Tuning parameters** | $\alpha_1, \alpha_2$ (regularization strength) + SNR cutoff | $\beta$ (persistence threshold in noise units)    |
-| **Training**          | Supervised gradient descent on synthetic spectra            | Not required -- default $\beta = 3.5$ generalizes |
-| **Peak significance** | Implicit (via regularization strength)                      | Explicit (topological persistence)                |
-| **Validation**        | SNR threshold (trained)                                     | SNR floor + significance + AICc (fixed defaults)  |
+Several families of decomposition algorithms exist (see [Introduction](/) for a full overview). We benchmark phspectra against [GaussPy](https://arxiv.org/abs/1409.2840) / [GaussPy+](https://arxiv.org/abs/1906.10506) because both are open-source, fully automated, and target the same use case -- blind Gaussian decomposition of radio spectral cubes. Their derivative-based approach also provides a useful contrast with topology-based peak detection.
 
-$\beta = 3.5$ (a $3.5\sigma$ persistence cut) is the default. Training $\beta$ on a labeled dataset is a simple 1-D optimization and automatically covers all scales.
+GaussPy uses **derivative spectroscopy**: it computes the second and fourth derivatives of the spectrum and locates their zero-crossings, which mark candidate peak positions and boundaries. Because finite-difference derivatives amplify noise, GaussPy regularizes them via **Total Variation (TV) regularization**, solving an optimization problem that balances data fidelity against a smoothness penalty:
+
+$$
+R[u] = \alpha \int \sqrt{(D_x u)^2 + \beta_{\mathrm{TV}}^2} \;+\; \int |A_x u - f|^2
+$$
+
+where $u$ is the regularized derivative, $A_x$ is the anti-derivative operator, $f$ is the observed spectrum, and $\alpha$ controls the regularization strength. A **two-phase decomposition** uses $\alpha_1$ for broad features and $\alpha_2$ for narrower residual structure. Both parameters must be **trained** on synthetic spectra via supervised gradient descent that maximizes $F_1$. GaussPy+ adds spatial coherence constraints for spectral cubes, but the dependence on trained regularization parameters remains.
+
+The key difference is in how peaks are found: GaussPy smooths the signal and differentiates; phspectra reads the peak structure directly from the topology of the data. The table below summarizes the comparison:
+
+|                       | GaussPy                                                     | phspectra                                              |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| **Peak detection**    | TV-regularized 2nd/4th derivative zero-crossings            | Persistent homology (all scales simultaneously)        |
+| **Tuning parameters** | $\alpha_1, \alpha_2$ (regularization strength) + SNR cutoff | $\beta$ (persistence threshold in noise units)         |
+| **Training**          | Supervised gradient descent on synthetic spectra            | Not required -- default $\beta = 3.5$ generalizes      |
+| **Peak significance** | Implicit (via regularization strength)                      | Explicit (topological persistence)                     |
+| **Validation**        | SNR threshold (trained)                                     | SNR floor + matched-filter SNR + AICc (fixed defaults) |
 
 ## Why this matters
 
@@ -76,6 +70,7 @@ For large-scale surveys (e.g. [GALFA-HI](https://purcell.ssl.berkeley.edu/), [TH
 
 1. Has a **single tuning parameter** ($\beta$) with sensible fixed defaults for everything else,
 2. Provides a principled significance measure grounded in topology,
-3. Naturally handles multi-scale features,
+3. Naturally handles multi-scale features without smoothing,
+4. Is deterministic and reproducible,
 
 could significantly improve both the **reliability** and **scalability** of spectral line decomposition.

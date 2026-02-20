@@ -108,6 +108,8 @@ from phspectra.persistence import PersistentPeak
 
 The library does not define custom exception classes. All parameters are keyword-only (except `signal`), so passing positional arguments raises a `TypeError`.
 
+Both `fit_gaussians` and `estimate_rms` raise `ValueError` if the input signal contains NaN values. Callers must handle missing channels (e.g. `np.nan_to_num(signal, nan=0.0)`) before calling these functions.
+
 Internally, curve fitting may encounter `RuntimeError` (non-convergence) or `numpy.linalg.LinAlgError` (singular Jacobian). These are caught and handled gracefully -- the function returns the best result available rather than raising. If no peaks survive thresholding, `fit_gaussians` returns an empty list.
 
 The C extension may raise `ValueError` when the parameter vector exceeds its compiled limit. In this case the library falls back to SciPy's `curve_fit` automatically.

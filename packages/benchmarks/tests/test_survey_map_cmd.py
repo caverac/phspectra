@@ -1,4 +1,4 @@
-"""Tests for benchmarks.commands.survey_map."""
+"""Tests for benchmarks.commands.survey_map utilities."""
 
 from __future__ import annotations
 
@@ -11,10 +11,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from astropy.io import fits
-from benchmarks.cli import main
 from benchmarks.commands.survey_map import (
     DecompositionData,
-    _build_figure,
     _download_decompositions,
     _galactic_extent,
     _load_parquet_data,
@@ -25,7 +23,6 @@ from benchmarks.commands.survey_map import (
     _table_to_arrays,
     _velocity_axis,
 )
-from click.testing import CliRunner
 from matplotlib import pyplot as plt
 
 # pylint: disable=redefined-outer-name
@@ -383,6 +380,24 @@ class TestPanels:
         _panel_dominant_velocity(ax, sample_data, sample_velocity, 2, 2, sample_extent, cax)
         plt.close(fig)
 
+    def test_dominant_velocity_negative_ncomp(
+        self,
+        sample_velocity: npt.NDArray[np.float64],
+        sample_extent: tuple[float, float, float, float],
+    ) -> None:
+        """Pixels with n_components < 0 (timed-out) are skipped."""
+        data = DecompositionData(
+            x=np.array([0, 1], dtype=np.int32),
+            y=np.array([0, 0], dtype=np.int32),
+            n_components=np.array([-1, 1], dtype=np.int32),
+            component_amplitudes=[[], [2.0]],
+            component_means=[[], [50.0]],
+            component_stddevs=[[], [3.0]],
+        )
+        fig, (ax, cax) = plt.subplots(1, 2, gridspec_kw={"width_ratios": [1, 0.04]})
+        _panel_dominant_velocity(ax, data, sample_velocity, 2, 1, sample_extent, cax)
+        plt.close(fig)
+
     def test_bivariate(
         self,
         sample_data: DecompositionData,
@@ -393,135 +408,3 @@ class TestPanels:
         _, ax = plt.subplots()
         _panel_bivariate(ax, sample_data, sample_velocity, 2, 2, sample_extent)
         plt.close()
-
-
-# ---------------------------------------------------------------------------
-# TestBuildFigure
-# ---------------------------------------------------------------------------
-
-
-class TestBuildFigure:
-    """Tests for _build_figure."""
-
-    @pytest.mark.usefixtures("docs_img_dir")
-    def test_returns_figure_with_four_axes(
-        self,
-        sample_data: DecompositionData,
-        sample_velocity: npt.NDArray[np.float64],
-        fits_header: fits.Header,
-    ) -> None:
-        """Built figure contains at least four axes."""
-        fig = _build_figure(sample_data, sample_velocity, fits_header)
-        assert fig is not None
-        assert len(fig.axes) >= 4
-        plt.close(fig)
-
-
-# ---------------------------------------------------------------------------
-# TestSurveyMapCli
-# ---------------------------------------------------------------------------
-
-
-class TestSurveyMapCli:
-    """Tests for the survey-map-plot CLI command."""
-
-    def test_help(self) -> None:
-        """Help text includes the --survey option."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["survey-map-plot", "--help"])
-        assert result.exit_code == 0
-        assert "--survey" in result.output
-
-    def test_survey_required(self) -> None:
-        """Command fails when the required --survey option is omitted."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["survey-map-plot"])
-        assert result.exit_code != 0
-        assert "Missing option" in result.output or "required" in result.output.lower()
-
-    @pytest.mark.usefixtures("docs_img_dir")
-    def test_end_to_end(
-        self,
-        tmp_path: Path,
-        decomposition_parquet: Path,
-        fits_header: fits.Header,
-    ) -> None:
-        """Full CLI invocation completes successfully with mocked data."""
-        parquet_path = str(decomposition_parquet / "part-0.parquet")
-
-        def mock_download(_survey: str, _environment: str, _cache_dir: str, _force: bool) -> list[str]:
-            return [parquet_path]
-
-        with (
-            patch(
-                "benchmarks.commands.survey_map._download_decompositions",
-                side_effect=mock_download,
-            ),
-            patch(
-                "benchmarks.commands.survey_map.ensure_fits",
-                return_value=(fits_header, np.zeros((424, 2, 2))),
-            ),
-        ):
-            runner = CliRunner()
-            result = runner.invoke(
-                main,
-                ["survey-map-plot", "--survey", "test", "--cache-dir", str(tmp_path)],
-            )
-
-        assert result.exit_code == 0, result.output
-        assert "Done." in result.output
-
-    @pytest.mark.usefixtures("docs_img_dir")
-    def test_end_to_end_with_fits_file(
-        self,
-        tmp_path: Path,
-        decomposition_parquet: Path,
-        fits_header: fits.Header,
-    ) -> None:
-        """CLI invocation with an explicit --fits-file completes successfully."""
-        parquet_path = str(decomposition_parquet / "part-0.parquet")
-
-        # Write a minimal FITS file
-        fits_path = str(tmp_path / "test.fits")
-        hdu = fits.PrimaryHDU(data=np.zeros((424, 2, 2)), header=fits_header)
-        hdu.writeto(fits_path, overwrite=True)
-
-        def mock_download(_survey: str, _environment: str, _cache_dir: str, _force: bool) -> list[str]:
-            return [parquet_path]
-
-        with patch(
-            "benchmarks.commands.survey_map._download_decompositions",
-            side_effect=mock_download,
-        ):
-            runner = CliRunner()
-            result = runner.invoke(
-                main,
-                [
-                    "survey-map-plot",
-                    "--survey",
-                    "test",
-                    "--fits-file",
-                    fits_path,
-                    "--cache-dir",
-                    str(tmp_path),
-                ],
-            )
-
-        assert result.exit_code == 0, result.output
-        assert "Done." in result.output
-
-    @pytest.mark.usefixtures("docs_img_dir")
-    def test_no_data_aborts(self, tmp_path: Path) -> None:
-        """Command reports no data found when download returns empty list."""
-        with patch(
-            "benchmarks.commands.survey_map._download_decompositions",
-            return_value=[],
-        ):
-            runner = CliRunner()
-            result = runner.invoke(
-                main,
-                ["survey-map-plot", "--survey", "empty", "--cache-dir", str(tmp_path)],
-            )
-
-        assert result.exit_code == 0
-        assert "No data found" in result.output

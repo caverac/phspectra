@@ -117,126 +117,17 @@ This provides a physically grounded initial width from the topology alone. For t
 
 The peaks are ordered by persistence (most significant first), so the solver starts with the strongest features anchored in place, which improves convergence.
 
-This initial guess is then passed to `scipy.optimize.curve_fit`, which fits a sum of Gaussians to the full signal:
+This initial guess is then passed to a bounded Levenberg-Marquardt solver, which fits a sum of Gaussians to the full signal:
 
 $$
 F(x, \mathbf{a}, \mathbf{\mu}, \mathbf{\sigma}) = \sum_i A_i \exp\left(-\frac{(x - \mu_i)^2}{2\sigma_i^2}\right).
 $$
 
-The solver adjusts all three parameters per component simultaneously (with bounds: $a \geq 0$, $\mu \in [0, n)$, $\sigma \in [0.3, n/2]$). Because the initial positions and amplitudes are already close to the truth -- persistence detected the right peaks -- the fit typically converges in few iterations, and the solver's main job is to determine the correct widths and fine-tune the positions and amplitudes. That being said, optimizing this function is the slowest step in the pipeline, which is why the refinement loop is designed to minimize unnecessary calls to `curve_fit` by only accepting changes that improve the AICc.
+The solver adjusts all three parameters per component simultaneously (with bounds: $a \geq 0$, $\mu \in [0, n)$, $\sigma \in [0.3, n/2]$). Because the initial positions and amplitudes are already close to the truth -- persistence detected the right peaks -- the fit typically converges in few iterations, and the solver's main job is to determine the correct widths and fine-tune the positions and amplitudes. That being said, optimizing this function is the slowest step in the pipeline, which is why the refinement loop is designed to minimize unnecessary refits by only accepting changes that improve the AICc.
 
-## The algorithm in PHSpectra
+## The full decomposition pipeline
 
-The implementation lives in `phspectra/src/persistence.py` and follows the union-find approach described above. Figure 3 shows the full pipeline from raw spectrum to fitted Gaussians:
-
-<figure class="scientific">
-
-```mermaid
-flowchart TD
-    A["Raw 1-D spectrum"] --> B["Estimate sigma_rms"]
-    B --> C["Persistence peak detection<br/>threshold = beta * sigma_rms"]
-    C --> D["Convert peaks to<br/>initial Gaussian guesses<br/>(amplitude, mean, sigma from saddle)"]
-    D --> E["Least-squares fit<br/>(scipy curve_fit)"]
-    E --> H["Validate components<br/>(SNR, matched-filter SNR, FWHM)"]
-    H --> I["Refit if any removed"]
-    I --> J["Compute AICc baseline"]
-    J --> K["Refinement loop<br/>(up to 3 iterations)"]
-    K --> L["Search residual<br/>for missed peaks"]
-    K --> M["Split broad component<br/>at negative dip"]
-    K --> N["Merge blended pairs"]
-    L & M & N --> R["Refit all components<br/>(scipy curve_fit)"]
-    R --> Q{"AICc improved?"}
-    Q -- Yes --> O["Accept change,<br/>continue loop"]
-    Q -- No --> P["Reject change"]
-    O --> K
-    P --> G
-
-    style E fill:#e74c3c,color:#fff,stroke:#c0392b
-    style R fill:#e74c3c,color:#fff,stroke:#c0392b
-```
-
-<figcaption>
-
-**Figure 3.** Full decomposition pipeline from raw spectrum to fitted Gaussian components. Red nodes mark the two computational bottlenecks, both calls to `scipy.optimize.curve_fit`. The initial fit runs once; the refinement refit can be called up to three times per iteration (residual search, dip split, blended merge), each triggering a full nonlinear least-squares solve over all components. Component validation occurs once after the initial fit, not inside the refinement loop.
-
-</figcaption>
-</figure>
-
-Note that component validation happens **once** after the initial fit, not inside the refinement loop (Figure 3). If any components are rejected, a refit is triggered before computing the AICc baseline.
-
-### Step 1: Noise estimation
-
-Before detecting peaks, PHSpectra estimates $\sigma_{\rm rms}$ using a signal-masked approach ([Riener et al. 2019](https://arxiv.org/abs/1906.10506), Sect 3.1.1):
-
-1. **Mask signal regions** -- runs of $> 2$ consecutive positive channels are masked (with 2-channel padding on each side) to exclude spectral features.
-2. **MAD from negative channels** -- the median absolute deviation of the remaining negative channels gives an initial robust scale estimate.
-3. **Clip outliers** -- channels exceeding $\pm 5\sigma_{\rm MAD}$ are masked.
-4. **Final RMS** -- $\sigma_{\rm rms} = \sqrt{\mathrm{mean}(x^2)}$ over surviving channels.
-
-This is more robust than a simple MAD of the full signal because it avoids biasing the noise estimate with actual spectral features.
-
-### Step 2: Persistence peak detection
-
-Peaks are detected using 0-dimensional persistent homology with a minimum persistence threshold:
-
-$$
-\pi_{\min} = \beta \times \sigma_{\rm rms}
-$$
-
-where $\beta = 3.5$ is the default (the main tuning parameter). The algorithm:
-
-1. Sort all channel indices by decreasing signal value.
-2. Process each index: mark it visited, check if its left/right neighbors are already visited.
-3. If a neighbor belongs to an existing component, merge via union-find. The younger component (lower peak) dies at the current signal value; the merge channel is recorded as the **saddle index**.
-4. Record any peak whose persistence $\pi = b - d > \pi_{\min}$, along with its saddle index.
-5. The global maximum is always recorded (it never dies; saddle index is undefined).
-
-Peaks are returned sorted by persistence, most significant first.
-
-### Step 3: Initial Gaussian fit
-
-Each detected peak becomes an initial guess for a Gaussian component:
-
-| Parameter | Initial value                                                          |
-| --------- | ---------------------------------------------------------------------- |
-| Amplitude | Signal value at peak index                                             |
-| Mean      | Peak channel index                                                     |
-| Std. dev. | $d / \sqrt{2 \ln(b/d_v)}$ from peak-to-saddle distance (fallback: 1.0) |
-
-These are fitted simultaneously as a sum of Gaussians via `scipy.optimize.curve_fit` with bounds (amplitude $\geq 0$, mean within spectrum, std. dev. $\in [0.3, n/2]$).
-
-### Step 4: Validation and iterative refinement
-
-After the initial fit, the fitted components pass through a **one-time validation** step. Components are rejected if they fail any of:
-
-- FWHM $< 1$ channel
-- Mean outside spectrum bounds
-- Amplitude $< 1.5 \times \sigma_{\rm rms}$ (SNR floor)
-- Matched-filter SNR $< 5.0$ (see below)
-
-The **matched-filter SNR** is the optimal detection signal-to-noise ratio for a Gaussian component in white noise:
-
-$$
-\mathrm{SNR}_{\rm mf} = \frac{A_i}{\sigma_{\rm rms}} \sqrt{\sigma_i} \; \pi^{1/4}
-$$
-
-This follows from the matched-filter theorem: for a template $h(x) = A \exp(-x^2 / 2\sigma^2)$ in noise with standard deviation $\sigma_{\rm rms}$, the detection SNR is $\|h\|_2 / \sigma_{\rm rms}$, where $\|h\|_2^2 = A^2 \sigma \sqrt{\pi}$. Because SNR$_{\rm mf}$ scales as $\sqrt{\sigma}$, narrow peaks must have proportionally higher amplitude to survive -- this rejects noise spikes (which are tall but have negligible integrated flux) without imposing an ad-hoc minimum width. The amplitude SNR check (`snr_min`) and the matched-filter SNR check (`mf_snr_min`) are complementary: `snr_min` sets a floor for broad components, while `mf_snr_min` catches narrow noise.
-
-If any components are removed, a refit is triggered. The AICc of the validated model then serves as the baseline for the refinement loop.
-
-The **refinement loop** (up to 3 iterations) performs three operations per iteration, each accepted only if it lowers the corrected Akaike Information Criterion ([Akaike 1974](https://doi.org/10.1109/TAC.1974.1100705); small-sample correction by [Hurvich & Tsai 1989](https://doi.org/10.1093/biomet/76.2.297)):
-
-$$
-\mathrm{AICc} = N \ln\!\left(\frac{\mathrm{RSS}}{N}\right) + 2k + \frac{2k^2 + 2k}{N - k - 1}
-$$
-
-where $k = 3 \times$ (number of components) and $N$ is the number of channels.
-
-**a) Residual peak search** -- run persistence detection on the residual (data minus model) to find missed components, using a lower threshold of $1.5 \times \sigma_{\rm rms}$.
-
-**b) Negative dip splitting** -- if the residual has a dip below $-5 \times \sigma_{\rm rms}$, the broadest overlapping component is split into two narrower Gaussians.
-
-**c) Blended pair merging** -- if two components are separated by less than $1.2 \times \min(\mathrm{FWHM}_i, \mathrm{FWHM}_j)$, they are merged into a single flux-weighted component.
+The persistence-based peak detection described above is the first stage of a multi-step pipeline that includes curve fitting, component validation, and iterative refinement. For the complete algorithm -- noise estimation, initial Gaussian fit, validation criteria, and the AICc-driven refinement loop -- see the [Algorithm Overview](../library/algorithm.md).
 
 ### Why this works for spectra
 

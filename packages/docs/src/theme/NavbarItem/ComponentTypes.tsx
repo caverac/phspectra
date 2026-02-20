@@ -1,7 +1,8 @@
-import VersionBadge from '@site/src/components/VersionBadge'
+import { LibraryVersionBadge, ProjectVersionBadge } from '@site/src/components/VersionBadge'
 import ComponentTypes from '@theme-original/NavbarItem/ComponentTypes'
 
 export default {
   ...ComponentTypes,
-  'custom-versionBadge': VersionBadge
+  'custom-projectVersionBadge': ProjectVersionBadge,
+  'custom-libraryVersionBadge': LibraryVersionBadge
 }

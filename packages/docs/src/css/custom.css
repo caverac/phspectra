@@ -45,6 +45,7 @@ figure.scientific figcaption {
 
 .version-badge {
   display: inline-block;
+  margin-right: 0.4rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.75rem;

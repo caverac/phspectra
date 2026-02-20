@@ -21,24 +21,24 @@ We benchmark the wall-clock time for decomposing all 4200 spectra in the GRS tes
 
 | Metric                    | PHSpectra | GaussPy+  | Factor         |
 | ------------------------- | --------- | --------- | -------------- |
-| Total time (4200 spectra) | 666.4 s   | 1319.1 s  | **2.0&times;** |
-| Mean per spectrum         | 158.7 ms  | 312.9 ms  | 2.0&times;     |
-| Median per spectrum       | 31.8 ms   | 34.8 ms   | 1.1&times;     |
-| P95 per spectrum          | 510.0 ms  | 583.0 ms  | 1.1&times;     |
-| P99 per spectrum          | 3913.8 ms | 7521.4 ms | 1.9&times;     |
-| Mean components detected  | 2.35      | 2.44      | &mdash;        |
+| Total time (4200 spectra) | 746.4 s   | 1477.4 s  | **2.0&times;** |
+| Mean per spectrum         | 177.7 ms  | 350.5 ms  | 2.0&times;     |
+| Median per spectrum       | 51.6 ms   | 40.4 ms   | &mdash;        |
+| P95 per spectrum          | 705.4 ms  | 702.5 ms  | &mdash;        |
+| P99 per spectrum          | 2976.0 ms | 8407.5 ms | 2.8&times;     |
+| Mean components detected  | 2.48      | 2.44      | &mdash;        |
 
-PHSpectra is **2&times; faster** than GaussPy+ across all metrics. The two tools are now comparable on typical spectra (median 31.8 ms vs 34.8 ms), while PHSpectra maintains a significant advantage on complex spectra where GaussPy+ exhibits long optimization tails (P99 at 3.9 s vs 7.5 s).
+PHSpectra is **2&times; faster** in total wall-clock time than GaussPy+. The median per-spectrum times are comparable (51.6 ms vs 40.4 ms), but the distributions have very different tails: GaussPy+'s P99 reaches 8.4 s compared to PHSpectra's 3.0 s, and these extreme outliers dominate the aggregate timing.
 
 ![Performance benchmark](/img/results/performance-benchmark.png)
 
 ### Timing characteristics
 
-The two tools now have similar median performance but differ in tail behaviour:
+The two tools have similar median performance but differ sharply in tail behaviour:
 
-- **PHSpectra** matches GaussPy+ on typical spectra and is faster across the board. A custom C extension implements both the bounded Levenberg-Marquardt solver (with analytic Jacobian) and the persistence-based peak detection, eliminating the Python-to-Fortran boundary crossing overhead that previously dominated per-call cost. The result is a tighter timing distribution with fewer extreme outliers.
+- **PHSpectra** uses a custom C extension for both the bounded Levenberg-Marquardt solver (with analytic Jacobian) and persistence-based peak detection, keeping per-call overhead low. The timing distribution is tighter, with P99 at 3.0 s.
 
-- **GaussPy+** has comparable median performance but much higher variance. A small fraction of spectra trigger long optimization chains, with P99 reaching 7.5 s. These outliers dominate the mean and total time.
+- **GaussPy+** has comparable median performance but much higher variance (std dev 2013.8 ms vs 688.9 ms). A small fraction of spectra trigger long optimisation chains, with P99 reaching 8.4 s. These outliers dominate the mean and total time.
 
 ### Algorithmic differences
 
@@ -46,7 +46,7 @@ The two tools now have similar median performance but differ in tail behaviour:
 
 2. **No training required.** GaussPy+'s $\alpha$ parameters must be trained per survey (or per survey region), which adds a separate computational cost not reflected in the per-spectrum timing. PHSpectra's $\beta$ parameter requires no training &mdash; the default value works across surveys.
 
-3. **Tail behaviour.** PHSpectra's execution time is more predictable. GaussPy+'s derivative-based approach can trigger costly iterative refinement on complex spectra, leading to extreme outliers that dominate aggregate timing.
+3. **Tail behaviour.** PHSpectra's execution time is more predictable (P99 3.0 s vs 8.4 s). GaussPy+'s derivative-based approach can trigger costly iterative refinement on complex spectra, leading to extreme outliers that dominate aggregate timing.
 
 ### Benchmark details
 
