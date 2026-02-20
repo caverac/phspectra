@@ -252,7 +252,7 @@ def _plot_persistence_diagram(events: list[PersistenceEvent]) -> Figure:
 
     fig: Figure
     ax: Axes
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.92)
 
     if np.any(noise_mask):
@@ -289,7 +289,7 @@ def _plot_persistence_diagram(events: list[PersistenceEvent]) -> Figure:
         lw=1.2,
         ls="--",
         zorder=2,
-        label=r"$\pi_{\min} = \beta \times \sigma_{\rm rms}$",
+        label=r"$\pi_{\min} = \beta \sigma_{\rm rms}$",
     )
 
     ax.set_xlabel("Birth")

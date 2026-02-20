@@ -16,6 +16,7 @@ from benchmarks.commands.pipeline import pipeline
 from benchmarks.commands.pre_compute import pre_compute
 from benchmarks.commands.train_beta import train_beta
 from benchmarks.commands.train_synthetic import train_synthetic
+from benchmarks.commands.velocity_spacing_plot import velocity_spacing_plot
 
 
 @click.group()
@@ -36,3 +37,4 @@ main.add_command(ncomp_rms_plot)
 main.add_command(pipeline)
 main.add_command(grs_map_plot)
 main.add_command(correlation_plot)
+main.add_command(velocity_spacing_plot)

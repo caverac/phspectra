@@ -273,7 +273,7 @@ def _build_correlation_figure(
     max_lag_arcmin:
         Maximum angular lag to display.
     """
-    fig, axes = plt.subplots(2, 2, figsize=(10, 8), sharex=True)
+    fig, axes = plt.subplots(2, 2, figsize=(10, 5), sharex=True)
     fig.subplots_adjust(left=0.09, right=0.96, bottom=0.09, top=0.97, wspace=0.25, hspace=0.08)
 
     fmt = LogFormatterMathtext()
@@ -298,23 +298,21 @@ def _build_correlation_figure(
         ax.xaxis.set_major_formatter(fmt)
         ax.yaxis.set_major_formatter(fmt)
         configure_axes(ax)
-        ax.legend(loc="upper right", frameon=False)
 
         # Correlation length annotation (1/e crossing)
         e_fold = 1.0 / np.e
         below = np.where(xi_plot < e_fold)[0]
         if len(below) > 0:
             r_corr = r_plot[below[0]]
-            ax.axvline(r_corr, color="0.15", linewidth=0.8, linestyle=":")
-            ax.text(
-                r_corr * 1.15,
-                0.85,
-                f"$\\theta_{{corr}}$ = {r_corr:.1f}'",
-                transform=ax.get_xaxis_transform(),
-                fontsize=9,
+            ax.axvline(
+                r_corr,
                 color="0.15",
+                linewidth=0.8,
+                linestyle=":",
+                label=f"$\\theta_{{corr}}$ = {r_corr:.1f}'",
             )
 
+        ax.legend(loc="upper right", frameon=False)
         ax.set_ylabel(r"$\xi(\theta)$")
 
     for ax in axes[1]:

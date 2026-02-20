@@ -59,6 +59,23 @@ uv run benchmarks correlation-plot --input-dir /tmp/phspectra/grs-full
 
 The velocity field $\bar{v}$ and dispersion $\sigma_v$ decorrelate faster than the structural fields ($N_\mathrm{comp}$, $I_\mathrm{tot}$), reflecting the smaller coherence scale of gas kinematics compared to the cloud-scale column density structure. The correlation lengths of $\sim 0.3\degree$--$0.6\degree$ for $N_\mathrm{comp}$ and $I_\mathrm{tot}$ are consistent with the angular extent of giant molecular cloud complexes in the inner Galaxy. [Roman-Duval et al. (2010)](https://doi.org/10.1088/0004-637X/723/1/492) measured physical radii of 1--40 pc for 580 molecular clouds identified in the GRS, at kinematic distances of 1--12 kpc ([Roman-Duval et al. 2009](https://doi.org/10.1088/0004-637X/699/2/1153)). At typical GRS distances of 3--8 kpc, clouds of 10--30 pc radius subtend $0.1\degree$--$0.6\degree$, matching the observed correlation scale.
 
+## Velocity spacing distribution
+
+The distribution of velocity separations between adjacent fitted Gaussian components reveals the characteristic velocity scales recovered by the decomposition. For each spectrum with two or more significant components (amplitude $\geq 3\sigma_\mathrm{rms}$), we sort the component centroids by velocity and compute adjacent spacings $\Delta v = v_{i+1} - v_i$.
+
+```bash
+uv run benchmarks velocity-spacing-plot --input-dir /tmp/phspectra/grs-full
+```
+
+<figure class="scientific">
+  <img src="/img/results/velocity-spacing-plot.png" alt="Velocity spacing distribution" style={{width: '50%'}} />
+  <figcaption>
+
+**Figure.** Normalised distribution of adjacent velocity spacings $\Delta v$ across GRS tiles 26--34. The grey histogram shows all spectra combined; coloured step histograms split by the number of significant components per spectrum ($N = 2$, $N = 3$--$4$, $N \geq 5$).
+
+  </figcaption>
+</figure>
+
 ## Full survey (all 22 tiles)
 
 See [Data Sources](../idea-and-plan/data-sources#downloading-the-full-survey) for download instructions. To process every tile, submit each one as a separate pipeline run:

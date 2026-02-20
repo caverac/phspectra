@@ -41,7 +41,7 @@ def _plot_timing(
         Single-axes matplotlib figure.
     """
     fig: Figure
-    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig, ax = plt.subplots(figsize=(4.0, 3.5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
     lo = max(1.0, float(min(ph_ms.min(), gp_ms.min())) * 0.8)

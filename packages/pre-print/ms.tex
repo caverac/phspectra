@@ -38,9 +38,9 @@
 % ABSTRACT
 % ---------------------------------------------------------------------------
 \begin{abstract}
-Radio surveys deliver millions of spectra, making Gaussian decomposition
-a bottleneck in turning line profiles into physical insight about the
-interstellar medium.  This work presents \phspectra, a parameter-light
+Modern radio surveys routinely deliver millions of spectra, making automated
+Gaussian decomposition a critical bottleneck in extracting physical insight
+about the interstellar medium.  This work presents \phspectra, a parameter-light
 approach that uses
 0-dimensional persistent homology to detect peaks in 1D spectra.
 Persistent homology tracks the birth and death of connected components in the
@@ -50,13 +50,12 @@ without smoothing or differentiation.  The sole free parameter is $\beta$,
 which sets the persistence threshold in units of noise:
 $\pmin = \beta\,\srms$.  On a synthetic benchmark of 350 spectra spanning
 seven difficulty categories, \phspectra\ achieves an overall $F_1$ score of
-0.925 at the optimal $\beta = 2.8$, with performance varying by only 0.040
-across $\beta \in [2.0, 4.5]$.  Compared with \gausspyp\ on 4200 real
-${}^{13}$CO spectra from the Galactic Ring Survey, \phspectra\ produces lower
-residual RMS in 62\% of head-to-head comparisons and runs $2.0\times$ faster,
-while requiring no parameter training.  The result is a survey-ready
-decomposition method that is robust to tuning choices and scalable to modern
-datasets.
+0.925 with performance varying by only 0.040
+across $\beta \in [2.0, 4.5]$.  On 4200 real ${}^{13}$CO spectra from the
+Galactic Ring Survey, the method delivers reliable fits at survey scale while
+maintaining a single, interpretable significance threshold.  The result is a
+survey-ready decomposition method that is robust to tuning choices and
+scalable to modern datasets.
 \end{abstract}
 
 \keywords{methods: data analysis --- ISM: kinematics and dynamics ---
@@ -84,7 +83,8 @@ A variety of automated approaches have been developed, each with distinct
 trade-offs.  Derivative spectroscopy methods such as \gausspy\
 \citep{Lindner2015} and \gausspyp\ \citep{Riener2019} identify peaks via
 smoothed derivatives, but require tuning of smoothing scales $\alpha_1$ and
-$\alpha_2$ on synthetic spectra tailored to each survey.  Semi-interactive
+$\alpha_2$ to each survey, aiming to recover the scales of features in the observations.
+Semi-interactive
 toolkits such as \textsc{scousepy} \citep{Henshaw2016Scousepy} and
 \textsc{pyspeckit} \citep{Ginsburg2011} enable human-in-the-loop fitting,
 but scaling these workflows to millions of spectra is labor-intensive.
@@ -95,7 +95,8 @@ of high per-spectrum computation.  GPU-accelerated fitters such as
 (e.g., \textsc{mwydyn}; \citealt{Rigby2024}) target high throughput but rely
 on specialized implementations.  Deep reinforcement learning
 (\textsc{Spectuner-D1}; \citealt{Li2025}) learns a decomposition policy from
-labeled training spectra.
+labeled training spectra and can be sensitive to domain shift when the
+training set does not match survey conditions.
 Regularized optimization (\rohsa; \citealt{Marchal2019}) enforces spatial
 coherence in data cubes but introduces regularization weights that must be
 tuned.  The common thread is that existing methods require multiple
@@ -129,8 +130,9 @@ achieves high accuracy on synthetic data while matching or exceeding
   \centering
   \includegraphics[width=0.9\textwidth]{figures/img/water-level-stages.png}
   \caption{%
-    The descending water-level interpretation of 0-dimensional persistent
-    homology, applied to a synthetic three-peak spectrum.  As the threshold
+    Intuition for the peak-ranking step that underpins the decomposition.  The
+    descending water-level interpretation of 0-dimensional persistent
+    homology is applied to a synthetic three-peak spectrum.  As the threshold
     $t$ (dashed line) decreases, connected components are born at local maxima
     and die when they merge into an older component.  Red dots mark peak births;
     annotations show the final persistence $\pi = b - d$.  \emph{Top left}:
@@ -186,7 +188,7 @@ $O(n \log n)$; each union-find operation is amortized $O(\alpha(n))$, where
 $\alpha$ is the inverse Ackermann function, so the total complexity is
 dominated by the initial sort.
 
-Raw persistence is measured in the same units as the signal, so a fixed
+Raw persistence is measured in the same units as the signal, a fixed
 threshold cannot distinguish noise from signal across datasets with different
 noise levels.  The minimum persistence is therefore set in units of the
 noise:
@@ -209,7 +211,7 @@ parameter-free ranking of feature significance that is stable under
 perturbation \citep{Edelsbrunner2002,Otter2017}.  The union-find data
 structure \citep{Tarjan1975} makes the computation efficient.
 
-This suits spectral decomposition because most methods must commit early to
+This suits spectral decomposition; in contrast with most methods that must commit early to
 either a model family, a smoothing scale, or a heuristic for deciding which
 peaks are worth fitting, all of which can bias the decomposition when lines
 are blended or span a wide range of widths.  Persistent homology avoids a
@@ -229,12 +231,6 @@ three real peaks have persistence values of $\pi = 2.58$, $1.20$, and $0.73$
 practice these values are compared against the minimum persistence
 $\pmin = \beta\,\srms$: peaks with $\pi > \pmin$ are kept as Gaussian
 candidates, while lower-persistence features are rejected as noise.
-
-
-The same information can be represented in a persistence diagram
-\citep{Edelsbrunner2002,Edelsbrunner2008}, where each peak is a point $(b, d)$
-above the diagonal $b = d$; high-persistence peaks sit well away from the
-diagonal, and a horizontal cut at $\pmin$ separates signal from noise.
 
 % ---------------------------------------------------------------------------
 % §2.2  From persistence to Gaussian candidates
@@ -349,12 +345,13 @@ to final Gaussian components.
   \centering
   \resizebox{\columnwidth}{!}{\input{figures/tikz/pipeline-overview.tex}}
   \caption{%
-    Flowchart of the \phspectra\ pipeline.  After noise estimation and
-    persistence-based peak detection, the initial Gaussian fit is validated
-    and scored by AICc.  If residual peaks or blended pairs remain, an
-    iterative refinement loop searches for missed components, splits
-    over-broad fits at negative residual dips, and merges redundant pairs;
-    each modification is accepted only if it lowers the AICc.
+    End-to-end pipeline used to turn spectra into physically interpretable
+    components.  After noise estimation and persistence-based peak detection,
+    the initial Gaussian fit is validated and scored by AICc.  If residual
+    peaks or blended pairs remain, an iterative refinement loop searches for
+    missed components, splits over-broad fits at negative residual dips, and
+    merges redundant pairs; each modification is accepted only if it lowers
+    the AICc.
     \label{fig:pipeline}}
 \end{figure}
 
@@ -368,9 +365,10 @@ to final Gaussian components.
   \centering
   \includegraphics[width=\columnwidth]{figures/img/synthetic-f1.png}
   \caption{%
-    $F_1$ score versus $\beta$ for each synthetic benchmark category (colored
-    lines) and overall (black).  Performance is remarkably stable: the overall
-    $F_1$ varies by only 0.040 across $\beta \in [2.0, 4.5]$.
+    Robustness to the sole free parameter.  $F_1$ score versus $\beta$ for each
+    synthetic benchmark category (colored lines) and overall (black).
+    Performance is stable: the overall $F_1$ varies by only 0.040 across
+    $\beta \in [2.0, 4.5]$.
     \label{fig:synthetic_f1}}
 \end{figure}
 
@@ -493,9 +491,9 @@ fit quality against component count in different ways.
   \centering
   \includegraphics[width=\columnwidth]{figures/img/rms-scatter.png}
   \caption{%
-    Per-spectrum residual RMS: \phspectra\ versus \gausspyp.  Points below the
-    1:1 line (dashed) indicate spectra where \phspectra\ achieves lower
-    residual RMS.
+    Head-to-head comparison on real data.  Per-spectrum residual RMS:
+    \phspectra\ versus \gausspyp.  Points below the 1:1 line (dashed) indicate
+    spectra where \phspectra\ achieves lower residual RMS.
     \label{fig:rms_scatter}}
 \end{figure}
 
@@ -532,7 +530,7 @@ moment-1 maps when multiple clouds overlap.
   \centering
   \includegraphics[width=\textwidth]{figures/img/grs-map-plot.png}
   \caption{%
-    Four-panel decomposition strip of GRS tiles 26--34
+    Survey-scale products derived from the decomposition (GRS tiles 26--34;
     ($\ell \approx 25\degr$--$35\degr$).  \emph{(a)}~Velocity RGB
     composite: three velocity bins mapped to R, G, B from the decomposed
     Gaussians.  \emph{(b)}~Topological complexity: number of Gaussian
@@ -542,6 +540,25 @@ moment-1 maps when multiple clouds overlap.
     the brightest component per pixel.
     \label{fig:grs_map}}
 \end{figure*}
+
+Velocity-spacing statistics provide a complementary view of line-of-sight
+structure.  For each spectrum, adjacent components are ordered by centroid
+velocity and the separations $\Delta v$ are measured; the resulting
+distribution highlights common multi-layer spacings and can be compared
+across regions with different crowding.
+
+\begin{figure}[t!]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/img/velocity-spacing-plot.png}
+  \caption{%
+    Line-of-sight layering in a single statistic.  Normalized distributions
+    of velocity separations $\Delta v$ between adjacent fitted components,
+    shown for all spectra (filled) and split by component count per spectrum:
+    $N = 2$, $N = 3$--4, and $N \ge 5$ (step histograms).  Small $\Delta v$
+    dominates, while higher-component spectra show broader tails, indicating
+    richer line-of-sight layering.}
+  \label{fig:velocity_spacing}
+\end{figure}
 
 The two-point autocorrelation function $\xi(\theta)$ of each
 derived field across the five-tile strip using FFT-based estimation, with
@@ -622,6 +639,16 @@ filtration.  \gausspyp\ offers spatial coherence that \phspectra\ currently
 lacks, while \rohsa\ provides full regularized optimization with built-in
 coherence but requires manual tuning of regularization weights.
 
+The physical value of the decomposition is clearest at survey scale.  The
+component-count map provides a compact proxy for structural complexity,
+flagging regions where overlapping clouds, shocks, or feedback increase the
+number of kinematic layers.  Spatial coherence in the fitted components
+preserves cloud- and filament-scale morphology, allowing kinematic structures
+to be traced across the cube without manual tuning.  Velocity-spacing
+statistics add a one-dimensional summary of line-of-sight layering, revealing
+characteristic separations between components that can be compared across
+environments.
+
 \paragraph{Scalability.}
 Because each spectrum is decomposed independently, the algorithm is
 trivially parallelizable.  A serverless pipeline has been deployed on
@@ -690,6 +717,11 @@ versus 8.4\,s for \gausspyp.
 
 The software, documentation, and benchmark scripts are publicly available at
 \url{https://github.com/caverac/phspectra}.
+
+At survey scale, \phspectra\ turns spectra into physically interpretable
+products: component-count maps that track complexity, spatially coherent
+component fields that preserve morphology, and velocity-spacing statistics
+that summarize line-of-sight layering.
 
 The central result is that persistent homology enables a survey-ready,
 parameter-light decomposition that matches trained methods while eliminating

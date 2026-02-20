@@ -32,6 +32,7 @@ def test_cli_lists_commands() -> None:
         "pipeline",
         "grs-map-plot",
         "correlation-plot",
+        "velocity-spacing-plot",
     ]:
         assert cmd in result.output, f"Missing command: {cmd}"
 
@@ -117,4 +118,11 @@ def test_correlation_plot_help() -> None:
     """``benchmarks correlation-plot --help`` should succeed."""
     runner = CliRunner()
     result = runner.invoke(main, ["correlation-plot", "--help"])
+    assert result.exit_code == 0
+
+
+def test_velocity_spacing_plot_help() -> None:
+    """``benchmarks velocity-spacing-plot --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["velocity-spacing-plot", "--help"])
     assert result.exit_code == 0

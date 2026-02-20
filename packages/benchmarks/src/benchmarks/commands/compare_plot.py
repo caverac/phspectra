@@ -228,7 +228,7 @@ def _build_rms_hist(results: list[ComparisonResult]) -> Figure:
     gp_rms_arr = np.array([r.gp_rms for r in results])
 
     fig: Figure
-    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig, ax = plt.subplots(figsize=(4.0, 3.5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
     upper = max(np.percentile(ph_rms_arr, 99), np.percentile(gp_rms_arr, 99))
@@ -309,7 +309,7 @@ def _build_disagreements_figure(
         Full-width 2x3 matplotlib figure.
     """
     fig: Figure
-    fig, axes = plt.subplots(2, 3, figsize=(16, 11), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 3, figsize=(10, 7), sharex=True, sharey=True)
     fig.subplots_adjust(left=0.05, right=0.98, bottom=0.07, top=0.95, wspace=0.08, hspace=0.08)
 
     for i, (label, r) in enumerate(disagreements):
@@ -354,7 +354,7 @@ def _build_width_hist(
     log_ratios = np.log(ph_w / np.maximum(gp_w, 0.1))
 
     fig: Figure
-    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig, ax = plt.subplots(figsize=(4.0, 3.5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
     bins = np.linspace(

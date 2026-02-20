@@ -564,7 +564,7 @@ def _plot_error_boxplots(
     fig, axes = plt.subplots(
         len(err_panels),
         1,
-        figsize=(6, 6),
+        figsize=(4, 6),
         sharex=True,
     )
     fig.subplots_adjust(left=0.14, right=0.95, bottom=0.08, top=0.97, hspace=0.05)
