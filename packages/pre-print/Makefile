@@ -8,7 +8,7 @@ SRCIMGS  = ../docs/static/img/results
 
 all: $(MAIN).pdf
 
-$(MAIN).pdf: $(MAIN).tex $(MAIN).bib $(wildcard figures/tikz/*.tex)
+$(MAIN).pdf: $(MAIN).tex $(MAIN).bib $(wildcard figures/tikz/*.tex) $(wildcard figures/img/*.png)
 	$(TEX) $(MAIN)
 	$(BIB) $(MAIN)
 	$(TEX) $(MAIN)

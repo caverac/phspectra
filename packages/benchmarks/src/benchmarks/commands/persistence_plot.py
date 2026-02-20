@@ -178,14 +178,14 @@ def _plot_water_levels(
         "Water above all peaks",
         f"Peak A born (channel {top_peaks[0].index})",
         f"Peak B born (channel {top_peaks[1].index})",
-        "Peak C merges into A -- C dies",
+        "Peak C merges into A. C dies",
     ]
 
     fig: Figure
     axes: AxesGrid2D
-    fig, axes = plt.subplots(2, 2, figsize=(6, 6), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(10, 5), sharex=True, sharey=True)
 
-    fig.subplots_adjust(left=0.08, right=0.96, bottom=0.09, top=0.96, wspace=0.06, hspace=0.12)
+    fig.subplots_adjust(left=0.08, right=0.96, bottom=0.09, top=0.96, wspace=0.05, hspace=0.12)
 
     for ax, level, label in zip(axes.ravel(), levels, stage_labels):
         ax.plot(x, signal, "-k", lw=1.0, alpha=0.6, label="Signal")
