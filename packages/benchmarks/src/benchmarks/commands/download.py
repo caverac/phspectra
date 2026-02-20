@@ -19,6 +19,7 @@ from benchmarks._constants import (
     RESOURCE_CATALOG,
     RESOURCE_FITS,
     RESOURCE_PRECOMPUTE_DB,
+    RESOURCE_SPECTRA_NPZ,
     RESOURCES_BASE_URL_TEMPLATE,
 )
 
@@ -91,5 +92,7 @@ def download(cache_dir: str, force: bool, environment: str) -> None:
     os.makedirs(precompute_dir, exist_ok=True)
     db_path = os.path.join(precompute_dir, RESOURCE_PRECOMPUTE_DB)
     _download_optional(base_url, RESOURCE_PRECOMPUTE_DB, db_path, force)
+    npz_path = os.path.join(precompute_dir, RESOURCE_SPECTRA_NPZ)
+    _download_optional(base_url, RESOURCE_SPECTRA_NPZ, npz_path, force)
 
     console.print(f"\nDone.  All data cached in [blue]{cache_dir}[/blue]", style="bold green")

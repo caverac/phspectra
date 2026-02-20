@@ -242,7 +242,7 @@ def _plot_beta_sweep(results: list[BetaSweepResult]) -> Figure:
 
     fig: Figure
     ax: Axes
-    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig, ax = plt.subplots(figsize=(4, 3.5))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.92)
 
     ax.plot(betas, [r.f1 for r in results], "-k", lw=1.5, label="$F_1$")

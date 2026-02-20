@@ -25,7 +25,7 @@ from benchmarks._console import console
 from benchmarks._constants import MEAN_MARGIN, N_CHANNELS, NOISE_SIGMA
 from benchmarks._gaussian import gaussian, gaussian_model
 from benchmarks._matching import count_correct_matches, f1_score, match_pairs
-from benchmarks._plotting import AxesGrid1D, AxesGrid2D, configure_axes, docs_figure
+from benchmarks._plotting import AxesGrid1D, configure_axes, docs_figure
 from benchmarks._types import Component, SyntheticSpectrum
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
@@ -454,13 +454,13 @@ def _plot_f1_vs_beta(
     csv_rows: list[_EvalResult],
     categories: list[str],  # pylint: disable=unused-argument
 ) -> Figure:
-    """Build the 2x2 F1 vs beta figure grouped by category theme.
+    """Build 4x1 stacked F1 vs beta figure grouped by category theme.
 
-    Panel layout:
-      (0,0) single_bright (dashed) + single_faint (dash-dot) + overall (solid)
-      (0,1) single_narrow (dashed) + single_broad (dash-dot) + overall (solid)
-      (1,0) multi_separated (dashed) + multi_blended (dash-dot) + overall (solid)
-      (1,1) crowded (dashed) + overall (solid)
+    Panel layout (top to bottom):
+      [0] single_bright (dashed) + single_faint (dash-dot) + overall (solid)
+      [1] single_narrow (dashed) + single_broad (dash-dot) + overall (solid)
+      [2] multi_separated (dashed) + multi_blended (dash-dot) + overall (solid)
+      [3] crowded (dashed) + overall (solid)
 
     All lines black, distinguished by line style only.
 
@@ -498,13 +498,12 @@ def _plot_f1_vs_beta(
     ]
 
     fig: Figure
-    axes: AxesGrid2D
-    fig, axes = plt.subplots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
-    fig.subplots_adjust(left=0.08, right=0.96, bottom=0.08, top=0.95, wspace=0.08, hspace=0.08)
+    axes: AxesGrid1D
+    fig, axes = plt.subplots(4, 1, figsize=(4, 6), sharex=True, sharey=True)
+    fig.subplots_adjust(left=0.12, right=0.95, bottom=0.08, top=0.95, hspace=0.07)
 
     for idx, lines in enumerate(panel_spec):
-        row, col = divmod(idx, 2)
-        ax = axes[row, col]
+        ax = axes[idx]
         for cat, ls, label in lines:
             ax.plot(
                 betas,
@@ -516,13 +515,11 @@ def _plot_f1_vs_beta(
             )
         ax.plot(betas, overall, color="k", linestyle="-", linewidth=2.5, label="Overall")
         ax.set_ylim(-0.05, 1.05)
+        ax.set_ylabel("$F_1$")
         ax.legend(loc="lower left", frameon=False)
         configure_axes(ax)
 
-    for ax in [axes[1, 0], axes[1, 1]]:
-        ax.set_xlabel(r"$\beta$")
-    for ax in [axes[0, 0], axes[1, 0]]:
-        ax.set_ylabel("$F_1$")
+    axes[-1].set_xlabel(r"$\beta$")
 
     return fig
 
@@ -567,7 +564,7 @@ def _plot_error_boxplots(
     fig, axes = plt.subplots(
         len(err_panels),
         1,
-        figsize=(6, 6),
+        figsize=(4, 6),
         sharex=True,
     )
     fig.subplots_adjust(left=0.14, right=0.95, bottom=0.08, top=0.97, hspace=0.05)

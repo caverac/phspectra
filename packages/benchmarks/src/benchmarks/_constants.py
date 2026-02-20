@@ -18,6 +18,7 @@ RESOURCES_BASE_URL_TEMPLATE = "https://phspectra-{environment}-resources.s3.amaz
 RESOURCE_FITS = "grs-test-field.fits"
 RESOURCE_CATALOG = "gausspy-catalog.votable"
 RESOURCE_PRECOMPUTE_DB = "pre-compute.db"
+RESOURCE_SPECTRA_NPZ = "spectra.npz"
 
 # Local cache paths
 

@@ -79,7 +79,7 @@ def _build_ncomp_rms(
         Two-panel stacked matplotlib figure.
     """
     fig: Figure
-    fig, axes = plt.subplots(2, 1, figsize=(6, 5), sharex=True)
+    fig, axes = plt.subplots(2, 1, figsize=(4, 4), sharex=True)
     fig.subplots_adjust(left=0.12, right=0.95, bottom=0.11, top=0.95, hspace=0.12)
 
     for ax, rms, ncomp, label in [

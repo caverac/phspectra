@@ -12,13 +12,13 @@ from click.testing import CliRunner
 
 
 def test_download_cli(tmp_path: Path) -> None:
-    """CLI should download FITS, catalog, and attempt pre-compute db."""
+    """CLI should download FITS, catalog, pre-compute.db, and spectra.npz."""
     with patch("benchmarks.commands.download.urlretrieve") as mock_retrieve:
         runner = CliRunner()
         result = runner.invoke(main, ["download", "--cache-dir", str(tmp_path)])
     assert result.exit_code == 0, result.output
-    # FITS + catalog (required) + pre-compute.db (optional attempt)
-    assert mock_retrieve.call_count == 3
+    # FITS + catalog (required) + pre-compute.db + spectra.npz (optional)
+    assert mock_retrieve.call_count == 4
 
 
 def test_download_cached(tmp_path: Path) -> None:
@@ -28,6 +28,7 @@ def test_download_cached(tmp_path: Path) -> None:
     db_dir = tmp_path / "compare-docker"
     db_dir.mkdir()
     (db_dir / "pre-compute.db").write_text("fake")
+    (db_dir / "spectra.npz").write_text("fake")
 
     with patch("benchmarks.commands.download.urlretrieve") as mock_retrieve:
         runner = CliRunner()
@@ -45,7 +46,7 @@ def test_download_force(tmp_path: Path) -> None:
         runner = CliRunner()
         result = runner.invoke(main, ["download", "--cache-dir", str(tmp_path), "--force"])
     assert result.exit_code == 0, result.output
-    assert mock_retrieve.call_count == 3
+    assert mock_retrieve.call_count == 4
 
 
 def test_download_http_error(tmp_path: Path) -> None:

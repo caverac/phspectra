@@ -20,6 +20,7 @@ from benchmarks._plotting import docs_figure
 from benchmarks.commands.survey_map import (
     DecompositionData,
     _download_decompositions,
+    _filter_sparse_pixels,
     _galactic_extent,
     _load_parquet_data,
     _panel_bivariate,
@@ -258,7 +259,7 @@ def _build_grs_figure(
     ny = grid.ny
     extent = _galactic_extent(grid.header, nx, ny)
 
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=(9.5, 9.5))
     gs = GridSpec(
         4,
         2,
@@ -338,6 +339,15 @@ def grs_map_plot(
     if len(data.x) == 0:
         console.print("No decomposition data found. Aborting.", style="bold red")
         return
+
+    n_before = len(data.x)
+    data = _filter_sparse_pixels(data, grid.nx, grid.ny)
+    n_dropped = n_before - len(data.x)
+    if n_dropped:
+        console.print(
+            f"  Filtered {n_dropped} sparse edge pixels ({len(data.x)} remaining).",
+            style="yellow",
+        )
 
     velocity = _velocity_axis(grid.header)
 

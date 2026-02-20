@@ -86,11 +86,11 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.semrel.outputs.tag }}
 
-      # - name: Publish to PyPI
-      #   if: steps.semrel.outputs.released == 'true'
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     packages-dir: packages/phspectra/dist/
+      - name: Publish to PyPI
+        if: steps.semrel.outputs.released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/phspectra/dist/
 
   # ===========================================================================
   # Stage 2: Deploy docs (after releases, so version badge is up to date)
