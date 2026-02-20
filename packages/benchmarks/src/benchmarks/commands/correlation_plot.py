@@ -1,7 +1,7 @@
 """``benchmarks correlation-plot`` -- two-point autocorrelation of decomposition fields.
 
 Computes the angular autocorrelation function of four scalar fields
-derived from the Gaussian decomposition of a single GRS tile:
+derived from the Gaussian decomposition of the selected GRS tiles:
 
 1. **N_comp** -- number of components per pixel (topological complexity).
 2. **Integrated intensity** -- sum(amp_i * sigma_i) per pixel.
@@ -15,23 +15,23 @@ and proper mask normalisation.
 
 from __future__ import annotations
 
-import glob
-import os
-
 import click
 import numpy as np
 import numpy.typing as npt
-import pyarrow as pa
-import pyarrow.parquet as pq
-from astropy.io import fits
 from benchmarks._console import console
 from benchmarks._constants import CACHE_DIR
 from benchmarks._plotting import configure_axes, docs_figure
+from benchmarks.commands.grs_map_plot import (
+    TILES,
+    _compute_global_grid,
+    _load_global_data,
+    _read_tile_infos,
+)
+from benchmarks.commands.survey_map import DecompositionData
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.ticker import LogFormatterMathtext
 
-SURVEY_DEFAULT = "grs-26"
 MAX_LAG_ARCMIN_DEFAULT = 15.0
 
 # ---------------------------------------------------------------------------
@@ -51,34 +51,32 @@ FIELD_SPECS: list[tuple[str, str, str]] = [
 # ---------------------------------------------------------------------------
 
 
-def _load_decomposition_table(survey: str, cache_dir: str) -> pa.Table:
-    """Load cached Parquet decomposition data for *survey*."""
-    parquet_dir = os.path.join(cache_dir, "decompositions", survey)
-    files = sorted(glob.glob(os.path.join(parquet_dir, "*.parquet")))
-    if not files:
-        msg = f"No Parquet files in {parquet_dir}"
-        raise FileNotFoundError(msg)
-    return pa.concat_tables([pq.read_table(f) for f in files])
-
-
 def _build_scalar_grids(
-    table: pa.Table,
+    data: DecompositionData,
+    nx: int,
+    ny: int,
 ) -> dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_]]]:
-    """Build the four scalar fields and their masks from a decomposition table.
+    """Build the four scalar fields and their masks from decomposition data.
+
+    Parameters
+    ----------
+    data:
+        Decomposition results with global-grid coordinates.
+    nx, ny:
+        Global grid dimensions.
 
     Returns
     -------
     dict mapping field key -> (grid, mask), where *grid* has shape
     ``(ny, nx)`` and *mask* is True for valid pixels.
     """
-    x = table.column("x").to_numpy().astype(np.int32)
-    y = table.column("y").to_numpy().astype(np.int32)
-    nc = table.column("n_components").to_numpy().astype(np.int32)
-    amps = table.column("component_amplitudes").to_pylist()
-    means = table.column("component_means").to_pylist()
-    stddevs = table.column("component_stddevs").to_pylist()
+    x = data.x
+    y = data.y
+    nc = data.n_components
+    amps = data.component_amplitudes
+    means = data.component_means
+    stddevs = data.component_stddevs
 
-    nx, ny = int(x.max()) + 1, int(y.max()) + 1
     sentinel = np.nan
 
     ncomp_grid = np.full((ny, nx), sentinel)
@@ -332,16 +330,16 @@ def _build_correlation_figure(
 
 @click.command("correlation-plot")
 @click.option(
-    "--survey",
-    default=SURVEY_DEFAULT,
-    show_default=True,
-    help="Survey name (must have cached decompositions).",
+    "--input-dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory containing GRS FITS tiles.",
 )
 @click.option(
-    "--fits-file",
-    required=True,
-    type=click.Path(exists=True, dir_okay=False),
-    help="FITS cube for pixel-scale header (CDELT2).",
+    "--environment",
+    default="development",
+    show_default=True,
+    help="AWS environment.",
 )
 @click.option(
     "--max-lag",
@@ -351,21 +349,41 @@ def _build_correlation_figure(
     help="Maximum angular lag in arcminutes.",
 )
 @click.option("--cache-dir", default=CACHE_DIR, show_default=True, help="Cache directory.")
+@click.option("--force", is_flag=True, help="Re-download even if cached.")
 def correlation_plot(
-    survey: str,
-    fits_file: str,
+    input_dir: str,
+    environment: str,
     max_lag: float,
     cache_dir: str,
+    force: bool,
 ) -> None:
-    """Two-point autocorrelation of decomposition scalar fields."""
-    console.print(f"Loading [bold]{survey}[/bold] decomposition data ...", style="bold cyan")
-    table = _load_decomposition_table(survey, cache_dir)
+    """Two-point autocorrelation of decomposition scalar fields across GRS tiles."""
+    console.print("Reading tile headers ...", style="bold cyan")
+    all_tiles = _read_tile_infos(input_dir)
+    tiles = [t for t in all_tiles if t.survey in TILES]
+    if not tiles:
+        console.print("No FITS tiles found. Aborting.", style="bold red")
+        return
+
+    console.print(f"Found {len(tiles)} tile(s).", style="bold cyan")
+
+    console.print("Computing global grid ...", style="bold cyan")
+    grid = _compute_global_grid(tiles)
+    console.print(
+        f"  Global grid: {grid.nx} x {grid.ny} x {grid.naxis3}",
+        style="green",
+    )
+
+    console.print("Downloading decomposition data ...", style="bold cyan")
+    data = _load_global_data(tiles, grid, environment, cache_dir, force)
+    if len(data.x) == 0:
+        console.print("No decomposition data found. Aborting.", style="bold red")
+        return
 
     console.print("Building scalar grids ...", style="bold cyan")
-    grids = _build_scalar_grids(table)
+    grids = _build_scalar_grids(data, grid.nx, grid.ny)
 
-    with fits.open(fits_file) as hdul:
-        cdelt = abs(float(hdul[0].header["CDELT2"]))  # pylint: disable=no-member
+    cdelt = abs(float(grid.header["CDELT2"]))
     arcmin_per_px = cdelt * 60.0
     console.print(f"  Pixel scale: {arcmin_per_px:.3f} arcmin/px", style="green")
 

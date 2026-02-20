@@ -30,6 +30,11 @@ flowchart TB
         W["Worker Lambdas<br/>ARM64, 1024 MB, 15 min<br/>up to 500 concurrent"]
     end
 
+    subgraph slow["Slow-path reprocessing"]
+        SQ["Slow Queue"]
+        SW["Slow Worker Lambdas<br/>ARM64, 1024 MB, 15 min<br/>up to 10 concurrent"]
+    end
+
     subgraph store["Storage and analytics"]
         S3["S3 Parquet<br/>Hive-partitioned"]
         GL["Glue Data Catalog"]
@@ -50,6 +55,9 @@ flowchart TB
     W -- "reads chunk" --> S3C
     W -- "writes Parquet" --> S3
     W -- "increments counters" --> DDB
+    W -. "timed-out spectra" .-> SQ
+    SQ --> SW
+    SW -- "patches Parquet" --> S3
     C -. "polls progress" .-> DDB
     S3 --> GL
     GL --> AT
@@ -57,15 +65,17 @@ flowchart TB
 
 ### What each component does
 
-| Component           | Role                                                                                                                                                                                                                                                                                                      |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **EventBridge**     | Watches the S3 bucket for new objects. A `.json` file in `manifests/` triggers the splitter.                                                                                                                                                                                                              |
-| **Splitter Lambda** | Reads the FITS cube with `astropy`, reshapes the data into a flat array of spectra, groups them into chunks of 500, writes each chunk as a compressed `.npz` file, sends one SQS message per chunk, and creates a run record in DynamoDB.                                                                 |
-| **SQS Queue**       | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection.                                                                                                                               |
-| **Worker Lambda**   | Reads a single `.npz` chunk from S3, marks its chunk item as `IN_PROGRESS`, runs `fit_gaussians(spectrum, **params)` on each spectrum, builds a PyArrow table, writes the result as a Snappy-compressed Parquet file, marks the chunk `COMPLETED` (or `FAILED`), and increments the DynamoDB run counter. |
-| **DynamoDB**        | Tracks run and chunk progress. The splitter creates a run record with `jobs_total` and batch-writes one chunk item per chunk (`PENDING`). Workers update chunk status and atomically increment `jobs_completed` or `jobs_failed` on the run record. The CLI polls this table to display a progress bar.   |
-| **S3 (Parquet)**    | Results are written under `decompositions/survey={name}/`. The `beta` value is stored as a regular column inside the Parquet files.                                                                                                                                                                       |
-| **Glue + Athena**   | The Glue table uses partition projection (survey only) -- no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys immediately after the workers finish writing.                                                                                                                  |
+| Component              | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **EventBridge**        | Watches the S3 bucket for new objects. A `.json` file in `manifests/` triggers the splitter.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Splitter Lambda**    | Reads the FITS cube with `astropy`, reshapes the data into a flat array of spectra, groups them into chunks of 500, writes each chunk as a compressed `.npz` file, sends one SQS message per chunk, and creates a run record in DynamoDB.                                                                                                                                                                                                                                                                                                        |
+| **SQS Queue**          | Decouples the splitter from the workers. Messages are retained for 14 days. Failed messages are retried up to 3 times before landing in a dead-letter queue for inspection.                                                                                                                                                                                                                                                                                                                                                                      |
+| **Worker Lambda**      | Reads a single `.npz` chunk from S3, marks its chunk item as `IN_PROGRESS`, runs `fit_gaussians(spectrum, **params)` on each spectrum with a per-spectrum alarm timeout (default 5 s), builds a PyArrow table, writes the result as a Snappy-compressed Parquet file, marks the chunk `COMPLETED` (or `FAILED`), and increments the DynamoDB run counter. Spectra that time out are marked with `n_components = -1` and forwarded to the slow queue for reprocessing. If the Lambda deadline is within 60 s, all remaining spectra are deferred. |
+| **Slow Queue**         | Receives messages from the worker for chunks that contain timed-out spectra. 16-minute visibility timeout, 14-day retention, 1 retry before dead-letter queue.                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Slow Worker Lambda** | Re-processes only the timed-out spectra from a chunk -- without the per-spectrum alarm -- downloads the original `.npz` and the existing Parquet file, patches the failed rows in place, and overwrites the Parquet on S3. Capped at 10 concurrent invocations to avoid runaway costs on pathological spectra.                                                                                                                                                                                                                                   |
+| **DynamoDB**           | Tracks run and chunk progress. The splitter creates a run record with `jobs_total` and batch-writes one chunk item per chunk (`PENDING`). Workers update chunk status and atomically increment `jobs_completed` or `jobs_failed` on the run record. The CLI polls this table to display a progress bar.                                                                                                                                                                                                                                          |
+| **S3 (Parquet)**       | Results are written under `decompositions/survey={name}/`. The `beta` value is stored as a regular column inside the Parquet files.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Glue + Athena**      | The Glue table uses partition projection (survey only) -- no crawlers, no `MSCK REPAIR TABLE`. Athena can query results across all surveys immediately after the workers finish writing.                                                                                                                                                                                                                                                                                                                                                         |
 
 ## S3 bucket layout
 
@@ -234,6 +244,8 @@ sequenceDiagram
     participant DDB as DynamoDB
     participant Q as SQS Queue
     participant W as Worker Lambda (xN)
+    participant SQ as Slow Queue
+    participant SW as Slow Worker (x10)
 
     CLI->>S3: PUT cubes/{survey}.fits
     CLI->>S3: PUT manifests/{uuid}.json
@@ -254,10 +266,20 @@ sequenceDiagram
         Q->>W: Deliver message (batch=1)
         W->>DDB: PutItem (chunk status=IN_PROGRESS)
         W->>S3: GET chunk .npz
-        W->>W: fit_gaussians() per spectrum
+        W->>W: fit_gaussians() per spectrum (5 s alarm)
         W->>S3: PUT decompositions/survey=.../chunk-*.parquet
         W->>DDB: UpdateItem (chunk status=COMPLETED)
         W->>DDB: UpdateItem ADD jobs_completed :one
+        opt Timed-out spectra exist
+            W->>SQ: SendMessage {chunk_key, output_key, failed_indices}
+        end
+    end
+
+    opt Slow-path reprocessing
+        SQ->>SW: Deliver message (batch=1)
+        SW->>S3: GET chunk .npz + existing .parquet
+        SW->>SW: fit_gaussians() (no timeout)
+        SW->>S3: PUT patched .parquet (overwrite)
     end
 
     loop Until done
@@ -273,7 +295,7 @@ The pipeline is defined across six CDK stacks:
 flowchart LR
     subgraph stacks["CDK Stacks"]
         DL["PHSDataLake<br/><i>S3 bucket, lifecycle rules</i>"]
-        PR["PHSProcessing<br/><i>DynamoDB, SQS, Worker Lambda</i>"]
+        PR["PHSProcessing<br/><i>DynamoDB, SQS queues,<br/>Worker + Slow Worker Lambdas</i>"]
         SL["PHSSplitter<br/><i>Splitter Lambda, EventBridge rule</i>"]
         AN["PHSAnalytics<br/><i>Glue database, Athena workgroup</i>"]
         RS["PHSResources<br/><i>Public S3 bucket</i>"]
@@ -286,14 +308,14 @@ flowchart LR
     PR -- "queue, table" --> SL
 ```
 
-| Stack        | Source file                | Resources                                                           |
-| ------------ | -------------------------- | ------------------------------------------------------------------- |
-| `DataLake`   | `lib/data-lake.stack.ts`   | S3 bucket with EventBridge notifications, lifecycle rules           |
-| `Processing` | `lib/processing.stack.ts`  | DynamoDB runs table, SQS queue + DLQ, Worker Lambda (Docker, ARM64) |
-| `Splitter`   | `lib/splitter.stack.ts`    | Splitter Lambda (Docker, ARM64), EventBridge rule for manifests     |
-| `Analytics`  | `lib/analytics.stack.ts`   | Glue database + table, Athena workgroup, named queries              |
-| `Resources`  | `lib/resources.stack.ts`   | Public S3 bucket for static assets                                  |
-| `GitHubOIDC` | `lib/github-oidc.stack.ts` | GitHub Actions OIDC provider, IAM role for passwordless CI/CD       |
+| Stack        | Source file                | Resources                                                                                                     |
+| ------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `DataLake`   | `lib/data-lake.stack.ts`   | S3 bucket with EventBridge notifications, lifecycle rules                                                     |
+| `Processing` | `lib/processing.stack.ts`  | DynamoDB runs table, SQS queues (chunks + DLQ, slow + slow DLQ), Worker + Slow Worker Lambdas (Docker, ARM64) |
+| `Splitter`   | `lib/splitter.stack.ts`    | Splitter Lambda (Docker, ARM64), EventBridge rule for manifests                                               |
+| `Analytics`  | `lib/analytics.stack.ts`   | Glue database + table, Athena workgroup, named queries                                                        |
+| `Resources`  | `lib/resources.stack.ts`   | Public S3 bucket for static assets                                                                            |
+| `GitHubOIDC` | `lib/github-oidc.stack.ts` | GitHub Actions OIDC provider, IAM role for passwordless CI/CD                                                 |
 
 ### Worker Docker build
 
@@ -339,6 +361,8 @@ Resource names include the environment: `phspectra-development` or `phspectra-pr
 **Why PyArrow instead of pandas?** PyArrow writes Parquet natively with proper support for nested types (`list<float64>` columns). It has a smaller footprint than pandas and avoids unnecessary DataFrame overhead in a write-only Lambda.
 
 **Why build from source in Docker?** PHSpectra includes a C extension (`_gaussfit.c`) for the Levenberg-Marquardt solver and persistence peak detection. Pre-building a wheel on the developer's machine produces a platform-specific artifact (e.g. macOS x86_64) that cannot be installed in the Lambda container (Linux ARM64). Building from source inside Docker ensures the extension is compiled for the correct target.
+
+**Why a separate slow worker?** Most spectra decompose in well under 5 seconds, but rare pathological cases (e.g. high-SNR spectra with many overlapping components) can take minutes. The main worker sets a per-spectrum `SIGALRM` timeout (default 5 s) and bails out 60 s before the Lambda deadline, marking timed-out spectra with `n_components = -1`. These are forwarded to a dedicated slow queue processed by a separate Lambda (max 10 concurrent) that re-runs `fit_gaussians` without the alarm, patches the Parquet file in place, and overwrites it on S3. This keeps the fast path fast (500 concurrent, predictable latency) while ensuring no spectra are permanently lost.
 
 ## Cost estimates
 

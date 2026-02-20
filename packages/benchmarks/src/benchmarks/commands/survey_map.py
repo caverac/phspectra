@@ -1,27 +1,7 @@
-"""``benchmarks survey-map-plot`` -- 2x2 survey visualisation from full-field decomposition.
+"""Shared survey-map utilities: data loading, WCS helpers, and panel renderers.
 
-Panel layout
-------------
-+-------------------------------+--------------------------------+
-| (a) Velocity RGB composite    | (b) Topological complexity     |
-|                               |                                |
-| Three velocity bins mapped    | Number of Gaussian components  |
-| to R, G, B from the decomp-   | detected per pixel.  Lights    |
-| osed (not raw) Gaussians.     | up at cloud boundaries,        |
-| Sharper than moment-0 RGB     | outflows, and shock fronts --  |
-| because noise is removed by   | a quantity unique to persist-  |
-| the fit.                      | ent-homology decomposition.    |
-+-------------------------------+--------------------------------+
-| (c) Amplitude--velocity       | (d) Dominant velocity field    |
-|     bivariate colormap        |                                |
-|                               | Centroid velocity of the       |
-| 2-D perceptual colormap where | brightest component per        |
-| hue encodes centroid velocity | pixel.  Reveals bulk gas       |
-| and luminance encodes peak    | motions hidden by moment-1     |
-| amplitude.  Every pixel       | blending when multiple clouds  |
-| communicates two physical     | overlap along the LOS.         |
-| quantities simultaneously.    |                                |
-+-------------------------------+--------------------------------+
+These building blocks are used by ``grs-map-plot`` (multi-tile strip)
+and ``correlation-plot`` (two-point autocorrelation).
 """
 
 from __future__ import annotations
@@ -30,7 +10,6 @@ import os
 from dataclasses import dataclass
 
 import boto3
-import click
 import matplotlib.colors as mcolors
 import numpy as np
 import numpy.typing as npt
@@ -39,13 +18,10 @@ import pyarrow.parquet as pq
 from astropy.io import fits
 from astropy.wcs import WCS
 from benchmarks._console import console
-from benchmarks._constants import CACHE_DIR, DATA_BUCKET_TEMPLATE
-from benchmarks._data import ensure_fits
-from benchmarks._plotting import configure_axes, docs_figure
+from benchmarks._constants import DATA_BUCKET_TEMPLATE
+from benchmarks._plotting import configure_axes
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from matplotlib.gridspec import GridSpec
 
 
 @dataclass
@@ -365,118 +341,3 @@ def _panel_bivariate(
 
     _corner_label(ax, "(c)")
     configure_axes(ax)
-
-
-@docs_figure("survey-map-plot.png")
-def _build_figure(
-    data: DecompositionData,
-    velocity: npt.NDArray[np.float64],
-    header: fits.Header,
-) -> Figure:
-    """Construct the 2x2 survey map figure.
-
-    Layout (colourbar panels on the right column):
-
-    +-------+-------+--+
-    | (a)   | (b)   |cb|
-    +-------+-------+--+
-    | (c)   | (d)   |cb|
-    +-------+-------+--+
-    """
-    nx = int(data.x.max()) + 1
-    ny = int(data.y.max()) + 1
-    extent = _galactic_extent(header, nx, ny)
-
-    fig = plt.figure(figsize=(8, 7))
-    outer = GridSpec(
-        2,
-        3,
-        figure=fig,
-        width_ratios=[1, 1, 0.04],
-        left=0.08,
-        right=0.96,
-        bottom=0.06,
-        top=0.97,
-        wspace=0.05,
-        hspace=0.05,
-    )
-
-    # Left column: plain image panels
-    ax_a = fig.add_subplot(outer[0, 0])
-    ax_c = fig.add_subplot(outer[1, 0], sharex=ax_a)
-
-    # Right column: image panels
-    ax_b = fig.add_subplot(outer[0, 1])
-    ax_d = fig.add_subplot(outer[1, 1])
-
-    # Colorbar column
-    cax_b = fig.add_subplot(outer[0, 2])
-    cax_d = fig.add_subplot(outer[1, 2])
-
-    ax_b.sharey(ax_a)
-    ax_c.sharex(ax_a)
-    ax_d.sharex(ax_b)
-    ax_d.sharey(ax_c)
-
-    _panel_velocity_rgb(ax_a, data, velocity, nx, ny, extent)
-    _panel_complexity(ax_b, data, nx, ny, extent, cax_b)
-    _panel_bivariate(ax_c, data, velocity, nx, ny, extent)
-    _panel_dominant_velocity(ax_d, data, velocity, nx, ny, extent, cax_d)
-
-    # Shared axis labels — only on outer edges
-    ax_a.tick_params(labelbottom=False)
-    ax_b.tick_params(labelbottom=False, labelleft=False)
-    ax_d.tick_params(labelleft=False)
-    ax_c.set_xlabel("Galactic longitude (deg)")
-    ax_d.set_xlabel("Galactic longitude (deg)")
-    ax_a.set_ylabel("Galactic latitude (deg)")
-    ax_c.set_ylabel("Galactic latitude (deg)")
-
-    return fig
-
-
-@click.command("survey-map-plot")
-@click.option("--survey", required=True, help="Survey name (S3 partition key).")
-@click.option(
-    "--environment",
-    default="development",
-    show_default=True,
-    help="AWS environment.",
-)
-@click.option(
-    "--fits-file",
-    default=None,
-    type=click.Path(exists=True),
-    help="FITS cube path for WCS velocity axis (default: auto-download).",
-)
-@click.option("--cache-dir", default=CACHE_DIR, show_default=True, help="Cache directory.")
-@click.option("--force", is_flag=True, help="Re-download even if cached.")
-def survey_map(
-    survey: str,
-    environment: str,
-    fits_file: str | None,
-    cache_dir: str,
-    force: bool,
-) -> None:
-    """Generate 2x2 survey visualisation from full-field decomposition."""
-    console.print("Downloading decomposition data ...", style="bold cyan")
-    paths = _download_decompositions(survey, environment, cache_dir, force)
-    if not paths:
-        console.print("No data found. Aborting.", style="bold red")
-        return
-
-    console.print("Loading Parquet data ...", style="bold cyan")
-    table = _load_parquet_data(paths)
-    data = _table_to_arrays(table)
-
-    console.print("Loading FITS header ...", style="bold cyan")
-    if fits_file:
-        with fits.open(fits_file) as hdul:
-            header = hdul[0].header.copy()  # pylint: disable=no-member
-    else:
-        header, _ = ensure_fits()
-    velocity = _velocity_axis(header)
-
-    console.print("Building figure ...", style="bold cyan")
-    _build_figure(data, velocity, header)
-    console.print("\nDone.", style="bold green")

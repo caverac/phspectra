@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pyarrow as pa
@@ -17,6 +18,7 @@ from benchmarks.commands.correlation_plot import (
     _CorrelationResult,
     _jackknife_autocorrelation,
 )
+from benchmarks.commands.survey_map import DecompositionData
 from click.testing import CliRunner
 from matplotlib import pyplot as plt
 
@@ -28,56 +30,98 @@ from matplotlib import pyplot as plt
 
 
 @pytest.fixture()
-def decomposition_table() -> pa.Table:
-    """A 20x15 decomposition table with known values."""
-    rows = []
+def decomposition_data() -> DecompositionData:
+    """A 20x15 decomposition dataset with known values."""
+    xs, ys, ncs = [], [], []
+    all_amps, all_means, all_stddevs = [], [], []
     for yi in range(15):
         for xi in range(20):
-            rows.append(
-                {
-                    "x": xi,
-                    "y": yi,
-                    "n_components": 1 + (xi % 2),
-                    "component_amplitudes": [1.0 + xi * 0.5] * (1 + (xi % 2)),
-                    "component_means": [50.0 + yi * 10.0] * (1 + (xi % 2)),
-                    "component_stddevs": [3.0] * (1 + (xi % 2)),
-                }
-            )
-    return pa.table(
-        {
-            "x": pa.array([r["x"] for r in rows], type=pa.int32()),
-            "y": pa.array([r["y"] for r in rows], type=pa.int32()),
-            "n_components": pa.array([r["n_components"] for r in rows], type=pa.int32()),
-            "component_amplitudes": pa.array([r["component_amplitudes"] for r in rows], type=pa.list_(pa.float64())),
-            "component_means": pa.array([r["component_means"] for r in rows], type=pa.list_(pa.float64())),
-            "component_stddevs": pa.array([r["component_stddevs"] for r in rows], type=pa.list_(pa.float64())),
-        }
+            xs.append(xi)
+            ys.append(yi)
+            nc = 1 + (xi % 2)
+            ncs.append(nc)
+            all_amps.append([1.0 + xi * 0.5] * nc)
+            all_means.append([50.0 + yi * 10.0] * nc)
+            all_stddevs.append([3.0] * nc)
+    return DecompositionData(
+        x=np.array(xs, dtype=np.int32),
+        y=np.array(ys, dtype=np.int32),
+        n_components=np.array(ncs, dtype=np.int32),
+        component_amplitudes=all_amps,
+        component_means=all_means,
+        component_stddevs=all_stddevs,
     )
 
 
+def _make_grs_header(
+    naxis1: int = 3,
+    naxis2: int = 2,
+    naxis3: int = 10,
+    crpix1: float = 1.0,
+    crpix2: float = 1.0,
+) -> fits.Header:
+    """Build a minimal GRS-like FITS header."""
+    header = fits.Header()
+    header["NAXIS"] = 3
+    header["NAXIS1"] = naxis1
+    header["NAXIS2"] = naxis2
+    header["NAXIS3"] = naxis3
+    header["CTYPE1"] = "GLON-CAR"
+    header["CTYPE2"] = "GLAT-CAR"
+    header["CRVAL1"] = 0.0
+    header["CRVAL2"] = 0.0
+    header["CRPIX1"] = crpix1
+    header["CRPIX2"] = crpix2
+    header["CDELT1"] = -0.00611
+    header["CDELT2"] = 0.00611
+    header["CRVAL3"] = -50000.0
+    header["CRPIX3"] = 1.0
+    header["CDELT3"] = 500.0
+    return header
+
+
 @pytest.fixture()
-def cached_parquet(tmp_path: Path, decomposition_table: pa.Table) -> Path:
-    """Write decomposition parquet to a cache dir layout."""
-    out = tmp_path / "decompositions" / "grs-26"
-    out.mkdir(parents=True)
-    pq.write_table(decomposition_table, out / "part-0.parquet")
+def grs_tiles_dir(tmp_path: Path) -> Path:
+    """Create 2 small GRS FITS tiles with different CRPIX1."""
+    h_a = _make_grs_header(naxis1=3, naxis2=2, naxis3=10, crpix1=1.0, crpix2=1.0)
+    data_a = np.zeros((10, 2, 3), dtype=np.float32)
+    hdu_a = fits.PrimaryHDU(data=data_a, header=h_a)
+    hdu_a.writeto(str(tmp_path / "grs-26-cube.fits"), overwrite=True)
+
+    h_b = _make_grs_header(naxis1=3, naxis2=2, naxis3=10, crpix1=-2.0, crpix2=1.0)
+    data_b = np.zeros((10, 2, 3), dtype=np.float32)
+    hdu_b = fits.PrimaryHDU(data=data_b, header=h_b)
+    hdu_b.writeto(str(tmp_path / "grs-28-cube.fits"), overwrite=True)
+
     return tmp_path
 
 
 @pytest.fixture()
-def fits_file(tmp_path: Path) -> Path:
-    """Create a minimal FITS file with CDELT2 header."""
-    header = fits.Header()
-    header["NAXIS"] = 3
-    header["NAXIS1"] = 20
-    header["NAXIS2"] = 15
-    header["NAXIS3"] = 10
-    header["CDELT2"] = 0.00611
-    data = np.zeros((10, 15, 20), dtype=np.float32)
-    hdu = fits.PrimaryHDU(data=data, header=header)
-    path = tmp_path / "test.fits"
-    hdu.writeto(str(path), overwrite=True)
-    return path
+def decomposition_parquet(tmp_path: Path) -> Path:
+    """Write a small Parquet file for a tile (3x2 grid, 6 pixels)."""
+    table = pa.table(
+        {
+            "x": pa.array([0, 1, 2, 0, 1, 2], type=pa.int32()),
+            "y": pa.array([0, 0, 0, 1, 1, 1], type=pa.int32()),
+            "n_components": pa.array([1, 1, 1, 1, 1, 1], type=pa.int32()),
+            "component_amplitudes": pa.array(
+                [[1.0], [2.0], [3.0], [1.5], [2.5], [3.5]],
+                type=pa.list_(pa.float64()),
+            ),
+            "component_means": pa.array(
+                [[5.0], [5.0], [5.0], [5.0], [5.0], [5.0]],
+                type=pa.list_(pa.float64()),
+            ),
+            "component_stddevs": pa.array(
+                [[1.0], [1.0], [1.0], [1.0], [1.0], [1.0]],
+                type=pa.list_(pa.float64()),
+            ),
+        }
+    )
+    out = tmp_path / "parquet"
+    out.mkdir()
+    pq.write_table(table, out / "part-0.parquet")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -88,29 +132,29 @@ def fits_file(tmp_path: Path) -> Path:
 class TestBuildScalarGrids:
     """Tests for _build_scalar_grids."""
 
-    def test_returns_four_fields(self, decomposition_table: pa.Table) -> None:
+    def test_returns_four_fields(self, decomposition_data: DecompositionData) -> None:
         """Return grids for all four field keys."""
-        grids = _build_scalar_grids(decomposition_table)
+        grids = _build_scalar_grids(decomposition_data, 20, 15)
         assert set(grids.keys()) == {"ncomp", "intensity", "velocity", "dispersion"}
 
-    def test_grid_shapes(self, decomposition_table: pa.Table) -> None:
+    def test_grid_shapes(self, decomposition_data: DecompositionData) -> None:
         """All grids should have shape (ny, nx) = (15, 20)."""
-        grids = _build_scalar_grids(decomposition_table)
+        grids = _build_scalar_grids(decomposition_data, 20, 15)
         for grid, mask in grids.values():
             assert grid.shape == (15, 20)
             assert mask.shape == (15, 20)
 
-    def test_ncomp_values(self, decomposition_table: pa.Table) -> None:
+    def test_ncomp_values(self, decomposition_data: DecompositionData) -> None:
         """N_comp grid should match the input n_components."""
-        grids = _build_scalar_grids(decomposition_table)
+        grids = _build_scalar_grids(decomposition_data, 20, 15)
         grid, mask = grids["ncomp"]
         assert mask.all()
         assert grid[0, 0] == 1.0
         assert grid[0, 1] == 2.0
 
-    def test_all_pixels_valid(self, decomposition_table: pa.Table) -> None:
+    def test_all_pixels_valid(self, decomposition_data: DecompositionData) -> None:
         """All pixels should be valid (no NaN sentinel)."""
-        grids = _build_scalar_grids(decomposition_table)
+        grids = _build_scalar_grids(decomposition_data, 20, 15)
         for _grid, mask in grids.values():
             assert mask.all()
 
@@ -206,30 +250,68 @@ class TestCorrelationPlotCli:
     """Tests for the correlation-plot CLI command."""
 
     def test_help(self) -> None:
-        """Show help text including --fits-file option."""
+        """Show help text including --input-dir option."""
         result = CliRunner().invoke(main, ["correlation-plot", "--help"])
         assert result.exit_code == 0
-        assert "--fits-file" in result.output
+        assert "--input-dir" in result.output
 
-    def test_fits_file_required(self) -> None:
-        """Fail when --fits-file is not provided."""
+    def test_input_dir_required(self) -> None:
+        """Fail when --input-dir is not provided."""
         result = CliRunner().invoke(main, ["correlation-plot"])
         assert result.exit_code != 0
 
+    def test_no_tiles_aborts(self, tmp_path: Path) -> None:
+        """Exit gracefully when the input directory has no FITS tiles."""
+        result = CliRunner().invoke(main, ["correlation-plot", "--input-dir", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "No FITS tiles" in result.output
+
+    def test_no_decomposition_data_aborts(self, grs_tiles_dir: Path) -> None:
+        """Exit gracefully when tiles exist but decomposition data is empty."""
+
+        def mock_download(_survey: str, _environment: str, _cache_dir: str, _force: bool) -> list[str]:
+            return []
+
+        with patch(
+            "benchmarks.commands.grs_map_plot._download_decompositions",
+            side_effect=mock_download,
+        ):
+            result = CliRunner().invoke(
+                main,
+                [
+                    "correlation-plot",
+                    "--input-dir",
+                    str(grs_tiles_dir),
+                    "--cache-dir",
+                    str(grs_tiles_dir),
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "No decomposition data found" in result.output
+
     @pytest.mark.usefixtures("docs_img_dir")
-    def test_end_to_end(self, cached_parquet: Path, fits_file: Path) -> None:
-        """Run the full CLI command with cached parquet data."""
-        result = CliRunner().invoke(
-            main,
-            [
-                "correlation-plot",
-                "--survey",
-                "grs-26",
-                "--fits-file",
-                str(fits_file),
-                "--cache-dir",
-                str(cached_parquet),
-            ],
-        )
+    def test_end_to_end(self, grs_tiles_dir: Path, decomposition_parquet: Path) -> None:
+        """Run the full CLI command with mocked decomposition downloads."""
+        parquet_path = str(decomposition_parquet / "part-0.parquet")
+
+        def mock_download(_survey: str, _environment: str, _cache_dir: str, _force: bool) -> list[str]:
+            return [parquet_path]
+
+        with patch(
+            "benchmarks.commands.grs_map_plot._download_decompositions",
+            side_effect=mock_download,
+        ):
+            result = CliRunner().invoke(
+                main,
+                [
+                    "correlation-plot",
+                    "--input-dir",
+                    str(grs_tiles_dir),
+                    "--cache-dir",
+                    str(grs_tiles_dir),
+                ],
+            )
+
         assert result.exit_code == 0, result.output
         assert "Done." in result.output

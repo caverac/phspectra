@@ -29,7 +29,6 @@ def test_cli_lists_commands() -> None:
         "train-synthetic",
         "persistence-plot",
         "ncomp-rms-plot",
-        "survey-map-plot",
         "pipeline",
         "grs-map-plot",
         "correlation-plot",
@@ -104,13 +103,6 @@ def test_ncomp_rms_plot_help() -> None:
     """``benchmarks ncomp-rms-plot --help`` should succeed."""
     runner = CliRunner()
     result = runner.invoke(main, ["ncomp-rms-plot", "--help"])
-    assert result.exit_code == 0
-
-
-def test_survey_map_plot_help() -> None:
-    """``benchmarks survey-map-plot --help`` should succeed."""
-    runner = CliRunner()
-    result = runner.invoke(main, ["survey-map-plot", "--help"])
     assert result.exit_code == 0
 
 

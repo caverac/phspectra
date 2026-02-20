@@ -23,6 +23,9 @@ from benchmarks.commands.survey_map import (
     _galactic_extent,
     _load_parquet_data,
     _panel_bivariate,
+    _panel_complexity,
+    _panel_dominant_velocity,
+    _panel_velocity_rgb,
     _table_to_arrays,
     _velocity_axis,
 )
@@ -237,22 +240,57 @@ def _build_grs_figure(
     velocity: npt.NDArray[np.float64],
     grid: GlobalGrid,
 ) -> Figure:
-    """Construct a horizontal bivariate amplitude-velocity strip.
+    """Construct a 4-row strip of the selected GRS tiles.
 
-    Single panel showing ``_panel_bivariate`` for the selected GRS
-    tiles (~10 deg x 2 deg field).
+    Layout::
+
+        +---------------------------+--+
+        | (a) Velocity RGB          |  |
+        +---------------------------+--+
+        | (b) N_components          |cb|
+        +---------------------------+--+
+        | (c) Amplitude–velocity    |  |
+        +---------------------------+--+
+        | (d) Dominant velocity     |cb|
+        +---------------------------+--+
     """
     nx = grid.nx
     ny = grid.ny
     extent = _galactic_extent(grid.header, nx, ny)
 
-    fig = plt.figure(figsize=(16, 3))
-    gs = GridSpec(1, 1, figure=fig, left=0.06, right=0.97, bottom=0.20, top=0.95)
-    ax = fig.add_subplot(gs[0, 0])
+    fig = plt.figure(figsize=(10, 10))
+    gs = GridSpec(
+        4,
+        2,
+        figure=fig,
+        width_ratios=[1, 0.015],
+        left=0.08,
+        right=0.92,
+        bottom=0.06,
+        top=0.97,
+        hspace=0.10,
+        wspace=0.01,
+    )
 
-    _panel_bivariate(ax, data, velocity, nx, ny, extent)
-    ax.set_xlabel("Galactic longitude (deg)")
-    ax.set_ylabel("Galactic latitude (deg)")
+    ax_a = fig.add_subplot(gs[0, 0])
+    ax_b = fig.add_subplot(gs[1, 0], sharex=ax_a)
+    ax_c = fig.add_subplot(gs[2, 0], sharex=ax_a)
+    ax_d = fig.add_subplot(gs[3, 0], sharex=ax_a)
+    cax_b = fig.add_subplot(gs[1, 1])
+    cax_d = fig.add_subplot(gs[3, 1])
+
+    _panel_velocity_rgb(ax_a, data, velocity, nx, ny, extent)
+    _panel_complexity(ax_b, data, nx, ny, extent, cax_b)
+    _panel_bivariate(ax_c, data, velocity, nx, ny, extent)
+    _panel_dominant_velocity(ax_d, data, velocity, nx, ny, extent, cax_d)
+
+    for ax in (ax_a, ax_b, ax_c):
+        ax.tick_params(labelbottom=False)
+
+    for ax in (ax_a, ax_b, ax_c, ax_d):
+        ax.set_ylabel("Galactic latitude (deg)")
+
+    ax_d.set_xlabel("Galactic longitude (deg)")
 
     return fig
 

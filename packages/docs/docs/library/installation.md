@@ -4,6 +4,10 @@ sidebar_position: 1
 
 # Installation
 
+<div style={{textAlign: 'center', marginBottom: '2rem'}}>
+  <img src="/img/logo.svg" alt="phspectra logo" style={{maxWidth: '360px', width: '100%'}} />
+</div>
+
 `phspectra` is a Python library for decomposing 1-D astronomical spectra into Gaussian components using **0-dimensional persistent homology** for peak detection. Instead of derivative-based methods (GaussPy) or brute-force parameter sweeps, it ranks peaks by their topological persistence and uses a single parameter ($\beta$) to threshold noise from real structure.
 
 ## Requirements

@@ -105,7 +105,15 @@ Sweeping $\beta$ from 2.0 to 4.5 on 52 hand-curated GRS spectra shows a gently p
   </figcaption>
 </figure>
 
-The optimal $\beta$ on real data is 3.67 ($F_1 = 0.576$, $P = 0.426$, $R = 0.888$), with $F_1$ variation of 0.084 across the sweep. Combining these results with the synthetic benchmark (optimal $\beta = 2.8$), I set the default $\beta = 3.5$ as a compromise that favours precision on real data while remaining well within the flat region of the synthetic curve.
+The optimal $\beta$ on real data is 3.67 ($F_1 = 0.576$, $P = 0.426$, $R = 0.888$), with $F_1$ variation of 0.084 across the sweep.
+
+### Why the default is $\beta = 3.5$, not $2.8$
+
+The synthetic benchmark peaks at $\beta \approx 2.8$ and the real-data benchmark at $\beta \approx 3.7$, but the $F_1$ difference between 2.8 and 3.5 is negligible: 0.925 vs 0.919 on synthetic data (a drop of 0.006). Both values sit on the flat plateau of the $F_1$ curve, so accuracy is not the deciding factor.
+
+The practical reason for preferring 3.5 is **speed**. A lower $\beta$ admits more candidate peaks from the persistence filtration, many of which sit just above the noise floor. These marginal peaks generate initial Gaussian guesses that must be fitted by the Levenberg-Marquardt solver -- the most expensive step in the pipeline -- only to be discarded during component validation (SNR floor, matched-filter SNR). The fitting cost scales with the number of components, so a large number of doomed candidates slows the algorithm without improving the final decomposition.
+
+At $\beta = 3.5$, the persistence threshold is high enough that most noise peaks are rejected before fitting, while genuine features (which have persistence well above $3.5\sigma$) are retained. This provides a good balance between not missing real peaks near the detection limit and not wasting computation on candidates that will be removed downstream.
 
 #### Interpreting precision and recall
 
@@ -131,5 +139,4 @@ In contrast, PHSpectra's $\beta$ parameter is:
 - **Survey-agnostic**: values in the range $\beta = 2.8$&ndash;$3.7$ work well across both real and synthetic data with fundamentally different noise structures.
 - **Robust to perturbation**: performance degrades gracefully rather than collapsing at non-optimal values. There is no cliff &mdash; both $F_1$ curves vary by less than 0.09 across the full $2.0$&ndash;$4.5$ sweep.
 - **Physically interpretable**: $\beta$ directly controls the minimum significance (in $\sigma$) for a peak to be considered real. A value of $\beta = 3.5$ means "reject anything less significant than a $3.5\sigma$ fluctuation," which is a natural and intuitive threshold.
-
-The default value of $\beta = 3.5$ is recommended for general use.
+- **Efficient**: at $\beta = 3.5$, most noise peaks are filtered out before the expensive fitting step, avoiding wasted computation on candidates that would be rejected by validation anyway.

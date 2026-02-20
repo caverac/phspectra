@@ -117,17 +117,17 @@ This provides a physically grounded initial width from the topology alone. For t
 
 The peaks are ordered by persistence (most significant first), so the solver starts with the strongest features anchored in place, which improves convergence.
 
-This initial guess is then passed to `scipy.optimize.curve_fit`, which fits a sum of Gaussians to the full signal:
+This initial guess is then passed to a bounded Levenberg-Marquardt solver, which fits a sum of Gaussians to the full signal:
 
 $$
 F(x, \mathbf{a}, \mathbf{\mu}, \mathbf{\sigma}) = \sum_i A_i \exp\left(-\frac{(x - \mu_i)^2}{2\sigma_i^2}\right).
 $$
 
-The solver adjusts all three parameters per component simultaneously (with bounds: $a \geq 0$, $\mu \in [0, n)$, $\sigma \in [0.3, n/2]$). Because the initial positions and amplitudes are already close to the truth -- persistence detected the right peaks -- the fit typically converges in few iterations, and the solver's main job is to determine the correct widths and fine-tune the positions and amplitudes. That being said, optimizing this function is the slowest step in the pipeline, which is why the refinement loop is designed to minimize unnecessary calls to `curve_fit` by only accepting changes that improve the AICc.
+The solver adjusts all three parameters per component simultaneously (with bounds: $a \geq 0$, $\mu \in [0, n)$, $\sigma \in [0.3, n/2]$). Because the initial positions and amplitudes are already close to the truth -- persistence detected the right peaks -- the fit typically converges in few iterations, and the solver's main job is to determine the correct widths and fine-tune the positions and amplitudes. That being said, optimizing this function is the slowest step in the pipeline, which is why the refinement loop is designed to minimize unnecessary refits by only accepting changes that improve the AICc.
 
 ## The algorithm in PHSpectra
 
-The implementation lives in `phspectra/src/persistence.py` and follows the union-find approach described above. Figure 3 shows the full pipeline from raw spectrum to fitted Gaussians:
+The algorithm is implemented in both Python (`phspectra/persistence.py`) and C (`phspectra/_gaussfit.c`). The C extension is used when available and provides both peak detection (`find_peaks`) and bounded Levenberg-Marquardt fitting (`bounded_lm_fit`); the Python path serves as a fallback. Figure 3 shows the full pipeline from raw spectrum to fitted Gaussians:
 
 <figure class="scientific">
 
@@ -136,33 +136,37 @@ flowchart TD
     A["Raw 1-D spectrum"] --> B["Estimate sigma_rms"]
     B --> C["Persistence peak detection<br/>threshold = beta * sigma_rms"]
     C --> D["Convert peaks to<br/>initial Gaussian guesses<br/>(amplitude, mean, sigma from saddle)"]
-    D --> E["Least-squares fit<br/>(scipy curve_fit)"]
+    D --> E["Bounded Levenberg-Marquardt fit<br/>(C extension, scipy fallback)"]
     E --> H["Validate components<br/>(SNR, matched-filter SNR, FWHM)"]
     H --> I["Refit if any removed"]
     I --> J["Compute AICc baseline"]
-    J --> K["Refinement loop<br/>(up to 3 iterations)"]
-    K --> L["Search residual<br/>for missed peaks"]
-    K --> M["Split broad component<br/>at negative dip"]
-    K --> N["Merge blended pairs"]
-    L & M & N --> R["Refit all components<br/>(scipy curve_fit)"]
-    R --> Q{"AICc improved?"}
-    Q -- Yes --> O["Accept change,<br/>continue loop"]
-    Q -- No --> P["Reject change"]
-    O --> K
-    P --> G
+    J --> X{"Residual peaks or<br/>blended pairs?"}
+    X -- No --> G["Return fitted components"]
+    X -- Yes --> K["Refinement iteration"]
+    K --> L["Search residual for missed peaks"]
+    L --> LR["Refit + AICc check"]
+    LR --> M["Check for negative dip, split"]
+    M --> MR["Refit + AICc check"]
+    MR --> N["Check for blended pairs, merge"]
+    N --> NR["Refit + AICc check"]
+    NR --> Q{"Any change<br/>accepted?"}
+    Q -- "Yes & iters < 3" --> K
+    Q -- "No or iters = 3" --> G
 
     style E fill:#e74c3c,color:#fff,stroke:#c0392b
-    style R fill:#e74c3c,color:#fff,stroke:#c0392b
+    style LR fill:#e74c3c,color:#fff,stroke:#c0392b
+    style MR fill:#e74c3c,color:#fff,stroke:#c0392b
+    style NR fill:#e74c3c,color:#fff,stroke:#c0392b
 ```
 
 <figcaption>
 
-**Figure 3.** Full decomposition pipeline from raw spectrum to fitted Gaussian components. Red nodes mark the two computational bottlenecks, both calls to `scipy.optimize.curve_fit`. The initial fit runs once; the refinement refit can be called up to three times per iteration (residual search, dip split, blended merge), each triggering a full nonlinear least-squares solve over all components. Component validation occurs once after the initial fit, not inside the refinement loop.
+**Figure 3.** Full decomposition pipeline from raw spectrum to fitted Gaussian components. Red nodes mark nonlinear least-squares solves (bounded Levenberg-Marquardt via a C extension, with `scipy.optimize.curve_fit` as fallback). The three refinement operations -- residual peak search, negative-dip splitting, blended-pair merging -- run **sequentially** within each iteration, each with its own independent refit and AICc check. The loop exits when no operation improves AICc or after 3 iterations. If neither residual peaks nor blended pairs are found after validation, the refinement loop is skipped entirely.
 
 </figcaption>
 </figure>
 
-Note that component validation happens **once** after the initial fit, not inside the refinement loop (Figure 3). If any components are rejected, a refit is triggered before computing the AICc baseline.
+Component validation happens **once** after the initial fit, not inside the refinement loop. If any components are rejected, a refit is triggered before computing the AICc baseline. An early exit skips the refinement loop when the residual contains no missed peaks and no blended pairs exist -- in practice this is the common path for clean, well-separated spectra.
 
 ### Step 1: Noise estimation
 
@@ -203,7 +207,7 @@ Each detected peak becomes an initial guess for a Gaussian component:
 | Mean      | Peak channel index                                                     |
 | Std. dev. | $d / \sqrt{2 \ln(b/d_v)}$ from peak-to-saddle distance (fallback: 1.0) |
 
-These are fitted simultaneously as a sum of Gaussians via `scipy.optimize.curve_fit` with bounds (amplitude $\geq 0$, mean within spectrum, std. dev. $\in [0.3, n/2]$).
+These are fitted simultaneously as a sum of Gaussians using bounded Levenberg-Marquardt optimisation (a C extension, with `scipy.optimize.curve_fit` as fallback) with bounds (amplitude $\geq 0$, mean within spectrum, std. dev. $\in [0.3, n/2]$). When the number of detected peaks exceeds 32, fitting is done in stages: the most persistent peaks are fitted first, subsequent batches are fitted against the residual, and a final joint refit combines all surviving components.
 
 ### Step 4: Validation and iterative refinement
 

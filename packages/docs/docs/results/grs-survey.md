@@ -6,57 +6,53 @@ sidebar_position: 6
 
 Full-survey decomposition of the [Galactic Ring Survey](../idea-and-plan/data-sources#grs----galactic-ring-survey) using the [AWS pipeline](../infrastructure/aws-pipeline).
 
-## Tile 26
+## Five-tile strip (tiles 26--34)
 
-Tile 26 covers $\ell \approx 25\degree$--$27\degree$ in the inner Galaxy, a region rich in molecular cloud complexes along the Scutum--Centaurus arm.
-
-| Property       | Value              |
-| -------------- | ------------------ |
-| File           | `grs-26-cube.fits` |
-| Spatial pixels | 116 $\times$ 357   |
-| Spectra        | 41,412             |
-| Channels       | 424                |
-| Lambda chunks  | 83                 |
-| Estimated cost | ~$0.02             |
-| Wall-clock     | ~1--2 minutes      |
+Tiles 26, 28, 30, 32, and 34 cover $\ell \approx 25\degree$--$35\degree$ in the inner Galaxy, spanning the Scutum--Centaurus arm where molecular cloud complexes are densely packed along the line of sight.
 
 ### Submit
 
 ```bash
-uv run benchmarks pipeline /tmp/phspectra/grs-full/grs-26-cube.fits --survey grs-26
+for l in 26 28 30 32 34; do
+  uv run benchmarks pipeline "/tmp/phspectra/grs-full/grs-${l}-cube.fits" --survey "grs-${l}"
+done
 ```
 
 ### Visualise
 
-Once the pipeline completes, generate the survey map plot:
+Once all five tiles are processed, generate the multi-tile strip:
 
 ```bash
-uv run benchmarks survey-map-plot --survey grs-26 --fits-file /tmp/phspectra/grs-full/grs-26-cube.fits
+uv run benchmarks grs-map-plot --input-dir /tmp/phspectra/grs-full
 ```
 
 <figure class="scientific">
-  <img src="/img/results/survey-map-plot.png" alt="Survey map of GRS tile 26" />
+  <img src="/img/results/grs-map-plot.png" alt="GRS five-tile decomposition strip" />
   <figcaption>
 
-**Figure.** Four-panel decomposition summary of GRS tile 26. **(a)** Velocity RGB composite -- three velocity bins mapped to R, G, B from the decomposed (not raw) Gaussians, sharper than moment-0 RGB because noise is removed by the fit. **(b)** Topological complexity -- number of Gaussian components detected per pixel; highlights cloud boundaries, outflows, and shock fronts. **(c)** Amplitude--velocity bivariate colormap -- hue encodes centroid velocity, luminance encodes peak amplitude, communicating two physical quantities per pixel simultaneously. **(d)** Dominant velocity field -- centroid velocity of the brightest component per pixel, revealing bulk gas motions hidden by moment-1 blending when multiple clouds overlap along the line of sight.
+**Figure.** Four-panel decomposition strip of GRS tiles 26--34 ($\ell \approx 25\degree$--$35\degree$). **(a)** Velocity RGB composite -- three velocity bins mapped to R, G, B from the decomposed Gaussians. **(b)** Topological complexity -- number of Gaussian components detected per pixel; highlights cloud boundaries, outflows, and shock fronts. **(c)** Amplitude--velocity bivariate colormap -- hue encodes centroid velocity, luminance encodes peak amplitude. **(d)** Dominant velocity field -- centroid velocity of the brightest component per pixel, revealing bulk gas motions hidden by moment-1 blending when multiple clouds overlap along the line of sight.
 
   </figcaption>
 </figure>
 
 ## Spatial correlation of decomposition fields
 
-The two-point autocorrelation function $\xi(\theta)$ measures how strongly a scalar field at two positions is correlated as a function of their angular separation $\theta$. We compute it on tile grs-26 ($\ell \approx 25\degree$--$27\degree$) using FFT-based estimation on the regular pixel grid, with spatial-jackknife error bands (4$\times$4 block grid). Four fields are derived from the Gaussian decomposition:
+The two-point autocorrelation function $\xi(\theta)$ measures how strongly a scalar field at two positions is correlated as a function of their angular separation $\theta$. We compute it across the five-tile strip ($\ell \approx 25\degree$--$35\degree$) using FFT-based estimation on the global pixel grid, with spatial-jackknife error bands (4$\times$4 block grid). Four fields are derived from the Gaussian decomposition:
 
 - **$N_\mathrm{comp}$** -- number of components per pixel (topological complexity).
 - **$I_\mathrm{tot}$** -- total integrated intensity, $\sum_i A_i \sigma_i$, proportional to column density.
 - **$\bar{v}$** -- intensity-weighted mean velocity (first moment of fitted components).
 - **$\sigma_v$** -- intensity-weighted velocity dispersion (second central moment of component centroids).
 
+```bash
+uv run benchmarks correlation-plot --input-dir /tmp/phspectra/grs-full
+```
+
 <figure class="scientific">
   <img src="/img/results/correlation-plot.png" alt="Two-point autocorrelation of decomposition fields" />
   <figcaption>
 
-**Figure.** Two-point autocorrelation of four decomposition-derived scalar fields for GRS tile 26. Shaded bands show 1$\sigma$ spatial-jackknife uncertainties. The dashed vertical line marks the correlation length $\theta_\mathrm{corr}$ where $\xi$ drops to $1/e$, when it falls within the plotted range. Generated by `uv run benchmarks correlation-plot --survey grs-26 --fits-file /tmp/phspectra/grs-full/grs-26-cube.fits`.
+**Figure.** Two-point autocorrelation of four decomposition-derived scalar fields across GRS tiles 26--34. Shaded bands show 1$\sigma$ spatial-jackknife uncertainties. The dashed vertical line marks the correlation length $\theta_\mathrm{corr}$ where $\xi$ drops to $1/e$, when it falls within the plotted range.
 
   </figcaption>
 </figure>

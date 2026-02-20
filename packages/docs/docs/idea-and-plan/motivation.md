@@ -44,7 +44,7 @@ These thresholds have sensible physical defaults that work across the datasets w
 
 ## Benchmark: GaussPy
 
-Several families of decomposition algorithms exist (see [Introduction](../intro) for a full overview). We benchmark phspectra against [GaussPy](https://arxiv.org/abs/1409.2840) / [GaussPy+](https://arxiv.org/abs/1906.10506) because it is the most widely adopted open-source tool for automated Gaussian decomposition of radio spectral cubes, and its derivative-based approach represents a fundamentally different philosophy from topology-based peak detection. Understanding how GaussPy works clarifies what phspectra replaces in the pipeline.
+Several families of decomposition algorithms exist (see [Introduction](../intro) for a full overview). We benchmark phspectra against [GaussPy](https://arxiv.org/abs/1409.2840) / [GaussPy+](https://arxiv.org/abs/1906.10506) because both are open-source, fully automated, and target the same use case -- blind Gaussian decomposition of radio spectral cubes. Their derivative-based approach also provides a useful contrast with topology-based peak detection.
 
 GaussPy uses **derivative spectroscopy**: it computes the second and fourth derivatives of the spectrum and locates their zero-crossings, which mark candidate peak positions and boundaries. Because finite-difference derivatives amplify noise, GaussPy regularizes them via **Total Variation (TV) regularization**, solving an optimization problem that balances data fidelity against a smoothness penalty:
 

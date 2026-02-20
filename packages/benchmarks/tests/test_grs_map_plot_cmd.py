@@ -253,7 +253,7 @@ class TestBuildGrsFigure:
 
         fig = _build_grs_figure(data, velocity, grid)
         assert fig is not None
-        assert len(fig.axes) >= 1
+        assert len(fig.axes) >= 4
         plt.close(fig)
 
 

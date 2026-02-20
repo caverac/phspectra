@@ -11,19 +11,20 @@ flowchart TD
     PH --> IG["Convert peaks to<br/>initial Gaussian guesses"]
     IG --> FIT["Bounded Levenberg-Marquardt<br/>curve fitting"]
     FIT --> VAL["Component validation<br/>(SNR, matched-filter SNR, FWHM)"]
-    VAL --> AICC["Compute AICc baseline"]
-    AICC --> LOOP["Refinement iteration"]
-    LOOP --> RES["Search residual for<br/>missed peaks"]
-    RES --> DIP["Check for negative<br/>dips (blended peaks)"]
-    DIP --> MRG["Merge blended<br/>pairs"]
-    MRG --> ACC{"AICc<br/>improved?"}
-    ACC -- "Yes" --> AGAIN{"Max iterations<br/>reached?"}
-    ACC -- "No" --> OUT["Return sorted components"]
-    AGAIN -- "No" --> LOOP
-    AGAIN -- "Yes" --> OUT
+    VAL --> REFIT["Refit if any removed"]
+    REFIT --> AICC["Compute AICc baseline"]
+    AICC --> X{"Residual peaks or<br/>blended pairs?"}
+    X -- No --> OUT["Return sorted components"]
+    X -- Yes --> LOOP["Refinement iteration"]
+    LOOP --> RES["Search residual for missed peaks<br/>refit + AICc check"]
+    RES --> DIP["Check for negative dip, split<br/>refit + AICc check"]
+    DIP --> MRG["Check for blended pairs, merge<br/>refit + AICc check"]
+    MRG --> ACC{"Any change<br/>accepted?"}
+    ACC -- "Yes & iters < 3" --> LOOP
+    ACC -- "No or iters = 3" --> OUT
 ```
 
-Refinement always runs after the initial fit. Each refinement step (residual peak addition, negative-dip splitting, blended-pair merging) is accepted only if it improves the corrected Akaike Information Criterion (AICc). This prevents over-fitting while allowing the model to recover missed structure.
+Each refinement step (residual peak search, negative-dip splitting, blended-pair merging) runs sequentially with its own independent refit and AICc check. A change is accepted only if it lowers AICc; this prevents over-fitting while allowing the model to recover missed structure.
 
 ## Step 1: Noise estimation
 
