@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://caverac.github.io/phspectra/">Documentation</a>
+  <a href="https://caverac.github.io/phspectra/">Documentation</a> | <a href="https://github.com/caverac/phspectra">Repository</a>
 </p>
 
 ---

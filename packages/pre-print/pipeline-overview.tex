@@ -1,0 +1,77 @@
+% Pipeline overview flowchart for phspectra
+% Included via \input{figures/tikz/pipeline-overview.tex} in ms.tex
+\begin{tikzpicture}[
+    node distance=4mm and 4mm,
+    every node/.style={font=\small},
+    block/.style={
+      rectangle, draw, rounded corners=2pt,
+      text width=26mm, minimum height=7mm,
+      align=center, fill=blue!8
+    },
+    decision/.style={
+      diamond, draw, aspect=2,
+      text width=14mm, align=center,
+      inner sep=1pt, fill=yellow!15
+    },
+    fitblock/.style={
+      rectangle, draw, rounded corners=2pt,
+      text width=26mm, minimum height=7mm,
+      align=center, fill=red!15
+    },
+    refineblock/.style={
+      rectangle, draw, rounded corners=2pt,
+      text width=22mm, minimum height=6mm,
+      align=center, fill=green!10
+    },
+    arr/.style={-{Stealth[length=2mm]}, thick},
+    note/.style={font=\scriptsize\itshape, text=gray}
+  ]
+
+  % Main pipeline
+  \node[block] (input) {Raw 1-D\\spectrum};
+  \node[block, below=of input] (rms) {Estimate $\srms$};
+  \node[block, below=of rms] (persist) {Persistence peak\\detection\\$\pmin = \beta \cdot \srms$};
+  \node[fitblock, below=of persist] (fit) {Initial guesses +\\least-squares fit};
+  \node[block, below=of fit] (validate) {Validate components\\+ AICc baseline};
+  \node[decision, below=6mm of validate] (needrefine) {Residual peaks\\or blended?};
+
+  % No-refine path
+  \node[block, right=14mm of needrefine] (output) {Return\\components};
+
+  % Refinement loop
+  \node[refineblock, below=6mm of needrefine] (residual) {Search residual\\for peaks};
+  \node[refineblock, below=of residual] (split) {Split at\\negative dip};
+  \node[refineblock, below=of split] (merge) {Merge blended\\pairs};
+  \node[fitblock, below=6mm of merge] (refit) {Refit \&\\check AICc};
+  \node[decision, below=6mm of refit] (improved) {Any\\improved?};
+
+  % Arrows — main path
+  \draw[arr] (input) -- (rms);
+  \draw[arr] (rms) -- (persist);
+  \draw[arr] (persist) -- (fit);
+  \draw[arr] (fit) -- (validate);
+  \draw[arr] (validate) -- (needrefine);
+  \draw[arr] (needrefine) -- node[above] {\scriptsize No} (output);
+  \draw[arr] (needrefine) -- node[right] {\scriptsize Yes} (residual);
+  \draw[arr] (residual) -- (split);
+  \draw[arr] (split) -- (merge);
+  \draw[arr] (merge) -- (refit);
+  \draw[arr] (refit) -- (improved);
+
+  % Accept → loop back
+  \draw[arr] (improved.west) -- ++(-10mm,0)
+    node[above, pos=0.5] {\scriptsize Yes}
+    |- (residual.west);
+
+  % No improvement → output
+  \draw[arr] (improved.east) --
+    node[above] {\scriptsize No}
+    (improved.east -| output.south) -- (output.south);
+
+  % Brace for refinement loop
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}]
+    ([xshift=-3mm]residual.north west) -- ([xshift=-3mm]merge.south west)
+    node[midway, left=5pt, note, text width=12mm, align=right]
+    {up to 3\\iterations};
+
+\end{tikzpicture}
