@@ -1,3 +1,14 @@
+# [1.3.0](https://github.com/caverac/phspectra/compare/v1.2.5...v1.3.0) (2026-02-20)
+
+### Bug Fixes
+
+- **docs:** broken refs ([cf69556](https://github.com/caverac/phspectra/commit/cf695566006f0ac34a554912c92fb4fb5b778cdc))
+
+### Features
+
+- **benchmarks:** added two point correaltion function to the cli ([6fc379d](https://github.com/caverac/phspectra/commit/6fc379d6021af1124f28892ca21bf4ed26807ddc))
+- **pre-print:** brain dump ([018ef29](https://github.com/caverac/phspectra/commit/018ef29d27b81e6dc9652e4f20521cc4a9deb3da))
+
 ## [1.2.5](https://github.com/caverac/phspectra/compare/v1.2.4...v1.2.5) (2026-02-19)
 
 ### Bug Fixes
