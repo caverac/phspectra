@@ -1,3 +1,9 @@
+## [1.4.1](https://github.com/caverac/phspectra/compare/v1.4.0...v1.4.1) (2026-02-20)
+
+### Bug Fixes
+
+- **pre-print:** flattened folder structure ([fa7c0b9](https://github.com/caverac/phspectra/commit/fa7c0b9f1c7187b105b08459459f65f66a61b7a2))
+
 # [1.4.0](https://github.com/caverac/phspectra/compare/v1.3.0...v1.4.0) (2026-02-20)
 
 ### Bug Fixes
