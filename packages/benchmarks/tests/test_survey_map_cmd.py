@@ -380,6 +380,24 @@ class TestPanels:
         _panel_dominant_velocity(ax, sample_data, sample_velocity, 2, 2, sample_extent, cax)
         plt.close(fig)
 
+    def test_dominant_velocity_negative_ncomp(
+        self,
+        sample_velocity: npt.NDArray[np.float64],
+        sample_extent: tuple[float, float, float, float],
+    ) -> None:
+        """Pixels with n_components < 0 (timed-out) are skipped."""
+        data = DecompositionData(
+            x=np.array([0, 1], dtype=np.int32),
+            y=np.array([0, 0], dtype=np.int32),
+            n_components=np.array([-1, 1], dtype=np.int32),
+            component_amplitudes=[[], [2.0]],
+            component_means=[[], [50.0]],
+            component_stddevs=[[], [3.0]],
+        )
+        fig, (ax, cax) = plt.subplots(1, 2, gridspec_kw={"width_ratios": [1, 0.04]})
+        _panel_dominant_velocity(ax, data, sample_velocity, 2, 1, sample_extent, cax)
+        plt.close(fig)
+
     def test_bivariate(
         self,
         sample_data: DecompositionData,

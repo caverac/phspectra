@@ -158,6 +158,21 @@ class TestBuildScalarGrids:
         for _grid, mask in grids.values():
             assert mask.all()
 
+    def test_empty_components_skipped(self) -> None:
+        """Pixels with n_components <= 0 or empty lists are skipped."""
+        data = DecompositionData(
+            x=np.array([0, 1], dtype=np.int32),
+            y=np.array([0, 0], dtype=np.int32),
+            n_components=np.array([0, 1], dtype=np.int32),
+            component_amplitudes=[[], [2.0]],
+            component_means=[[], [50.0]],
+            component_stddevs=[[], [3.0]],
+        )
+        grids = _build_scalar_grids(data, 2, 1)
+        _, mask = grids["intensity"]
+        assert not mask[0, 0]
+        assert mask[0, 1]
+
 
 # ---------------------------------------------------------------------------
 # TestAutocorrelationFft
