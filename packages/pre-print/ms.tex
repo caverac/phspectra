@@ -38,23 +38,25 @@
 % ABSTRACT
 % ---------------------------------------------------------------------------
 \begin{abstract}
-Decomposing radio spectral lines into individual Gaussian components is
-essential for studying the interstellar medium, yet existing automated methods
-require multiple trained parameters.  This work presents \phspectra, a new approach
-that uses 0-dimensional persistent homology to detect peaks in 1D spectra.
+Radio surveys deliver millions of spectra, making Gaussian decomposition
+a bottleneck in turning line profiles into physical insight about the
+interstellar medium.  This work presents \phspectra, a parameter-light
+approach that uses
+0-dimensional persistent homology to detect peaks in 1D spectra.
 Persistent homology tracks the birth and death of connected components in the
 signal's upper-level sets as a threshold descends from the global maximum,
 assigning each peak a topological persistence that measures its significance
 without smoothing or differentiation.  The sole free parameter is $\beta$,
 which sets the persistence threshold in units of noise:
-$\pmin = \beta \cdot \srms$.  On a synthetic benchmark of 350 spectra spanning
-seven difficulty categories, \phspectra\ achieves an overall $F_1$ score of 0.925
-at the optimal $\beta = 2.8$, with performance varying by only 0.040 across
-$\beta \in [2.0, 4.5]$.  Compared with \gausspyp\ on 4200 real ${}^{13}$CO
-spectra from the Galactic Ring Survey, \phspectra\ produces lower residual RMS
-in 62\% of head-to-head comparisons and runs $2.0\times$ faster, while
-requiring no parameter training.  The software is open-source and available at
-\url{https://github.com/caverac/phspectra}.
+$\pmin = \beta\,\srms$.  On a synthetic benchmark of 350 spectra spanning
+seven difficulty categories, \phspectra\ achieves an overall $F_1$ score of
+0.925 at the optimal $\beta = 2.8$, with performance varying by only 0.040
+across $\beta \in [2.0, 4.5]$.  Compared with \gausspyp\ on 4200 real
+${}^{13}$CO spectra from the Galactic Ring Survey, \phspectra\ produces lower
+residual RMS in 62\% of head-to-head comparisons and runs $2.0\times$ faster,
+while requiring no parameter training.  The result is a survey-ready
+decomposition method that is robust to tuning choices and scalable to modern
+datasets.
 \end{abstract}
 
 \keywords{methods: data analysis --- ISM: kinematics and dynamics ---
@@ -113,11 +115,9 @@ single free parameter~$\beta$ (the persistence threshold in units of noise),
 requires no expensive training, and runs in $O(n \log n)$ time.  It is shown that it
 achieves high accuracy on synthetic data while matching or exceeding
 \gausspyp\ on real GRS spectra without training.  The method is presented in
-\S\ref{sec:method}, evaluate it on synthetic and real ${}^{13}$CO spectra in
-\S\ref{sec:evaluation}, examine $\beta$ sensitivity in
-\S\ref{sec:beta}, compare performance in \S\ref{sec:performance}, discuss
-limitations and context in \S\ref{sec:discussion}, and summarize the
-conclusions in \S\ref{sec:summary}.
+\S\ref{sec:method}, evaluated on synthetic and real ${}^{13}$CO spectra in
+\S\ref{sec:evaluation}, discussed in the context of existing tools in
+\S\ref{sec:discussion}, and summarized in \S\ref{sec:summary}.
 
 % ============================================================================
 % §2  METHOD
@@ -191,7 +191,7 @@ threshold cannot distinguish noise from signal across datasets with different
 noise levels.  The minimum persistence is therefore set in units of the
 noise:
 \begin{equation}\label{eq:threshold}
-  \pmin = \beta \cdot \srms,
+  \pmin = \beta\,\srms,
 \end{equation}
 where $\srms$ is the noise RMS estimated from the data (see
 \S\ref{sec:candidates}) and $\beta$ is the sole free parameter of the model.
@@ -250,7 +250,7 @@ Channels exceeding $\pm 5\,\sigma_{\mathrm{MAD}}$ are then clipped, and the
 final RMS is computed as $\srms^2 = \sum_i f_i^2/N_{\mathrm{sur}}$, where the sum
 runs over the $N_{\mathrm{sur}}$ surviving channels.  This procedure avoids biasing the noise estimate with
 real emission and provides the noise scale used to set the persistence
-threshold $\pmin = \beta \cdot \srms$.
+threshold $\pmin = \beta\,\srms$.
 
 Each peak surviving this threshold becomes an initial Gaussian guess.  The
 amplitude is taken directly from the peak height, $a_0 = f(\mathrm{index})$,
@@ -464,29 +464,30 @@ channels.  \gausspyp\ runs with the trained parameters from
 decomposition), and an SNR threshold of 3.0.  \phspectra\ uses the default
 $\beta = 3.5$.
 
-\subsubsection{Residual RMS}\label{sec:rms}
 
-Table~\ref{tab:rms} summarizes the fit quality.  Both tools achieve nearly
-identical mean RMS values.  In head-to-head comparisons, \phspectra\ achieves
-lower residual RMS on 62\% of spectra (2592 of 4200).  The slightly lower
-mean RMS of \gausspyp\ is driven by a tail of spectra where it fits many
-more components, reducing RMS at the cost of potential overfitting (see
-below).
-
-\begin{deluxetable}{lcc}
-\tablecaption{Residual RMS comparison on 4200 GRS spectra.\label{tab:rms}}
-\tablehead{
-  \colhead{Metric} & \colhead{\phspectra} & \colhead{\gausspyp}
-}
-\startdata
-Mean RMS (K)     & 0.1356 & 0.1345 \\
-Lower RMS wins   & \textbf{2592} (62\%) & 1488 (35\%) \\
-\enddata
-\end{deluxetable}
-
-Figure~\ref{fig:rms_scatter} shows a scatter plot of per-spectrum RMS values;
-the majority of points fall below the 1:1 line, indicating lower \phspectra\
-residuals.
+Both tools achieve nearly identical mean residual RMS (0.136~K for
+\phspectra\ vs.\ 0.135~K for \gausspyp).  In head-to-head comparisons,
+\phspectra\ achieves lower residual RMS on 62\% of spectra (2592 of 4200).
+Figure~\ref{fig:rms_scatter} shows a scatter plot of per-spectrum RMS
+values; the majority of points fall below the 1:1 line, confirming lower
+\phspectra\ residuals.  The slightly lower mean RMS of \gausspyp\ is driven
+by a tail of spectra where it fits many more components, reducing RMS at the
+cost of potential overfitting.  Splitting the 4200 spectra at a residual
+RMS threshold of 0.2~K reveals two distinct regimes.  For low-noise spectra
+(RMS~$\leq 0.2$~K, 3814 spectra) the mean component counts are comparable:
+$\langle N \rangle = 2.6$ for \phspectra\ vs.\ 1.9 for \gausspyp.  For
+noisy spectra (RMS~$> 0.2$~K, 386 spectra), the two tools diverge sharply:
+\gausspyp\ fits $\langle N \rangle = 8.2$ components on average compared to
+1.6 for \phspectra.  The additional free parameters mechanically reduce the
+residual --- more Gaussians always lower $\chi^2$ --- but fitting $8+$
+components to a noisy spectrum is more likely to trace noise structure than
+real emission.  \phspectra's persistence threshold imposes a hard
+significance floor: no candidate peak survives unless its topological
+prominence exceeds $\beta\,\srms$, so on noisy spectra fewer (or
+zero) components are fitted, producing higher RMS but a more physically
+defensible decomposition.  This interpretation is specific to the
+\gausspyp\ comparison here; other decomposition methods may trade residual
+fit quality against component count in different ways.
 
 \begin{figure}[t!]
   \centering
@@ -498,41 +499,10 @@ residuals.
     \label{fig:rms_scatter}}
 \end{figure}
 
-\subsubsection{Decomposition disagreements}\label{sec:disagreements}
-
-A systematic comparison reveals several recurring patterns of disagreement
-between the two tools (Figure~\ref{fig:disagreements}).  \gausspyp\ sometimes
-fits many components (up to 14) where \phspectra\ finds fewer,
-better-constrained ones; conversely, \phspectra\ can resolve blended features
-that \gausspyp\ misses.  Even when both tools detect the same number of
-components, they may place them at different positions or assign different
-widths.  These patterns are not systematic failures of either tool --- they
-reflect genuinely different decomposition strategies applied to the same
-ambiguous data.
-
-\begin{figure*}[t!]
-  \centering
-  \includegraphics[width=\textwidth]{figures/img/compare-disagreements.png}
-  \caption{%
-    Representative disagreement cases between \phspectra\ and \gausspyp\ on
-    GRS spectra.  Each panel shows the data (black), \phspectra\ fit (blue),
-    and \gausspyp\ fit (orange).  Cases include: \phspectra\ finding fewer
-    components, \phspectra\ resolving blended features, each tool achieving
-    lower RMS on different spectra, and decompositions with the same component
-    count but different positions or widths.
-    \label{fig:disagreements}}
-\end{figure*}
-
 Across 6838 matched component pairs (Hungarian matching with a $2\sigma$
 position tolerance), the median log-width ratio
 $\ln(\sigma_{\mathrm{ph}} / \sigma_{\mathrm{GP+}})$ is near zero, indicating
-no systematic width bias.  The two methods diverge instead in how many
-components they fit in noisy spectra: for RMS~$\leq 0.2$~K the mean component
-counts are comparable (2.6 for \phspectra\ vs.\ 1.9 for \gausspyp), while for
-RMS~$> 0.2$~K, \gausspyp\ fits many more components (8.2 vs.\ 1.6), reducing
-RMS at the cost of likely overfitting.  \phspectra's persistence threshold
-imposes a hard significance floor, yielding fewer components but a more
-physically defensible decomposition in low-SNR spectra.
+no systematic width bias between the two tools.
 
 
 % ---------------------------------------------------------------------------
@@ -576,7 +546,7 @@ moment-1 maps when multiple clouds overlap.
 The two-point autocorrelation function $\xi(\theta)$ of each
 derived field across the five-tile strip using FFT-based estimation, with
 spatial-jackknife error bands ($4 \times 4$ block grid).  The structural
-fields ($N_{\mathrm{comp}}$ and $I_{\mathrm{tot}}$) exhibit correlation
+fields ($N_{\mathrm{components}}$ and $I_{\mathrm{tot}}$) exhibit correlation
 lengths of $\sim 0.3\degr$--$0.6\degr$, while the velocity fields
 ($\bar{v}$ and $\sigma_v$) decorrelate faster, consistent with the smaller
 coherence scale of gas kinematics.  These scales match the angular sizes of
@@ -585,80 +555,40 @@ giant molecular cloud complexes in the inner Galaxy
 preserves spatial structure rather than imprinting spurious coherence.
 
 
-% ============================================================================
-% §4  PARAMETER SENSITIVITY
-% ============================================================================
-\section{Parameter sensitivity}\label{sec:beta}
+% ---------------------------------------------------------------------------
+% §3.4  Computational performance
+% ---------------------------------------------------------------------------
+\subsection{Computational performance}\label{sec:performance}
 
-The sole free parameter of \phspectra\ is $\beta$, which sets the minimum
-persistence in units of noise (Equation~\ref{eq:threshold}).  Its
-sensitivity on two independent benchmarks: the 350 synthetic spectra of
-\S\ref{sec:synthetic}, where ground truth is known exactly, and a set of 52
-hand-curated real GRS spectra scored against human-labeled decompositions.
-
-On synthetic data the overall $F_1$ varies by only 0.040 across the full sweep
-from $\beta = 2.0$ to 4.5 (\S\ref{sec:synthetic},
-Figure~\ref{fig:synthetic_$f_1$}), peaking at $F_1$~$= 0.925$ at $\beta = 2.8$.
-On the 52 real spectra, the optimal $\beta$ is 3.67, achieving
-$F_1$~$= 0.576$ with precision $P = 0.43$ and recall $R = 0.89$.  The $F_1$
-variation across the full sweep is 0.084 on real data.
-
-The large gap between recall and precision on real data warrants
-interpretation.  Recall $\approx 0.89$ means that \phspectra\ recovers
-nearly 90\% of the components in the curated set.  Precision
-$\approx 0.43$ means it consistently finds more components than the human
-labeler marked.  Crucially, this precision deficit is \emph{stable across
-$\beta$}: raising $\beta$ does not improve precision, because the extra
-components are not noise artifacts (those would vanish at higher $\beta$).
-They reflect genuine detections that fall outside the scope of the curated
-labels --- faint or partially blended features that are easy to overlook
-during manual inspection.  This interpretation is supported by the synthetic
-benchmark, where precision and recall are both high ($F_1$~$= 0.925$),
-confirming that \phspectra\ does not systematically hallucinate components.
-
-\gausspyp\ requires the smoothing scales $\alpha_1$ and $\alpha_2$ to be
-trained per survey (or per survey region) on synthetic spectra modeled after
-the target data \citep{Lindner2015,Riener2019}.  Different regions of the
-same survey can yield different optimal $\alpha$ values.  In contrast,
-$\beta$ is survey-agnostic --- values in the range 2.8--3.7 work well
-across both real and synthetic data --- and physically interpretable:
-$\beta = 3.5$ means ``reject any peak whose persistence is less than a
-$3.5\sigma$ fluctuation,'' a natural significance threshold.
-
-The default $\beta = 3.5$ is adopted rather than $\beta = 2.8$ because the
-accuracy cost is negligible ($F_1$ drops from 0.925 to 0.919 on synthetic
-data, a difference of 0.006) while the computational benefit is
-substantial: a lower $\beta$ admits more marginal candidates that must be
-fitted by the Levenberg--Marquardt solver only to be rejected during
-component validation, slowing the pipeline without improving the final
-decomposition.
-
-% ============================================================================
-% §5  PERFORMANCE
-% ============================================================================
-\section{Performance}\label{sec:performance}
-
-The wall-clock time for decomposing all 4200 GRS test-field
-spectra (424 channels each) on a single core, with no parallelization for
-either tool.  \phspectra\ uses the default $\beta = 3.5$ with its
+A key practical advantage of \phspectra\ is its computational efficiency.
+The wall-clock time for decomposing all 4200 GRS test-field spectra
+(424 channels each) is measured on a single core with no parallelization
+for either tool.  \phspectra\ uses the default $\beta = 3.5$ with its
 C-accelerated Levenberg--Marquardt solver; \gausspyp\ is run in Docker with
 Python~3.10 (required for compatibility with its dependencies).
 
-Table~\ref{tab:timing} summarizes the results.  \phspectra\ is $2.0\times$
-faster in total wall-clock time (746.4\,s vs.\ 1477.4\,s).  The two tools
-have comparable median per-spectrum times (51.6\,ms vs.\ 40.4\,ms), but
-their timing distributions differ sharply in the tails: \phspectra's P99 is
-3.0\,s compared to \gausspyp's 8.4\,s, and these extreme outliers dominate
-the aggregate timing.
+Table~\ref{tab:timing} summarizes the results.  The typical per-spectrum
+execution time for \phspectra\ is remarkably low: the median is just
+51.6\,ms, placing the algorithm firmly in the regime where survey-scale
+processing of millions of spectra becomes routine on modest hardware.
+In total wall-clock time \phspectra\ is $2.0\times$ faster (746.4\,s vs.\
+1477.4\,s).  While the two tools have comparable median latencies
+(51.6\,ms vs.\ 40.4\,ms), their timing distributions diverge sharply in
+the tails: at the 95th percentile both are still similar (705\,ms vs.\
+703\,ms), but \phspectra's P99 is 3.0\,s compared to \gausspyp's 8.4\,s
+--- a $2.8\times$ difference.  These extreme outliers dominate the
+aggregate timing and are the primary reason for the $2\times$ total
+speedup despite comparable typical performance.
 
-Three algorithmic differences explain the speed advantage.  First,
-\phspectra\ operates directly on the raw spectrum using persistence-based
-peak detection, bypassing the smoothing sweep that \gausspyp\ performs at
-each $\alpha$ scale.  Second, the C extension keeps per-call overhead low,
-while \gausspyp's derivative-based approach can trigger costly iterative
-refinement on complex spectra.  Third, \phspectra\ requires no separate
-training step --- \gausspyp's $\alpha$ parameters must be trained per survey,
-adding computational cost not reflected in the per-spectrum timing.
+Three algorithmic properties underpin this efficiency.  First, \phspectra\
+operates directly on the raw spectrum using persistence-based peak
+detection, bypassing the smoothing sweep that \gausspyp\ performs at each
+$\alpha$ scale.  Second, the custom C extension for both the
+Levenberg--Marquardt solver and the union-find persistence computation
+keeps per-call overhead to the 40--60\,ms range for typical spectra.
+Third, \phspectra\ requires no separate training step --- \gausspyp's
+$\alpha$ parameters must be trained per survey on synthetic data, adding
+computational cost not reflected in the per-spectrum timing.
 
 \begin{deluxetable}{lccc}
 \tablecaption{Wall-clock timing benchmark on 4200 GRS spectra.
@@ -671,6 +601,7 @@ adding computational cost not reflected in the per-spectrum timing.
 Total time          & 746.4\,s   & 1477.4\,s  & $2.0\times$ \\
 Mean per spectrum   & 177.7\,ms  & 350.5\,ms  & $2.0\times$ \\
 Median per spectrum & 51.6\,ms   & 40.4\,ms   & ---         \\
+P95 per spectrum    & 705.4\,ms  & 702.5\,ms  & ---         \\
 P99 per spectrum    & 3.0\,s     & 8.4\,s     & $2.8\times$ \\
 Components found    & 2.48       & 2.44       & ---         \\
 \enddata
@@ -679,7 +610,7 @@ Components found    & 2.48       & 2.44       & ---         \\
 
 
 % ============================================================================
-% §6  DISCUSSION
+% §4  DISCUSSION
 % ============================================================================
 \section{Discussion}\label{sec:discussion}
 
@@ -705,7 +636,7 @@ independently and does not enforce spatial coherence across neighboring
 pixels.  \gausspyp\ uses a spatial refitting stage \citep[Section~3.3
 of][]{Riener2019} that improves consistency across a data cube; a similar
 post-processing step could be added to \phspectra.  Second, a single $\beta$
-is used for all spectra in a survey.  While \S\ref{sec:beta} shows that
+is used for all spectra in a survey.  While the synthetic benchmark (\S\ref{sec:synthetic}) shows that
 performance is robust to $\beta$ over a wide range, an adaptive $\beta$
 that responds to local noise conditions could further improve performance
 in surveys with spatially varying sensitivity.  Third, the algorithm assumes
@@ -733,136 +664,37 @@ Speed (GRS)       & 178\,ms/spectrum      & ---                     & 351\,ms/sp
 
 
 % ============================================================================
-% §7  SUMMARY
+% §5  SUMMARY
 % ============================================================================
 \section{Summary}\label{sec:summary}
 
 \phspectra\ is presented as a new tool for automated Gaussian
 decomposition of spectral lines based on 0-dimensional persistent homology.
-The key results are:
+The method detects peaks by tracking the birth and death of connected
+components in the signal's upper-level sets as a threshold descends from the
+global maximum, ranking features by their topological persistence without
+smoothing or differentiation.  This yields a single-parameter model: the sole
+free parameter is $\beta = 3.5$ (the persistence threshold in units of noise),
+which requires no survey-specific training and is physically interpretable as
+a significance threshold.
 
-\begin{enumerate}
-  \item \textbf{First application of persistent homology to spectral line
-    decomposition.}  The algorithm detects peaks by tracking the birth and
-    death of connected components in the signal's upper-level sets as a
-    threshold descends from the global maximum, ranking features by their
-    topological persistence without smoothing or differentiation.
+On a benchmark of 350 synthetic spectra spanning seven difficulty categories,
+\phspectra\ achieves an overall $F_1$~$= 0.925$ at the optimal $\beta = 2.8$,
+with performance varying by only 0.040 across $\beta \in [2.0, 4.5]$.  On
+real data, the comparison with \gausspyp\ on 4200 GRS spectra shows comparable
+mean residual RMS and lower RMS in 62\% of head-to-head cases; the spectra
+where \gausspyp\ performs better are those where it fits many more components,
+consistent with overfitting.  The pipeline is also faster, achieving a
+$2.0\times$ reduction in total wall-clock time and a P99 latency of 3.0\,s
+versus 8.4\,s for \gausspyp.
 
-  \item \textbf{Single parameter, no training.}  The sole free parameter is
-    $\beta = 3.5$ (the persistence threshold in units of noise), which
-    requires no survey-specific training and is physically interpretable as
-    a significance threshold.
-
-  \item \textbf{High accuracy on synthetic data.}  On a benchmark of 350
-    spectra spanning seven difficulty categories, \phspectra\ achieves an
-    overall $F_1$~$= 0.925$ at the optimal $\beta = 2.8$, with performance
-    varying by only 0.040 across $\beta \in [2.0, 4.5]$.
-
-  \item \textbf{Competitive on real data.}  Compared with \gausspyp\ on
-    4200 real ${}^{13}$CO spectra from the GRS, \phspectra\ achieves lower
-    residual RMS on 62\% of head-to-head comparisons.  Cases where
-    \gausspyp\ achieves lower RMS are associated with high component counts
-    (8.2 on average for RMS~$> 0.2$~K vs.\ \phspectra's 1.6), consistent
-    with overfitting.
-
-  \item \textbf{Faster execution, better tail behavior.}  \phspectra\ is
-    $2.0\times$ faster in total wall-clock time on the same 4200 spectra,
-    with a P99 latency of 3.0\,s compared to 8.4\,s for \gausspyp.
-
-  \item \textbf{Open-source.}  The software, documentation, and benchmark
-    scripts are publicly available at
-    \url{https://github.com/caverac/phspectra}.
-\end{enumerate}
-
-Future work will focus on adding spatial coherence for cube-level
-decomposition, applying \phspectra\ to HI 21\,cm surveys, and producing a
-full GRS decomposition catalog.
+The software, documentation, and benchmark scripts are publicly available at
+\url{https://github.com/caverac/phspectra}.
 
 The central result is that persistent homology enables a survey-ready,
 parameter-light decomposition that matches trained methods while eliminating
 their tuning burden, making large-scale spectral analysis faster, more
 reproducible, and easier to deploy.
-
-% ============================================================================
-% ACKNOWLEDGMENTS
-% ============================================================================
-% TODO: acknowledgments
-
-% ============================================================================
-% APPENDIX
-% ============================================================================
-\appendix
-
-\section{Implementation Details}\label{app:implementation}
-
-% ---------------------------------------------------------------------------
-% A.1  Union-find pseudocode
-% ---------------------------------------------------------------------------
-\subsection{Union-find persistence algorithm}\label{app:unionfind}
-
-Algorithm~\ref{alg:persistence} gives the pseudocode for the 0-dimensional
-persistence peak detection used in \phspectra.  The algorithm processes
-samples in decreasing order of function value, maintaining a union-find
-structure to track connected components.
-
-\begin{figure}[t!]
-\centering
-\fbox{\parbox{0.92\columnwidth}{%
-\small
-\textbf{Algorithm 1:} 0-dimensional persistence peak detection\\[4pt]
-\textbf{Input:} Signal $f[0..n{-}1]$, threshold $\pmin$\\
-\textbf{Output:} List of peaks with persistence $> \pmin$\\[4pt]
-1.\quad $\mathrm{order} \gets \mathrm{argsort}(-f)$
-  \hfill\textit{// decreasing value}\\
-2.\quad Initialize union-find on $\{0, \ldots, n{-}1\}$\\
-3.\quad $\mathrm{visited}[i] \gets \mathrm{false}$ for all $i$;
-  \quad $\mathrm{peaks} \gets \{\}$\\
-4.\quad \textbf{for} $\mathrm{idx}$ \textbf{in} $\mathrm{order}$ \textbf{do}\\
-5.\quad\quad $\mathrm{visited}[\mathrm{idx}] \gets \mathrm{true}$\\
-6.\quad\quad \textbf{for} $\mathrm{nbr} \in \{\mathrm{idx}{-}1,\;
-  \mathrm{idx}{+}1\}$ \textbf{do}\\
-7.\quad\quad\quad \textbf{if} $0 \leq \mathrm{nbr} < n$ \textbf{and}
-  $\mathrm{visited}[\mathrm{nbr}]$ \textbf{then}\\
-8.\quad\quad\quad\quad $r_1 \gets \mathrm{Find}(\mathrm{idx})$;\;
-  $r_2 \gets \mathrm{Find}(\mathrm{nbr})$\\
-9.\quad\quad\quad\quad \textbf{if} $r_1 \neq r_2$ \textbf{then}\\
-10.\quad\quad\quad\quad\quad Identify younger component (lower peak)\\
-11.\quad\quad\quad\quad\quad $\pi \gets f[\mathrm{younger}] -
-  f[\mathrm{idx}]$\\
-12.\quad\quad\quad\quad\quad \textbf{if} $\pi > \pmin$ \textbf{then}
-  record peak\\
-13.\quad\quad\quad\quad\quad $\mathrm{Union}(r_1, r_2)$\\
-14.\quad Record global maximum (persistence $= f[\mathrm{order}[0]]$)\\
-15.\quad \textbf{return} peaks sorted by persistence (descending)%
-}}
-\caption{Pseudocode for the union-find persistence peak detection algorithm
-used in \phspectra.  The algorithm processes samples in decreasing order of
-function value, merging connected components via union-find and recording
-birth--death pairs.\label{alg:persistence}}
-\end{figure}
-
-% ---------------------------------------------------------------------------
-% A.2  Noise estimation
-% ---------------------------------------------------------------------------
-\subsection{Noise estimation algorithm}\label{app:noise}
-
-% TODO: Detailed pseudocode for the signal-masked RMS estimation:
-% 1. Find runs of consecutive positive channels
-% 2. Mask runs > 2 channels wide (with pad=2 on each side)
-% 3. MAD from negative unmasked channels
-% 4. Clip channels > 5*sigma_MAD
-% 5. Final RMS from surviving channels
-% 6. Fallback to simple MAD if < 5 channels survive
-
-% ---------------------------------------------------------------------------
-% A.3  Software availability
-% ---------------------------------------------------------------------------
-\subsection{Software availability}\label{app:software}
-
-\phspectra\ is open-source software written in Python.  The source code,
-documentation, and benchmark scripts are available at
-\url{https://github.com/caverac/phspectra}.  The package depends on
-NumPy \citep{Harris2020} and SciPy \citep{Virtanen2020}.
 
 % ============================================================================
 \bibliography{ms}

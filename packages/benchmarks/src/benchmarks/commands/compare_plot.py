@@ -274,7 +274,7 @@ def _build_rms_scatter(results: list[ComparisonResult]) -> Figure:
     gp_rms_arr = np.array([r.gp_rms for r in results])
 
     fig: Figure
-    fig, ax = plt.subplots(figsize=(6.5, 5))
+    fig, ax = plt.subplots(figsize=(4.0, 4.0))
     fig.subplots_adjust(left=0.12, right=0.92, bottom=0.12, top=0.95)
 
     ax.scatter(gp_rms_arr, ph_rms_arr, s=8, alpha=0.5, color="0.3")

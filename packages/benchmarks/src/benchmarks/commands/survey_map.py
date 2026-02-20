@@ -22,6 +22,7 @@ from benchmarks._constants import DATA_BUCKET_TEMPLATE
 from benchmarks._plotting import configure_axes
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
+from scipy.ndimage import binary_opening
 
 
 @dataclass
@@ -34,6 +35,40 @@ class DecompositionData:
     component_amplitudes: list[list[float]]
     component_means: list[list[float]]
     component_stddevs: list[list[float]]
+
+
+def _filter_sparse_pixels(
+    data: DecompositionData,
+    nx: int,
+    ny: int,
+) -> DecompositionData:
+    """Remove pixels in regions with sparse component coverage.
+
+    Builds a mask of pixels that have at least one Gaussian component
+    (``n_components > 0``) and applies binary opening with a 3x3
+    structuring element.  Pixels whose component-coverage neighborhood
+    does not survive the opening — isolated detections surrounded by
+    zero-component pixels at tile edges — are dropped.
+    """
+    xi = data.x.astype(int)
+    yi = data.y.astype(int)
+    has_comp = data.n_components > 0
+
+    coverage = np.zeros((ny, nx), dtype=bool)
+    valid = (xi >= 0) & (xi < nx) & (yi >= 0) & (yi < ny)
+    coverage[yi[valid & has_comp], xi[valid & has_comp]] = True
+
+    dense = binary_opening(coverage, structure=np.ones((3, 3)))
+    keep = dense[yi, xi]
+
+    return DecompositionData(
+        x=data.x[keep],
+        y=data.y[keep],
+        n_components=data.n_components[keep],
+        component_amplitudes=[a for a, k in zip(data.component_amplitudes, keep) if k],
+        component_means=[m for m, k in zip(data.component_means, keep) if k],
+        component_stddevs=[s for s, k in zip(data.component_stddevs, keep) if k],
+    )
 
 
 def _download_decompositions(
@@ -285,7 +320,6 @@ def _panel_dominant_velocity(
         amps = data.component_amplitudes[i]
         means = data.component_means[i]
         if not amps:
-            grid[yi, xi] = 0.0
             continue
         idx = int(np.argmax(amps))
         ch = int(np.clip(round(means[idx]), 0, n_vel - 1))
