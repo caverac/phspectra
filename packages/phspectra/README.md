@@ -24,7 +24,7 @@ pip install phspectra
 
 **Requirements:** Python >= 3.11, NumPy >= 1.26, SciPy >= 1.12.
 
-An optional C extension is compiled automatically from source when available, providing ~2x faster fitting. If compilation fails, the library falls back to SciPy's `curve_fit` transparently.
+An optional C extension is compiled automatically from source when available, providing ~2x faster fitting. If compilation fails, the library falls back to SciPy's [`curve_fit`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html) transparently.
 
 ## Quick start
 
