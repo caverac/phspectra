@@ -4,7 +4,7 @@ sidebar_position: 6
 
 # GRS survey
 
-Full-survey decomposition of the [Galactic Ring Survey](../idea-and-plan/data-sources#grs----galactic-ring-survey) using the [AWS pipeline](../infrastructure/aws-pipeline).
+Full-survey decomposition of the [Galactic Ring Survey](../idea-and-plan/data-sources#grs---galactic-ring-survey) using the [AWS pipeline](../infrastructure/aws-pipeline).
 
 ## Five-tile strip (tiles 26--34)
 

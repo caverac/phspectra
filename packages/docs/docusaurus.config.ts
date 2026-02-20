@@ -30,7 +30,6 @@ const config: Config = {
   projectName: 'phspectra',
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
 
   customFields: {
     phspectraVersion,
@@ -52,7 +51,10 @@ const config: Config = {
   ],
 
   markdown: {
-    mermaid: true
+    mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'warn'
+    }
   },
 
   themes: [

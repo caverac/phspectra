@@ -24,7 +24,7 @@ will show you how to download the data.
 uv run benchmarks download
 ```
 
-Downloads and caches the [GRS test field FITS cube](https://github.com/mriener/gausspyplus/raw/master/gausspyplus/data/grs-test_field.fits) from the [GaussPy+ repository](https://github.com/mriener/gausspyplus) ([Riener et al. 2019](https://doi.org/10.1051/0004-6361/201935519)). The cube covers a $60 \times 20$ pixel region with ~670 velocity channels (~4 MB). See [Data Sources](../idea-and-plan/data-sources#gauspy-test-field) for details. The GaussPy+ decompositions take a long time to run, so this only needs to be done once.
+Downloads and caches the [GRS test field FITS cube](https://github.com/mriener/gausspyplus/raw/master/gausspyplus/data/grs-test_field.fits) from the [GaussPy+ repository](https://github.com/mriener/gausspyplus) ([Riener et al. 2019](https://doi.org/10.1051/0004-6361/201935519)). The cube covers a $60 \times 20$ pixel region with ~670 velocity channels (~4 MB). See [Data Sources](../idea-and-plan/data-sources#gausspy-test-field) for details. The GaussPy+ decompositions take a long time to run, so this only needs to be done once.
 
 The pre-computed data is stored in [SQLite](https://www.sqlite.org/index.html) format. This is the schema of that database:
 
