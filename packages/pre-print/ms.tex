@@ -187,7 +187,7 @@ $O(n \log n)$; each union-find operation is amortized $O(\alpha(n))$, where
 $\alpha$ is the inverse Ackermann function, so the total complexity is
 dominated by the initial sort.
 
-Raw persistence is measured in the same units as the signal, a fixed
+Raw persistence is measured in the same units as the signal; a fixed
 threshold cannot distinguish noise from signal across datasets with different
 noise levels.  The minimum persistence is therefore set in units of the
 noise:
@@ -196,7 +196,7 @@ noise:
 \end{equation}
 where $\srms$ is the noise RMS estimated from the data (see
 \S\ref{sec:candidates}) and $\beta$ is the sole free parameter of the model.
-The default value $\beta = 3.5$ corresponds to a $3.5\sigma$ persistence cut.\\
+The default value $\beta = 3.5$ corresponds to a $3.5\sigma$ persistence cut.
 
 The name of this approach (Persistent Homology) reflects two ideas.  \emph{Homology} refers to the
 algebraic-topological invariants that count features of different
@@ -320,7 +320,7 @@ iterations.  Each iteration performs three operations:
 
 \begin{enumerate}
   \item Residual peak search:  The persistence detection algorithm is
-    ran on the residual spectrum (data minus model) with a lower threshold of
+    run on the residual spectrum (data minus model) with a lower threshold of
     $1.5\,\srms$ to find missed components.  Any peaks found are validated and
     added to the model.
 
@@ -337,40 +337,41 @@ After each operation, the full model is refit via least-squares, and the
 modification is accepted only if $\aicc$ decreases.  The loop terminates when
 no operation produces an improvement or the iteration limit is reached.
 
-Algorithm~\ref{alg:pipeline} summarizes the complete pipeline from raw spectrum
+Figure~\ref{fig:pipeline} summarizes the complete pipeline from raw spectrum
 to final Gaussian components.
 
 \begin{figure}[t!]
 \begin{algorithmic}[1]
 \REQUIRE Spectrum $f$, threshold parameter $\beta$
-\ENSURE Set of Gaussian components $\mathcal{G}$
+\ENSURE Model $F$ with $K$ Gaussian components
 \STATE $\srms \leftarrow$ \textsc{EstimateNoise}($f$)
 \STATE $\pmin \leftarrow \beta \cdot \srms$
-\STATE peaks $\leftarrow$ \textsc{PersistencePeakDetect}($f$, $\pmin$)
-\STATE $\mathcal{G} \leftarrow$ \textsc{InitialGuesses}(peaks)
-\STATE $\mathcal{G} \leftarrow$ \textsc{LeastSquaresFit}($f$, $\mathcal{G}$)
-\STATE $\mathcal{G} \leftarrow$ \textsc{ValidateComponents}($\mathcal{G}$, $\srms$)
-\STATE $\aicc_{\mathrm{best}} \leftarrow$ \textsc{ComputeAICc}($f$, $\mathcal{G}$)
+\STATE $\{(b_j, d_j)\} \leftarrow$ \textsc{PersistenceFilter}($f$, $\pmin$)
+\STATE $\{a_i, \mu_i, \sigma_i\}_{i=1}^{K} \leftarrow$ \textsc{InitialGuesses}($\{(b_j, d_j)\}$)
+\STATE $F \leftarrow$ \textsc{LeastSquaresFit}($f$, $\{a_i, \mu_i, \sigma_i\}$)
+\STATE $F \leftarrow$ \textsc{ValidateComponents}($F$, $\srms$)
+\STATE $\aicc_{\mathrm{best}} \leftarrow$ \textsc{ComputeAICc}($f$, $F$)
 \IF{no residual peaks \AND no blended pairs}
-  \RETURN $\mathcal{G}$
+  \RETURN $F$
 \ENDIF
 \FOR{$i = 1$ \TO $3$}
-  \STATE $r \leftarrow f - F(\mathcal{G})$
-  \STATE $\mathcal{G}' \leftarrow \mathcal{G}$
-  \STATE \textsc{SearchResidualPeaks}($r$, $1.5\,\srms$, $\mathcal{G}'$)
-  \STATE \textsc{SplitAtNegativeDip}($r$, $5\,\srms$, $\mathcal{G}'$)
-  \STATE \textsc{MergeBlendedPairs}($\mathcal{G}'$)
-  \STATE $\mathcal{G}' \leftarrow$ \textsc{LeastSquaresFit}($f$, $\mathcal{G}'$)
-  \IF{\textsc{ComputeAICc}($f$, $\mathcal{G}'$) $< \aicc_{\mathrm{best}}$}
-    \STATE $\mathcal{G} \leftarrow \mathcal{G}'$
-    \STATE $\aicc_{\mathrm{best}} \leftarrow$ \textsc{ComputeAICc}($f$, $\mathcal{G}'$)
-  \ELSE
-    \RETURN $\mathcal{G}$
+  \STATE $r \leftarrow f - F$
+  \STATE changed $\leftarrow$ \FALSE
+  \FORALL{op $\in$ \{\textsc{SearchResidualPeaks}, \textsc{SplitAtNegativeDip}, \textsc{MergeBlendedPairs}\}}
+    \STATE $F' \leftarrow$ op($r$, $F$, $\srms$)
+    \STATE $F' \leftarrow$ \textsc{LeastSquaresFit}($f$, $F'$)
+    \IF{\textsc{ComputeAICc}($f$, $F'$) $< \aicc_{\mathrm{best}}$}
+      \STATE $F \leftarrow F'$;\; $\aicc_{\mathrm{best}} \leftarrow$ \textsc{ComputeAICc}($f$, $F'$)
+      \STATE changed $\leftarrow$ \TRUE
+    \ENDIF
+  \ENDFOR
+  \IF{\NOT changed}
+    \RETURN $F$
   \ENDIF
 \ENDFOR
-\RETURN $\mathcal{G}$
+\RETURN $F$
 \end{algorithmic}
-\caption{\phspectra\ pipeline.\label{alg:pipeline}}
+\caption{\phspectra\ pipeline.\label{fig:pipeline}}
 \end{figure}
 
 
@@ -449,18 +450,18 @@ scores are listed in the last column of Table~\ref{tab:categories}.
 
 Across the $\beta$ sweep, position errors are typically sub-channel, and
 amplitude and width relative errors remain small and stable.  These trends
-hold across all seven categories.\\
+hold across all seven categories.
 
 Against real training data the behavior is similar, $F_1$ is highly insensitive
-to $\beta$ accross a wide range, with an optimal value at around $\approx 3$.
+to $\beta$ across a wide range, with an optimal value at around $\approx 3$.
 The practical reason for preferring $\beta=3.5$ is speed. A lower $\beta$ admits
 more candidate peaks from the persistence filtration, many of which sit just
 above the noise floor. These marginal peaks generate initial Gaussian guesses
-that must be fitted by the Levenberg-Marquardt solver -- the most expensive 
-step in the pipeline -- only to be discarded during component validation 
+that must be fitted by the Levenberg--Marquardt solver --- the most expensive
+step in the pipeline --- only to be discarded during component validation
 (SNR floor, matched-filter SNR). The fitting cost scales with the number of
 components, so a large number of doomed candidates slows the algorithm without
-improving the final decomposition.\\
+improving the final decomposition.
 
 At $\beta = 3.5$, the persistence threshold is high enough that most noise 
 peaks are rejected before fitting, while genuine features are retained. 
@@ -549,8 +550,8 @@ moment-1 maps when multiple clouds overlap.
   \centering
   \includegraphics[width=\textwidth]{grs-map-plot.png}
   \caption{%
-    Survey-scale products derived from the decomposition (GRS tiles 26--34;
-    ($\ell \approx 25\degr$--$35\degr$).  \emph{(a)}~Velocity RGB
+    Survey-scale products derived from the decomposition (GRS tiles 26--34,
+    $\ell \approx 25\degr$--$35\degr$).  \emph{(a)}~Velocity RGB
     composite: three velocity bins mapped to R, G, B from the decomposed
     Gaussians.  \emph{(b)}~Topological complexity: number of Gaussian
     components per pixel.  \emph{(c)}~Amplitude--velocity bivariate
@@ -722,7 +723,8 @@ $2.0\times$ reduction in total wall-clock time and a P99 latency of 3.0\,s
 versus 8.4\,s for \gausspyp.
 
 The software, documentation, and benchmark scripts are publicly available at
-\url{https://github.com/caverac/phspectra}.
+\url{https://github.com/caverac/phspectra} and the python package is 
+installable via PyPI with \texttt{pip install phspectra}.
 
 At survey scale, \phspectra\ turns spectra into physically interpretable
 products: component-count maps that track complexity, spatially coherent
