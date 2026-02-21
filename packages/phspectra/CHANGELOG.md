@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.2 (2026-02-21)
+
+### Bug Fixes
+
+- **phspectra**: Removed npx command
+  ([`d294652`](https://github.com/caverac/phspectra/commit/d29465290c7d8f4c94a8bee5f561f43cd150e290))
+
+### Continuous Integration
+
+- **phspectra**: Format changelog
+  ([`a8e20c3`](https://github.com/caverac/phspectra/commit/a8e20c37086a6986b3579e15bbab0bfbcf092bf0))
+
+
 ## v1.0.1 (2026-02-20)
 
 ### Bug Fixes
