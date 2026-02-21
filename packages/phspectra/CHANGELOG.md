@@ -32,7 +32,6 @@
 - **phspectra**: Removed max_components
   ([`9a11aae`](https://github.com/caverac/phspectra/commit/9a11aaee4d837cc73a7987cd8438b6616a3689e4))
 
-
 ## v1.0.0 (2026-02-16)
 
 - Initial Release
