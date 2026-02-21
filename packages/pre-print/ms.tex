@@ -7,8 +7,7 @@
 % --- Packages ---------------------------------------------------------------
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
-\usepackage{tikz}
-\usetikzlibrary{shapes.geometric,arrows.meta,positioning,calc,decorations.pathreplacing}
+\usepackage{algorithmic}
 \usepackage{booktabs}
 \usepackage{xcolor}
 
@@ -338,21 +337,40 @@ After each operation, the full model is refit via least-squares, and the
 modification is accepted only if $\aicc$ decreases.  The loop terminates when
 no operation produces an improvement or the iteration limit is reached.
 
-Figure~\ref{fig:pipeline} summarizes the complete pipeline from raw spectrum
+Algorithm~\ref{alg:pipeline} summarizes the complete pipeline from raw spectrum
 to final Gaussian components.
 
 \begin{figure}[t!]
-  \centering
-  \resizebox{\columnwidth}{!}{\input{pipeline-overview.tex}}
-  \caption{%
-    End-to-end pipeline used to turn spectra into physically interpretable
-    components.  After noise estimation and persistence-based peak detection,
-    the initial Gaussian fit is validated and scored by AICc.  If residual
-    peaks or blended pairs remain, an iterative refinement loop searches for
-    missed components, splits over-broad fits at negative residual dips, and
-    merges redundant pairs; each modification is accepted only if it lowers
-    the AICc.
-    \label{fig:pipeline}}
+\begin{algorithmic}[1]
+\REQUIRE Spectrum $f$, threshold parameter $\beta$
+\ENSURE Set of Gaussian components $\mathcal{G}$
+\STATE $\srms \leftarrow$ \textsc{EstimateNoise}($f$)
+\STATE $\pmin \leftarrow \beta \cdot \srms$
+\STATE peaks $\leftarrow$ \textsc{PersistencePeakDetect}($f$, $\pmin$)
+\STATE $\mathcal{G} \leftarrow$ \textsc{InitialGuesses}(peaks)
+\STATE $\mathcal{G} \leftarrow$ \textsc{LeastSquaresFit}($f$, $\mathcal{G}$)
+\STATE $\mathcal{G} \leftarrow$ \textsc{ValidateComponents}($\mathcal{G}$, $\srms$)
+\STATE $\aicc_{\mathrm{best}} \leftarrow$ \textsc{ComputeAICc}($f$, $\mathcal{G}$)
+\IF{no residual peaks \AND no blended pairs}
+  \RETURN $\mathcal{G}$
+\ENDIF
+\FOR{$i = 1$ \TO $3$}
+  \STATE $r \leftarrow f - F(\mathcal{G})$
+  \STATE $\mathcal{G}' \leftarrow \mathcal{G}$
+  \STATE \textsc{SearchResidualPeaks}($r$, $1.5\,\srms$, $\mathcal{G}'$)
+  \STATE \textsc{SplitAtNegativeDip}($r$, $5\,\srms$, $\mathcal{G}'$)
+  \STATE \textsc{MergeBlendedPairs}($\mathcal{G}'$)
+  \STATE $\mathcal{G}' \leftarrow$ \textsc{LeastSquaresFit}($f$, $\mathcal{G}'$)
+  \IF{\textsc{ComputeAICc}($f$, $\mathcal{G}'$) $< \aicc_{\mathrm{best}}$}
+    \STATE $\mathcal{G} \leftarrow \mathcal{G}'$
+    \STATE $\aicc_{\mathrm{best}} \leftarrow$ \textsc{ComputeAICc}($f$, $\mathcal{G}'$)
+  \ELSE
+    \RETURN $\mathcal{G}$
+  \ENDIF
+\ENDFOR
+\RETURN $\mathcal{G}$
+\end{algorithmic}
+\caption{\phspectra\ pipeline.\label{alg:pipeline}}
 \end{figure}
 
 
@@ -704,8 +722,7 @@ $2.0\times$ reduction in total wall-clock time and a P99 latency of 3.0\,s
 versus 8.4\,s for \gausspyp.
 
 The software, documentation, and benchmark scripts are publicly available at
-\url{https://github.com/caverac/phspectra}.  The library can be installed
-from PyPI via \texttt{pip install phspectra}.
+\url{https://github.com/caverac/phspectra}.
 
 At survey scale, \phspectra\ turns spectra into physically interpretable
 products: component-count maps that track complexity, spatially coherent
