@@ -1,3 +1,9 @@
+## [1.4.5](https://github.com/caverac/phspectra/compare/v1.4.4...v1.4.5) (2026-02-21)
+
+### Bug Fixes
+
+- **phspectra:** removed npx command ([d294652](https://github.com/caverac/phspectra/commit/d29465290c7d8f4c94a8bee5f561f43cd150e290))
+
 ## [1.4.4](https://github.com/caverac/phspectra/compare/v1.4.3...v1.4.4) (2026-02-21)
 
 ### Bug Fixes
