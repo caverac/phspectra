@@ -1,3 +1,10 @@
+## [1.4.4](https://github.com/caverac/phspectra/compare/v1.4.3...v1.4.4) (2026-02-21)
+
+### Bug Fixes
+
+- **phspectra:** build sdist ([efba8fc](https://github.com/caverac/phspectra/commit/efba8fc7a2694ee6f65f633683b77b79ee294dec))
+- **phspectra:** sdist-only build ([444153f](https://github.com/caverac/phspectra/commit/444153fd8643a6bb015ccb2ed5f492bfa9ddce43))
+
 ## [1.4.3](https://github.com/caverac/phspectra/compare/v1.4.2...v1.4.3) (2026-02-20)
 
 ### Bug Fixes
