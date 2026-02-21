@@ -1,3 +1,9 @@
+## [1.4.6](https://github.com/caverac/phspectra/compare/v1.4.5...v1.4.6) (2026-02-21)
+
+### Bug Fixes
+
+- **pre-print:** fixed typos ([22a5363](https://github.com/caverac/phspectra/commit/22a53638eeb2dbb2d8f5f71a5c441e85f1556fe7))
+
 ## [1.4.5](https://github.com/caverac/phspectra/compare/v1.4.4...v1.4.5) (2026-02-21)
 
 ### Bug Fixes
