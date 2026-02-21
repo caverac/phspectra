@@ -37,7 +37,7 @@ TARFILE  = $(OUTDIR)/phspectra-preprint.tar
 
 submission:
 	@mkdir -p $(OUTDIR)
-	@tar cf $(TARFILE) $(MAIN).tex $(MAIN).bib $(MAIN).pdf *.png persistence-diagram.tex pipeline-overview.tex water-level.tex
+	@COPYFILE_DISABLE=1 tar cf $(TARFILE) $(MAIN).tex $(MAIN).bib $(MAIN).pdf $(FIGURES)
 	@echo "Created $(TARFILE)"
 
 clean:
