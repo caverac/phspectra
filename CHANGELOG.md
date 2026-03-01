@@ -1,3 +1,9 @@
+## [1.4.7](https://github.com/caverac/phspectra/compare/v1.4.6...v1.4.7) (2026-03-01)
+
+### Bug Fixes
+
+- **pre-print:** removed deprecated artifacts ([84e4f9e](https://github.com/caverac/phspectra/commit/84e4f9ed08285b7d76c6ef19151514e8e01789fd))
+
 ## [1.4.6](https://github.com/caverac/phspectra/compare/v1.4.5...v1.4.6) (2026-02-21)
 
 ### Bug Fixes
