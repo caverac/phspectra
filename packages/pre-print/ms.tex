@@ -1,8 +1,8 @@
 % ============================================================================
 %  Persistent Homology for Parameter-Free Radio Spectral Line Decomposition
-%  AASTeX v6.3.1 — ApJ pre-print
+%  AASTeX v6.3.1 — AJ pre-print
 % ============================================================================
-\documentclass[twocolumn,twocolappendix]{aastex631}
+\documentclass[twocolumn,twocolappendix,aj]{aastex631}
 
 % --- Packages ---------------------------------------------------------------
 \usepackage{amsmath,amssymb}
@@ -95,7 +95,9 @@ of high per-spectrum computation.  GPU-accelerated fitters such as
 on specialized implementations.  Deep reinforcement learning
 (\textsc{Spectuner-D1}; \citealt{Li2025}) learns a decomposition policy from
 labeled training spectra and can be sensitive to domain shift when the
-training set does not match survey conditions.
+training set does not match survey conditions; see \citet{Pun2022} for a
+broader survey of persistent-homology-based machine learning that places
+such approaches in context.
 Regularized optimization (\rohsa; \citealt{Marchal2019}) enforces spatial
 coherence in data cubes but introduces regularization weights that must be
 tuned.  The common thread is that existing methods require multiple
@@ -104,7 +106,9 @@ parameters or training choices that depend on the data.
 This paper presents \phspectra, a new approach that uses
 0-dimensional persistent homology for peak detection in spectral-line
 decomposition
-\citep{Edelsbrunner2002,Zomorodian2005}.  Topological data analysis (TDA)
+\citep{Edelsbrunner2002,Zomorodian2005}; see \citet{Wasserman2017} for
+a recent review of the broader topological-data-analysis methodology
+in statistics.  Topological data analysis (TDA)
 remains relatively niche in astronomy, with representative examples in
 cosmic-web topology \citep{Xu2019} and cosmic-shear statistics
 \citep{Heydenreich2022}; closely related structure-finding tools such as
@@ -174,7 +178,7 @@ intervals connect.  At each merger, the younger component --- the one whose
 maximum is lower --- \emph{dies} at the current threshold.  This is
 0-dimensional persistent homology ($H_0$): tracking connected components
 across a filtration parameterized by $t$
-\citep{Edelsbrunner2002,Edelsbrunner2008}.
+\citep{Edelsbrunner2002,Edelsbrunner2008,Bonis2016}.
 
 Each local maximum (except the global one) produces a birth--death pair
 $(b, d)$ where $b = f(i)$ is the peak height, $d$ is the merge threshold,
@@ -574,13 +578,20 @@ moment-1 maps when multiple clouds overlap.
   \includegraphics[width=\textwidth]{grs-map-plot.png}
   \caption{%
     Survey-scale products derived from the decomposition (GRS tiles 26--34,
-    $\ell \approx 25\degr$--$35\degr$).  \emph{(a)}~Velocity RGB
-    composite: three velocity bins mapped to R, G, B from the decomposed
-    Gaussians.  \emph{(b)}~Topological complexity: number of Gaussian
-    components per pixel.  \emph{(c)}~Amplitude--velocity bivariate
-    colormap: hue encodes centroid velocity, luminance encodes peak
-    amplitude.  \emph{(d)}~Dominant velocity field: centroid velocity of
-    the brightest component per pixel.
+    $\ell \approx 25\degr$--$35\degr$).  All maps are at the GRS native pixel
+    scale of $22\arcsec$.  \emph{(a)}~Velocity RGB composite: components are
+    binned by centroid velocity into three contiguous intervals
+    $[-5.0, 41.7]$, $[41.7, 88.3]$, and $[88.3, 134.9]\,$km\,s$^{-1}$ mapped
+    to R, G, B respectively; per-channel intensities are clipped to the 99th
+    percentile.  \emph{(b)}~Topological complexity: number of Gaussian
+    components per pixel, displayed on a square-root colour scale to
+    separate the dense-tile core from the diffuse background.
+    \emph{(c)}~Amplitude--velocity bivariate colormap: hue encodes the
+    centroid velocity of the brightest component (over the recovered range
+    $[-5.0, 134.9]\,$km\,s$^{-1}$) and luminance encodes its peak amplitude
+    linearly, clipped to the 99th-percentile value of $3.0\,$K.
+    \emph{(d)}~Dominant velocity field: centroid velocity of the brightest
+    component per pixel.
     \label{fig:grs_map}}
 \end{figure*}
 
@@ -669,9 +680,13 @@ Table~\ref{tab:comparison} places \phspectra\ in the context of three
 established decomposition tools.  The distinguishing features are the use
 of persistent homology for peak detection, the absence of training
 requirements, and the intrinsic multi-scale nature of the persistence
-filtration.  \gausspyp\ offers spatial coherence that \phspectra\ currently
-lacks, while \rohsa\ provides full regularized optimization with built-in
-coherence but requires manual tuning of regularization weights.
+filtration.  In statistical terms, persistence acts as a non-parametric
+significance measure for features in noisy 1D data, an interpretation
+that is well established in the applied-statistics TDA literature
+\citep{Ravishanker2021}.  \gausspyp\ offers spatial coherence that
+\phspectra\ currently lacks, while \rohsa\ provides full regularized
+optimization with built-in coherence but requires manual tuning of
+regularization weights.
 
 The physical value of the decomposition is clearest at survey scale.  The
 component-count map provides a compact proxy for structural complexity,
@@ -758,6 +773,17 @@ The central result is that persistent homology enables a survey-ready,
 parameter-light decomposition that matches trained methods while eliminating
 their tuning burden, making large-scale spectral analysis faster, more
 reproducible, and easier to deploy.
+
+% ============================================================================
+\section*{AI usage statement}\label{sec:ai_usage}
+
+Generative AI tools were used in a limited, assistive role during the
+preparation of this manuscript and its companion software, restricted to
+copy-editing of the prose, code-review feedback on the implementation,
+and suggestions for figure layout.  All scientific content --- the
+algorithm, the benchmark design, the analysis of synthetic and real
+data, the figures, and their interpretation --- was produced and
+verified by the author.
 
 % ============================================================================
 \bibliography{ms}

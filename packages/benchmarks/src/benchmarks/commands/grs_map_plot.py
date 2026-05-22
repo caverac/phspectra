@@ -240,6 +240,7 @@ def _build_grs_figure(
     data: DecompositionData,
     velocity: npt.NDArray[np.float64],
     grid: GlobalGrid,
+    ncomp_scale: str = "sqrt",
 ) -> Figure:
     """Construct a 4-row strip of the selected GRS tiles.
 
@@ -281,7 +282,7 @@ def _build_grs_figure(
     cax_d = fig.add_subplot(gs[3, 1])
 
     _panel_velocity_rgb(ax_a, data, velocity, nx, ny, extent)
-    _panel_complexity(ax_b, data, nx, ny, extent, cax_b)
+    _panel_complexity(ax_b, data, nx, ny, extent, cax_b, scale=ncomp_scale)
     _panel_bivariate(ax_c, data, velocity, nx, ny, extent)
     _panel_dominant_velocity(ax_d, data, velocity, nx, ny, extent, cax_d)
 
@@ -311,11 +312,19 @@ def _build_grs_figure(
 )
 @click.option("--cache-dir", default=CACHE_DIR, show_default=True, help="Cache directory.")
 @click.option("--force", is_flag=True, help="Re-download even if cached.")
+@click.option(
+    "--ncomp-scale",
+    default="sqrt",
+    show_default=True,
+    type=click.Choice(["linear", "sqrt", "log10"]),
+    help="Colour scaling for panel (b) component-count field.",
+)
 def grs_map_plot(
     input_dir: str,
     environment: str,
     cache_dir: str,
     force: bool,
+    ncomp_scale: str,
 ) -> None:
     """Generate bivariate amplitude-velocity strip from selected GRS tiles."""
     console.print("Reading tile headers ...", style="bold cyan")
@@ -352,5 +361,5 @@ def grs_map_plot(
     velocity = _velocity_axis(grid.header)
 
     console.print("Building figure ...", style="bold cyan")
-    _build_grs_figure(data, velocity, grid)
+    _build_grs_figure(data, velocity, grid, ncomp_scale=ncomp_scale)
     console.print("\nDone.", style="bold green")

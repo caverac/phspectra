@@ -257,6 +257,13 @@ def _panel_velocity_rgb(
     v_min, v_max = velocity.min(), velocity.max()
     v_edges = np.linspace(v_min, v_max, 4)
 
+    edges_km = v_edges / 1000.0
+    console.print(
+        "  Panel (a) velocity bin edges (km/s): "
+        f"[{edges_km[0]:.1f}, {edges_km[1]:.1f}, {edges_km[2]:.1f}, {edges_km[3]:.1f}]",
+        style="green",
+    )
+
     for i, _ in enumerate(data.x):
         xi, yi = int(data.x[i]), int(data.y[i])
         for amp, mean_ch in zip(data.component_amplitudes[i], data.component_means[i]):
@@ -286,16 +293,50 @@ def _panel_complexity(
     ny: int,
     extent: tuple[float, float, float, float],
     cax: Axes,
+    scale: str = "sqrt",
 ) -> None:
-    """Panel (b): topological complexity (number of components per pixel)."""
+    """Panel (b): topological complexity (number of components per pixel).
+
+    The component-count distribution is heavy-tailed: a small fraction of
+    crowded pixels reach ten or more components while the bulk sit at
+    one to three.  A non-linear color norm separates the dense-tile core
+    from the background; *scale* selects between square-root
+    (``"sqrt"``), base-10 logarithm of ``N + 1`` (``"log10"``), and
+    plain linear scaling (``"linear"``).
+    """
     grid = np.full((ny, nx), np.nan, dtype=np.float64)
     for i, _ in enumerate(data.x):
         xi, yi = int(data.x[i]), int(data.y[i])
         if data.n_components[i] >= 0:
             grid[yi, xi] = data.n_components[i]
 
-    im = ax.imshow(grid, origin="lower", aspect="auto", cmap="viridis", extent=extent)
-    plt.colorbar(im, cax=cax, label="$N_{\\mathrm{components}}$")
+    n_max = float(np.nanmax(grid)) if np.any(~np.isnan(grid)) else 1.0
+    n_max = max(n_max, 1.0)
+
+    norm: mcolors.Normalize
+    display: npt.NDArray[np.float64]
+    if scale == "sqrt":
+        norm = mcolors.PowerNorm(gamma=0.5, vmin=0.0, vmax=n_max)
+        label = r"$N_{\mathrm{components}}$"
+        display = grid
+    elif scale == "log10":
+        display = np.where(np.isnan(grid), np.nan, np.log10(grid + 1.0)).astype(np.float64)
+        norm = mcolors.Normalize(vmin=0.0, vmax=float(np.log10(n_max + 1.0)))
+        label = r"$\log_{10}(N_{\mathrm{components}} + 1)$"
+    else:
+        norm = mcolors.Normalize(vmin=0.0, vmax=n_max)
+        label = r"$N_{\mathrm{components}}$"
+        display = grid
+
+    im = ax.imshow(
+        display,
+        origin="lower",
+        aspect="auto",
+        cmap="viridis",
+        extent=extent,
+        norm=norm,
+    )
+    plt.colorbar(im, cax=cax, label=label)
     _corner_label(ax, "(b)")
     configure_axes(ax)
 
@@ -362,6 +403,12 @@ def _panel_bivariate(
     v_min = float(dom_vel[valid].min()) if np.any(valid) else 0.0
     v_max = float(dom_vel[valid].max()) if np.any(valid) else 1.0
     a_p99 = float(np.percentile(dom_amp[valid], 99)) if np.any(valid) else 1.0
+
+    console.print(
+        f"  Panel (c) centroid velocity range (km/s): [{v_min / 1000.0:.1f}, {v_max / 1000.0:.1f}]; "
+        f"amplitude 99th percentile = {a_p99:.2f} K",
+        style="green",
+    )
 
     hsv = np.zeros((ny, nx, 3), dtype=np.float64)
     if v_max > v_min:
