@@ -490,13 +490,76 @@ step in the pipeline --- only to be discarded during component validation
 components, so a large number of doomed candidates slows the algorithm without
 improving the final decomposition.
 
-At $\beta = 3.5$, the persistence threshold is high enough that most noise 
-peaks are rejected before fitting, while genuine features are retained. 
-This provides a good balance between not missing real peaks near the detection 
+At $\beta = 3.5$, the persistence threshold is high enough that most noise
+peaks are rejected before fitting, while genuine features are retained.
+This provides a good balance between not missing real peaks near the detection
 limit and not wasting computation on candidates that will be removed downstream.
 
 % ---------------------------------------------------------------------------
-% §3.2  GRS comparison with GaussPy+
+% §3.2  Representative fits
+% ---------------------------------------------------------------------------
+\subsection{Representative fits}\label{sec:representative}
+
+To complement the aggregate statistics of Table~\ref{tab:categories},
+Figure~\ref{fig:representative_fits} shows six individual decompositions
+that span the difficulty range of the benchmark: a single bright line, a
+well-separated multi-component spectrum, a heavily blended pair, a
+crowded sightline with five components, an explicit failure mode, and a
+representative noisy GRS sightline drawn from the test field of
+\citet{Jackson2006}.  Each panel shows the input spectrum (grey step)
+and the recovered \phspectra\ fit (solid black); the true component
+count $N_{\mathrm{components}}$ is reported in the legend of the five
+synthetic panels so that fit count and ground-truth count can be
+compared at a glance, while the $F_1$ score against the full ground
+truth is annotated in the lower-left corner.
+
+\begin{figure*}[t!]
+  \centering
+  \includegraphics[width=\textwidth]{representative-fits.png}
+  \caption{%
+    Representative \phspectra\ decompositions at $\beta = 3.5$.  Each
+    panel shows the data (grey step) and the summed \phspectra\ fit
+    (solid black) with the recovered component count $N$ and residual
+    RMS in its legend.  For the synthetic panels, the data legend also
+    reports the true number of Gaussian components
+    $N_{\mathrm{components}}$, and the $F_1$ score against the full
+    ground-truth parameters is annotated in the lower-left corner.
+    Five panels are drawn from the synthetic benchmark categories of
+    Table~\ref{tab:categories} --- single bright (SB), multi separated
+    (MS), multi blended (MB), and crowded (C) --- with the failure
+    panel selected as the lowest-$F_1$ case in a $50$-spectrum MB+C
+    scan.  The final panel is a noisy real GRS sightline (no ground
+    truth) chosen to lie in the high-residual regime of
+    \S\ref{sec:grs}.
+    \label{fig:representative_fits}}
+\end{figure*}
+
+The four successful panels illustrate that the algorithm recovers the
+correct component count and parameters across the full difficulty range,
+including the MB and C categories that produce the lowest aggregate
+$F_1$ values in Table~\ref{tab:categories}.  Even when components share
+a saddle that drops only fractionally below the line peaks (MB), the
+persistence ranking keeps each child above the $\pmin = \beta\,\srms$
+threshold and the joint Levenberg--Marquardt refit recovers all
+parameters within the matching tolerances of \citet{Lindner2015}.
+
+The failure panel makes the dominant error mode visible: in highly
+crowded spectra the optimiser can settle on a configuration where
+components have drifted from the true positions or widths even when the
+correct \emph{count} is recovered.  This shows up in the aggregate
+statistics as a low $F_1$ despite a competitive residual RMS, and is
+consistent with the broader difficulty trend across categories.
+
+The noisy GRS panel demonstrates the behaviour on real data in the
+regime where \gausspyp\ and \phspectra\ diverge most strongly
+(\S\ref{sec:grs}).  At a recovered noise level above the
+$0.2\,\text{K}$ cut, \phspectra\ keeps only those components whose
+persistence and matched-filter significance exceed the threshold, so the
+decomposition stays sparse where the data warrant; the recovered RMS is
+dominated by the noise rather than by under-fitting.
+
+% ---------------------------------------------------------------------------
+% §3.3  GRS comparison with GaussPy+
 % ---------------------------------------------------------------------------
 \subsection{GRS comparison with GaussPy+}\label{sec:grs}
 

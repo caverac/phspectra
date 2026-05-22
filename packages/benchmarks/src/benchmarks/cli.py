@@ -14,6 +14,7 @@ from benchmarks.commands.performance import performance_plot
 from benchmarks.commands.persistence_plot import persistence_plot
 from benchmarks.commands.pipeline import pipeline
 from benchmarks.commands.pre_compute import pre_compute
+from benchmarks.commands.representative_fits_plot import representative_fits_plot
 from benchmarks.commands.train_beta import train_beta
 from benchmarks.commands.train_synthetic import train_synthetic
 from benchmarks.commands.velocity_spacing_plot import velocity_spacing_plot
@@ -33,6 +34,7 @@ main.add_command(train_synthetic)
 main.add_command(inspect_pixel)
 main.add_command(performance_plot)
 main.add_command(persistence_plot)
+main.add_command(representative_fits_plot)
 main.add_command(ncomp_rms_plot)
 main.add_command(pipeline)
 main.add_command(grs_map_plot)
