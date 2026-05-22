@@ -28,6 +28,7 @@ def test_cli_lists_commands() -> None:
         "performance-plot",
         "train-synthetic",
         "persistence-plot",
+        "representative-fits-plot",
         "ncomp-rms-plot",
         "pipeline",
         "grs-map-plot",
@@ -97,6 +98,13 @@ def test_persistence_plot_help() -> None:
     """``benchmarks persistence-plot --help`` should succeed."""
     runner = CliRunner()
     result = runner.invoke(main, ["persistence-plot", "--help"])
+    assert result.exit_code == 0
+
+
+def test_representative_fits_plot_help() -> None:
+    """``benchmarks representative-fits-plot --help`` should succeed."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["representative-fits-plot", "--help"])
     assert result.exit_code == 0
 
 

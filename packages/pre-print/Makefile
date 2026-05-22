@@ -14,7 +14,8 @@ $(MAIN).pdf: $(MAIN).tex $(MAIN).bib $(wildcard *.tex) $(wildcard *.png)
 	$(TEX) $(MAIN)
 
 FIGURES = water-level-stages.png synthetic-f1.png rms-scatter.png \
-          grs-map-plot.png velocity-spacing-plot.png
+          grs-map-plot.png velocity-spacing-plot.png \
+          representative-fits.png
 
 sync-figures:
 	@updated=0; \

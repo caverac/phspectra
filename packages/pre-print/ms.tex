@@ -1,8 +1,8 @@
 % ============================================================================
-%  Persistent Homology for Parameter-Free Spectral Line Decomposition
-%  AASTeX v6.3.1 — ApJ pre-print
+%  Persistent Homology for Parameter-Free Radio Spectral Line Decomposition
+%  AASTeX v6.3.1 — AJ pre-print
 % ============================================================================
-\documentclass[twocolumn,twocolappendix]{aastex631}
+\documentclass[twocolumn,twocolappendix,aj]{aastex631}
 
 % --- Packages ---------------------------------------------------------------
 \usepackage{amsmath,amssymb}
@@ -22,13 +22,13 @@
 \newcommand{\aicc}{\mathrm{AICc}}
 
 % --- Metadata ---------------------------------------------------------------
-\shorttitle{Persistent Homology for Spectral Line Decomposition}
+\shorttitle{Persistent Homology for Radio Spectral Line Decomposition}
 \shortauthors{Vera-Ciro}
 
 % ============================================================================
 \begin{document}
 
-\title{Persistent Homology for Parameter-Free Spectral Line Decomposition}
+\title{Persistent Homology for Parameter-Free Radio Spectral Line Decomposition}
 
 \author{Carlos Vera-Ciro}
 \affiliation{Independent Researcher}
@@ -95,7 +95,9 @@ of high per-spectrum computation.  GPU-accelerated fitters such as
 on specialized implementations.  Deep reinforcement learning
 (\textsc{Spectuner-D1}; \citealt{Li2025}) learns a decomposition policy from
 labeled training spectra and can be sensitive to domain shift when the
-training set does not match survey conditions.
+training set does not match survey conditions; see \citet{Pun2022} for a
+broader survey of persistent-homology-based machine learning that places
+such approaches in context.
 Regularized optimization (\rohsa; \citealt{Marchal2019}) enforces spatial
 coherence in data cubes but introduces regularization weights that must be
 tuned.  The common thread is that existing methods require multiple
@@ -104,15 +106,21 @@ parameters or training choices that depend on the data.
 This paper presents \phspectra, a new approach that uses
 0-dimensional persistent homology for peak detection in spectral-line
 decomposition
-\citep{Edelsbrunner2002,Zomorodian2005}.  Topological data analysis (TDA)
+\citep{Edelsbrunner2002,Zomorodian2005}; see \citet{Wasserman2017} for
+a recent review of the broader topological-data-analysis methodology
+in statistics.  Topological data analysis (TDA)
 remains relatively niche in astronomy, with representative examples in
 cosmic-web topology \citep{Xu2019} and cosmic-shear statistics
 \citep{Heydenreich2022}; closely related structure-finding tools such as
 \textsc{SUBFIND} \citep{Springel2001} have long been standard in simulations.
+The most direct precedent is \citet{Shaw2025}, who use persistent homology
+for source detection and deblending in 2D astronomical images.
 To the best of my knowledge, this is the first application
-of persistent homology to spectral line decomposition.  The algorithm has a
+of persistent homology to 1D spectral line decomposition.  The algorithm has a
 single free parameter~$\beta$ (the persistence threshold in units of noise),
-requires no expensive training, and runs in $O(n \log n)$ time.  It is shown that it
+requires no expensive training, and runs in $O(n \log n)$ time.  \phspectra\
+detects emission peaks only; absorption features can be recovered by
+inverting the spectrum and applying the same procedure.  It is shown that it
 achieves high accuracy on synthetic data while matching or exceeding
 \gausspyp\ on real GRS spectra without training.  The method is presented in
 \S\ref{sec:method}, evaluated on synthetic and real ${}^{13}$CO spectra in
@@ -131,14 +139,19 @@ achieves high accuracy on synthetic data while matching or exceeding
   \caption{%
     Intuition for the peak-ranking step that underpins the decomposition.  The
     descending water-level interpretation of 0-dimensional persistent
-    homology is applied to a synthetic three-peak spectrum.  As the threshold
-    $t$ (dashed line) decreases, connected components are born at local maxima
-    and die when they merge into an older component.  Red dots mark peak births;
-    annotations show the final persistence $\pi = b - d$.  \emph{Top left}:
-    $t$ above all peaks (empty upper-level set).  \emph{Top right}: peak~A
-    ($\pi = 2.58$) is born as the global maximum.  \emph{Bottom left}: peak~B
-    ($\pi = 1.20$) appears as a second island.  \emph{Bottom right}: peak~C
-    ($\pi = 0.73$) dies when its island merges with~A's.
+    homology is applied to a synthetic nested spectrum: a broad parent with
+    two narrow children embedded on its flanks, representing the
+    blended-line case typical of radio spectra.  As the threshold $t$
+    (dashed line) decreases, connected components are born at local maxima
+    and die when they merge into an older component.  Red dots mark peak
+    births; annotations show the final persistence $\pi = b - d$.
+    \emph{Top left}: $t$ above all peaks (empty upper-level set).
+    \emph{Top right}: the broad parent ($\pi = 2.60$) is born as the global
+    maximum.  \emph{Bottom left}: both children ($\pi = 0.69$ at channel~82
+    and $\pi = 0.53$ at channel~118) appear as sub-islands sitting inside
+    the parent's territory.  \emph{Bottom right}: the higher-saddle child
+    (channel~82) merges back into the parent and dies; the other child
+    remains as a separate island.
     \label{fig:waterlevel}}
 \end{figure*}
 
@@ -165,7 +178,7 @@ intervals connect.  At each merger, the younger component --- the one whose
 maximum is lower --- \emph{dies} at the current threshold.  This is
 0-dimensional persistent homology ($H_0$): tracking connected components
 across a filtration parameterized by $t$
-\citep{Edelsbrunner2002,Edelsbrunner2008}.
+\citep{Edelsbrunner2002,Edelsbrunner2008,Bonis2016}.
 
 Each local maximum (except the global one) produces a birth--death pair
 $(b, d)$ where $b = f(i)$ is the peak height, $d$ is the merge threshold,
@@ -221,15 +234,22 @@ amplitudes and widths.  A faint broad component and a bright narrow component
 are treated on equal footing; no special tuning is required to accommodate
 both.
 
-Figure~\ref{fig:waterlevel} uses the descending water-level interpretation on
-a synthetic three-peak spectrum.  As the water level (threshold) drops past
-each local maximum, a new connected component (``island'') is born; when two
-islands merge, the younger one dies and its persistence is recorded.  The
-three real peaks have persistence values of $\pi = 2.58$, $1.20$, and $0.73$
---- well separated from the near-zero persistence of noise fluctuations.  In
-practice these values are compared against the minimum persistence
-$\pmin = \beta\,\srms$: peaks with $\pi > \pmin$ are kept as Gaussian
-candidates, while lower-persistence features are rejected as noise.
+Figure~\ref{fig:waterlevel} uses the descending water-level interpretation
+on a synthetic nested spectrum: a broad parent with two narrow children
+embedded on its flanks, representing the blended-line case typical of radio
+spectra.  As the water level drops past the parent's peak, a single broad
+island is born; each child subsequently crosses the water level and appears
+as a sub-island sitting topologically inside the parent's territory.  When
+the water reaches the saddle separating a child from the parent, the two
+islands merge and the younger component --- the child --- dies at the
+saddle value.  Its persistence $\pi = b - d$ is the height drop between the
+child's local maximum and that saddle, so a narrow child sitting on top of
+a broad parent receives its own birth--death pair and is ranked against the
+same $\pmin$ cut as any isolated peak; no explicit deblending step is
+required.  The three real peaks in the figure have persistence values
+$\pi = 2.60$, $0.69$, and $0.53$, well above the near-zero persistence of
+noise fluctuations and above the default $\pmin = \beta\,\srms$ cut with
+$\beta = 3.5$, so all three are kept as Gaussian candidates.
 
 % ---------------------------------------------------------------------------
 % §2.2  From persistence to Gaussian candidates
@@ -246,6 +266,13 @@ final RMS is computed as $\srms^2 = \sum_i f_i^2/N_{\mathrm{sur}}$, where the su
 runs over the $N_{\mathrm{sur}}$ surviving channels.  This procedure avoids biasing the noise estimate with
 real emission and provides the noise scale used to set the persistence
 threshold $\pmin = \beta\,\srms$.
+
+The upper-level set formulation assumes a flat, baseline-subtracted
+spectrum: a sloped or broken continuum would shift raw peak heights and
+saddles non-uniformly and bias the persistence ranking.  Radio spectral
+lines typically sit on a flat baseline after standard calibration, so this
+is automatic in the intended use case; spectra with a non-negligible
+continuum component should have it subtracted prior to running \phspectra.
 
 Each peak surviving this threshold becomes an initial Gaussian guess.  The
 amplitude is taken directly from the peak height, $a_0 = f(\mathrm{index})$,
@@ -463,13 +490,76 @@ step in the pipeline --- only to be discarded during component validation
 components, so a large number of doomed candidates slows the algorithm without
 improving the final decomposition.
 
-At $\beta = 3.5$, the persistence threshold is high enough that most noise 
-peaks are rejected before fitting, while genuine features are retained. 
-This provides a good balance between not missing real peaks near the detection 
+At $\beta = 3.5$, the persistence threshold is high enough that most noise
+peaks are rejected before fitting, while genuine features are retained.
+This provides a good balance between not missing real peaks near the detection
 limit and not wasting computation on candidates that will be removed downstream.
 
 % ---------------------------------------------------------------------------
-% §3.2  GRS comparison with GaussPy+
+% §3.2  Representative fits
+% ---------------------------------------------------------------------------
+\subsection{Representative fits}\label{sec:representative}
+
+To complement the aggregate statistics of Table~\ref{tab:categories},
+Figure~\ref{fig:representative_fits} shows six individual decompositions
+that span the difficulty range of the benchmark: a single bright line, a
+well-separated multi-component spectrum, a heavily blended pair, a
+crowded sightline with five components, an explicit failure mode, and a
+representative noisy GRS sightline drawn from the test field of
+\citet{Jackson2006}.  Each panel shows the input spectrum (grey step)
+and the recovered \phspectra\ fit (solid black); the true component
+count $N_{\mathrm{components}}$ is reported in the legend of the five
+synthetic panels so that fit count and ground-truth count can be
+compared at a glance, while the $F_1$ score against the full ground
+truth is annotated in the lower-left corner.
+
+\begin{figure*}[t!]
+  \centering
+  \includegraphics[width=\textwidth]{representative-fits.png}
+  \caption{%
+    Representative \phspectra\ decompositions at $\beta = 3.5$.  Each
+    panel shows the data (grey step) and the summed \phspectra\ fit
+    (solid black) with the recovered component count $N$ and residual
+    RMS in its legend.  For the synthetic panels, the data legend also
+    reports the true number of Gaussian components
+    $N_{\mathrm{components}}$, and the $F_1$ score against the full
+    ground-truth parameters is annotated in the lower-left corner.
+    Five panels are drawn from the synthetic benchmark categories of
+    Table~\ref{tab:categories} --- single bright (SB), multi separated
+    (MS), multi blended (MB), and crowded (C) --- with the failure
+    panel selected as the lowest-$F_1$ case in a $50$-spectrum MB+C
+    scan.  The final panel is a noisy real GRS sightline (no ground
+    truth) chosen to lie in the high-residual regime of
+    \S\ref{sec:grs}.
+    \label{fig:representative_fits}}
+\end{figure*}
+
+The four successful panels illustrate that the algorithm recovers the
+correct component count and parameters across the full difficulty range,
+including the MB and C categories that produce the lowest aggregate
+$F_1$ values in Table~\ref{tab:categories}.  Even when components share
+a saddle that drops only fractionally below the line peaks (MB), the
+persistence ranking keeps each child above the $\pmin = \beta\,\srms$
+threshold and the joint Levenberg--Marquardt refit recovers all
+parameters within the matching tolerances of \citet{Lindner2015}.
+
+The failure panel makes the dominant error mode visible: in highly
+crowded spectra the optimiser can settle on a configuration where
+components have drifted from the true positions or widths even when the
+correct \emph{count} is recovered.  This shows up in the aggregate
+statistics as a low $F_1$ despite a competitive residual RMS, and is
+consistent with the broader difficulty trend across categories.
+
+The noisy GRS panel demonstrates the behaviour on real data in the
+regime where \gausspyp\ and \phspectra\ diverge most strongly
+(\S\ref{sec:grs}).  At a recovered noise level above the
+$0.2\,\text{K}$ cut, \phspectra\ keeps only those components whose
+persistence and matched-filter significance exceed the threshold, so the
+decomposition stays sparse where the data warrant; the recovered RMS is
+dominated by the noise rather than by under-fitting.
+
+% ---------------------------------------------------------------------------
+% §3.3  GRS comparison with GaussPy+
 % ---------------------------------------------------------------------------
 \subsection{GRS comparison with GaussPy+}\label{sec:grs}
 
@@ -551,13 +641,20 @@ moment-1 maps when multiple clouds overlap.
   \includegraphics[width=\textwidth]{grs-map-plot.png}
   \caption{%
     Survey-scale products derived from the decomposition (GRS tiles 26--34,
-    $\ell \approx 25\degr$--$35\degr$).  \emph{(a)}~Velocity RGB
-    composite: three velocity bins mapped to R, G, B from the decomposed
-    Gaussians.  \emph{(b)}~Topological complexity: number of Gaussian
-    components per pixel.  \emph{(c)}~Amplitude--velocity bivariate
-    colormap: hue encodes centroid velocity, luminance encodes peak
-    amplitude.  \emph{(d)}~Dominant velocity field: centroid velocity of
-    the brightest component per pixel.
+    $\ell \approx 25\degr$--$35\degr$).  All maps are at the GRS native pixel
+    scale of $22\arcsec$.  \emph{(a)}~Velocity RGB composite: components are
+    binned by centroid velocity into three contiguous intervals
+    $[-5.0, 41.7]$, $[41.7, 88.3]$, and $[88.3, 134.9]\,$km\,s$^{-1}$ mapped
+    to R, G, B respectively; per-channel intensities are clipped to the 99th
+    percentile.  \emph{(b)}~Topological complexity: number of Gaussian
+    components per pixel, displayed on a square-root colour scale to
+    separate the dense-tile core from the diffuse background.
+    \emph{(c)}~Amplitude--velocity bivariate colormap: hue encodes the
+    centroid velocity of the brightest component (over the recovered range
+    $[-5.0, 134.9]\,$km\,s$^{-1}$) and luminance encodes its peak amplitude
+    linearly, clipped to the 99th-percentile value of $3.0\,$K.
+    \emph{(d)}~Dominant velocity field: centroid velocity of the brightest
+    component per pixel.
     \label{fig:grs_map}}
 \end{figure*}
 
@@ -646,9 +743,13 @@ Table~\ref{tab:comparison} places \phspectra\ in the context of three
 established decomposition tools.  The distinguishing features are the use
 of persistent homology for peak detection, the absence of training
 requirements, and the intrinsic multi-scale nature of the persistence
-filtration.  \gausspyp\ offers spatial coherence that \phspectra\ currently
-lacks, while \rohsa\ provides full regularized optimization with built-in
-coherence but requires manual tuning of regularization weights.
+filtration.  In statistical terms, persistence acts as a non-parametric
+significance measure for features in noisy 1D data, an interpretation
+that is well established in the applied-statistics TDA literature
+\citep{Ravishanker2021}.  \gausspyp\ offers spatial coherence that
+\phspectra\ currently lacks, while \rohsa\ provides full regularized
+optimization with built-in coherence but requires manual tuning of
+regularization weights.
 
 The physical value of the decomposition is clearest at survey scale.  The
 component-count map provides a compact proxy for structural complexity,
@@ -735,6 +836,17 @@ The central result is that persistent homology enables a survey-ready,
 parameter-light decomposition that matches trained methods while eliminating
 their tuning burden, making large-scale spectral analysis faster, more
 reproducible, and easier to deploy.
+
+% ============================================================================
+\section*{AI usage statement}\label{sec:ai_usage}
+
+Generative AI tools were used in a limited, assistive role during the
+preparation of this manuscript and its companion software, restricted to
+copy-editing of the prose, code-review feedback on the implementation,
+and suggestions for figure layout.  All scientific content --- the
+algorithm, the benchmark design, the analysis of synthetic and real
+data, the figures, and their interpretation --- was produced and
+verified by the author.
 
 % ============================================================================
 \bibliography{ms}

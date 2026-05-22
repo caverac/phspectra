@@ -364,9 +364,29 @@ class TestPanels:
         sample_data: DecompositionData,
         sample_extent: tuple[float, float, float, float],
     ) -> None:
-        """Complexity panel renders without error."""
+        """Complexity panel renders without error with the default sqrt scale."""
         fig, (ax, cax) = plt.subplots(1, 2, gridspec_kw={"width_ratios": [1, 0.04]})
         _panel_complexity(ax, sample_data, 2, 2, sample_extent, cax)
+        plt.close(fig)
+
+    def test_complexity_log10_scale(
+        self,
+        sample_data: DecompositionData,
+        sample_extent: tuple[float, float, float, float],
+    ) -> None:
+        """Complexity panel renders with the log10 scale."""
+        fig, (ax, cax) = plt.subplots(1, 2, gridspec_kw={"width_ratios": [1, 0.04]})
+        _panel_complexity(ax, sample_data, 2, 2, sample_extent, cax, scale="log10")
+        plt.close(fig)
+
+    def test_complexity_linear_scale(
+        self,
+        sample_data: DecompositionData,
+        sample_extent: tuple[float, float, float, float],
+    ) -> None:
+        """Complexity panel renders with linear scale (fallback branch)."""
+        fig, (ax, cax) = plt.subplots(1, 2, gridspec_kw={"width_ratios": [1, 0.04]})
+        _panel_complexity(ax, sample_data, 2, 2, sample_extent, cax, scale="linear")
         plt.close(fig)
 
     def test_dominant_velocity(

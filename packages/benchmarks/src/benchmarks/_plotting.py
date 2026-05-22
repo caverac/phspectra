@@ -46,8 +46,8 @@ class AxesGrid2D:
     """Structural type for a 2-D array of matplotlib ``Axes``.
 
     ``plt.subplots(m, n)`` with *m*, *n* > 1 returns a 2-D ndarray.
-    This stub provides typed access via ``axes[i, j]``,
-    ``axes[i][j]``, iteration over rows, and ``ravel()``.
+    This stub provides typed access via ``axes[i, j]``, iteration
+    over rows, and ``ravel()``.
 
     Only the subset of ndarray methods actually used in the
     benchmark plotting code is declared here.

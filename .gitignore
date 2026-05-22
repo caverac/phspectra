@@ -64,3 +64,6 @@ yarn-error.log*
 *.pth
 *.fits
 .cache/
+
+# === Journal reviews ===
+packages/reviews/
