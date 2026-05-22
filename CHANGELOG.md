@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/caverac/phspectra/compare/v1.4.7...v1.5.0) (2026-05-22)
+
+### Bug Fixes
+
+- **benchmarks:** added sqrt scale to survey plot ([f86fe8d](https://github.com/caverac/phspectra/commit/f86fe8d3dc0960af1dcd433ac477cecb67a088ce))
+- **representative_fits_plot:** linting issue ([c1b045d](https://github.com/caverac/phspectra/commit/c1b045df9ccaa3bc0ceff9db6afd84c37b2b87ef))
+- updated peak detection description ([4c7306c](https://github.com/caverac/phspectra/commit/4c7306cfbf672f17d353bd0c4ad88504c91cd201))
+
+### Features
+
+- **benchmarks:** added representative fits to the cli ([7506aa8](https://github.com/caverac/phspectra/commit/7506aa83280d7c85f706068350636e1fc4ff4ffb))
+
 ## [1.4.7](https://github.com/caverac/phspectra/compare/v1.4.6...v1.4.7) (2026-03-01)
 
 ### Bug Fixes
