@@ -1,5 +1,5 @@
 % ============================================================================
-%  Persistent Homology for Parameter-Free Spectral Line Decomposition
+%  Persistent Homology for Parameter-Free Radio Spectral Line Decomposition
 %  AASTeX v6.3.1 — ApJ pre-print
 % ============================================================================
 \documentclass[twocolumn,twocolappendix]{aastex631}
@@ -22,13 +22,13 @@
 \newcommand{\aicc}{\mathrm{AICc}}
 
 % --- Metadata ---------------------------------------------------------------
-\shorttitle{Persistent Homology for Spectral Line Decomposition}
+\shorttitle{Persistent Homology for Radio Spectral Line Decomposition}
 \shortauthors{Vera-Ciro}
 
 % ============================================================================
 \begin{document}
 
-\title{Persistent Homology for Parameter-Free Spectral Line Decomposition}
+\title{Persistent Homology for Parameter-Free Radio Spectral Line Decomposition}
 
 \author{Carlos Vera-Ciro}
 \affiliation{Independent Researcher}
@@ -109,10 +109,14 @@ remains relatively niche in astronomy, with representative examples in
 cosmic-web topology \citep{Xu2019} and cosmic-shear statistics
 \citep{Heydenreich2022}; closely related structure-finding tools such as
 \textsc{SUBFIND} \citep{Springel2001} have long been standard in simulations.
+The most direct precedent is \citet{Shaw2025}, who use persistent homology
+for source detection and deblending in 2D astronomical images.
 To the best of my knowledge, this is the first application
-of persistent homology to spectral line decomposition.  The algorithm has a
+of persistent homology to 1D spectral line decomposition.  The algorithm has a
 single free parameter~$\beta$ (the persistence threshold in units of noise),
-requires no expensive training, and runs in $O(n \log n)$ time.  It is shown that it
+requires no expensive training, and runs in $O(n \log n)$ time.  \phspectra\
+detects emission peaks only; absorption features can be recovered by
+inverting the spectrum and applying the same procedure.  It is shown that it
 achieves high accuracy on synthetic data while matching or exceeding
 \gausspyp\ on real GRS spectra without training.  The method is presented in
 \S\ref{sec:method}, evaluated on synthetic and real ${}^{13}$CO spectra in
@@ -131,14 +135,19 @@ achieves high accuracy on synthetic data while matching or exceeding
   \caption{%
     Intuition for the peak-ranking step that underpins the decomposition.  The
     descending water-level interpretation of 0-dimensional persistent
-    homology is applied to a synthetic three-peak spectrum.  As the threshold
-    $t$ (dashed line) decreases, connected components are born at local maxima
-    and die when they merge into an older component.  Red dots mark peak births;
-    annotations show the final persistence $\pi = b - d$.  \emph{Top left}:
-    $t$ above all peaks (empty upper-level set).  \emph{Top right}: peak~A
-    ($\pi = 2.58$) is born as the global maximum.  \emph{Bottom left}: peak~B
-    ($\pi = 1.20$) appears as a second island.  \emph{Bottom right}: peak~C
-    ($\pi = 0.73$) dies when its island merges with~A's.
+    homology is applied to a synthetic nested spectrum: a broad parent with
+    two narrow children embedded on its flanks, representing the
+    blended-line case typical of radio spectra.  As the threshold $t$
+    (dashed line) decreases, connected components are born at local maxima
+    and die when they merge into an older component.  Red dots mark peak
+    births; annotations show the final persistence $\pi = b - d$.
+    \emph{Top left}: $t$ above all peaks (empty upper-level set).
+    \emph{Top right}: the broad parent ($\pi = 2.60$) is born as the global
+    maximum.  \emph{Bottom left}: both children ($\pi = 0.69$ at channel~82
+    and $\pi = 0.53$ at channel~118) appear as sub-islands sitting inside
+    the parent's territory.  \emph{Bottom right}: the higher-saddle child
+    (channel~82) merges back into the parent and dies; the other child
+    remains as a separate island.
     \label{fig:waterlevel}}
 \end{figure*}
 
@@ -221,15 +230,22 @@ amplitudes and widths.  A faint broad component and a bright narrow component
 are treated on equal footing; no special tuning is required to accommodate
 both.
 
-Figure~\ref{fig:waterlevel} uses the descending water-level interpretation on
-a synthetic three-peak spectrum.  As the water level (threshold) drops past
-each local maximum, a new connected component (``island'') is born; when two
-islands merge, the younger one dies and its persistence is recorded.  The
-three real peaks have persistence values of $\pi = 2.58$, $1.20$, and $0.73$
---- well separated from the near-zero persistence of noise fluctuations.  In
-practice these values are compared against the minimum persistence
-$\pmin = \beta\,\srms$: peaks with $\pi > \pmin$ are kept as Gaussian
-candidates, while lower-persistence features are rejected as noise.
+Figure~\ref{fig:waterlevel} uses the descending water-level interpretation
+on a synthetic nested spectrum: a broad parent with two narrow children
+embedded on its flanks, representing the blended-line case typical of radio
+spectra.  As the water level drops past the parent's peak, a single broad
+island is born; each child subsequently crosses the water level and appears
+as a sub-island sitting topologically inside the parent's territory.  When
+the water reaches the saddle separating a child from the parent, the two
+islands merge and the younger component --- the child --- dies at the
+saddle value.  Its persistence $\pi = b - d$ is the height drop between the
+child's local maximum and that saddle, so a narrow child sitting on top of
+a broad parent receives its own birth--death pair and is ranked against the
+same $\pmin$ cut as any isolated peak; no explicit deblending step is
+required.  The three real peaks in the figure have persistence values
+$\pi = 2.60$, $0.69$, and $0.53$, well above the near-zero persistence of
+noise fluctuations and above the default $\pmin = \beta\,\srms$ cut with
+$\beta = 3.5$, so all three are kept as Gaussian candidates.
 
 % ---------------------------------------------------------------------------
 % §2.2  From persistence to Gaussian candidates
@@ -246,6 +262,13 @@ final RMS is computed as $\srms^2 = \sum_i f_i^2/N_{\mathrm{sur}}$, where the su
 runs over the $N_{\mathrm{sur}}$ surviving channels.  This procedure avoids biasing the noise estimate with
 real emission and provides the noise scale used to set the persistence
 threshold $\pmin = \beta\,\srms$.
+
+The upper-level set formulation assumes a flat, baseline-subtracted
+spectrum: a sloped or broken continuum would shift raw peak heights and
+saddles non-uniformly and bias the persistence ranking.  Radio spectral
+lines typically sit on a flat baseline after standard calibration, so this
+is automatic in the intended use case; spectra with a non-negligible
+continuum component should have it subtracted prior to running \phspectra.
 
 Each peak surviving this threshold becomes an initial Gaussian guess.  The
 amplitude is taken directly from the peak height, $a_0 = f(\mathrm{index})$,

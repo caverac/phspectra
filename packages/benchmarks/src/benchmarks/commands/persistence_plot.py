@@ -36,10 +36,14 @@ class PersistenceEvent:
 
 
 def _synthetic_signal(n: int = 200) -> npt.NDArray[np.float64]:
-    """Build a synthetic three-peak signal with additive Gaussian noise.
+    """Build a synthetic nested-peak signal with additive Gaussian noise.
 
-    The signal contains three Gaussians (amplitudes 2.5, 1.4, 0.7) at
-    channels 60, 100, 140, plus i.i.d. noise with sigma = 0.08.
+    The signal contains a broad parent Gaussian (amplitude 2.5, sigma 12
+    at channel 100) and two narrow children (amplitudes 1.5 and 1.0,
+    sigma 2.5) sitting on its flanks at channels 82 and 118.  Both
+    children survive the default persistence cut and illustrate the
+    embedded / broad-plus-narrow superposition cases.  Additive
+    i.i.d. Gaussian noise has sigma = 0.08.
 
     Parameters
     ----------
@@ -53,9 +57,9 @@ def _synthetic_signal(n: int = 200) -> npt.NDArray[np.float64]:
     """
     x = np.arange(n, dtype=np.float64)
     signal = (
-        2.5 * np.exp(-0.5 * ((x - 60.0) / 8.0) ** 2)
-        + 1.4 * np.exp(-0.5 * ((x - 100.0) / 5.0) ** 2)
-        + 0.7 * np.exp(-0.5 * ((x - 140.0) / 10.0) ** 2)
+        2.5 * np.exp(-0.5 * ((x - 100.0) / 12.0) ** 2)
+        + 1.5 * np.exp(-0.5 * ((x - 82.0) / 2.5) ** 2)
+        + 1.0 * np.exp(-0.5 * ((x - 118.0) / 2.5) ** 2)
     )
     rng = np.random.default_rng(42)
     return signal + rng.normal(0, 0.08, n)
@@ -150,9 +154,11 @@ def _plot_water_levels(
 ) -> Figure:
     """Build the four-panel descending water-level illustration.
 
-    Each panel shows the signal with a horizontal water level at a
-    different threshold.  Born peaks are marked with red dots and
-    annotated with their final persistence.
+    The signal is assumed to be a broad parent with two embedded narrow
+    children.  Panels show the descending water level at four
+    thresholds: (1) above all peaks, (2) the parent born as the global
+    maximum, (3) both children born as sub-islands inside the parent's
+    island, (4) the first child merging back into the parent.
 
     Parameters
     ----------
@@ -161,24 +167,33 @@ def _plot_water_levels(
     signal : npt.NDArray[np.float64]
         1-D spectrum values.
     top_peaks : list[PersistenceEvent]
-        The three most persistent peaks, sorted by channel index.
+        The three most persistent events, sorted by **persistence**
+        descending.  Element 0 is the parent (global maximum) and
+        elements 1 and 2 are the two children.
 
     Returns
     -------
     Figure
         A 2x2 matplotlib figure.
     """
+    parent = top_peaks[0]
+    children = top_peaks[1:]
+    # The child with the higher saddle (death) merges first as the water
+    # descends, so its merge is the event shown in panel 4.
+    first_to_merge = max(children, key=lambda e: e.death)
+    lower_child_birth = min(c.birth for c in children)
+
     levels = [
-        top_peaks[0].birth + 0.15,
-        top_peaks[0].birth - 0.05,
-        top_peaks[1].birth - 0.05,
-        top_peaks[2].death - 0.10,
+        parent.birth + 0.15,
+        parent.birth - 0.05,
+        lower_child_birth - 0.05,
+        first_to_merge.death - 0.10,
     ]
     stage_labels = [
         "Water above all peaks",
-        f"Peak A born (channel {top_peaks[0].index})",
-        f"Peak B born (channel {top_peaks[1].index})",
-        "Peak C merges into A. C dies",
+        f"Parent born (channel {parent.index})",
+        "Both children born inside parent",
+        f"Child at channel {first_to_merge.index} merges into parent",
     ]
 
     fig: Figure
@@ -309,9 +324,12 @@ def persistence_plot() -> None:
     x = np.arange(len(signal), dtype=np.float64)
     events = _run_persistence(signal)
 
-    top_peaks = sorted(events[:3], key=lambda e: e.index)
+    top_peaks = events[:3]
 
-    console.print("Synthetic signal: 3 Gaussians + noise (sigma=0.08)", style="bold cyan")
+    console.print(
+        "Synthetic signal: broad parent + 2 narrow children + noise (sigma=0.08)",
+        style="bold cyan",
+    )
     console.print(f"  {len(events)} persistence events, top 3:")
     for e in top_peaks:
         console.print(

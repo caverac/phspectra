@@ -1230,7 +1230,7 @@ wheels = [
 
 [[package]]
 name = "phspectra"
-version = "1.0.0"
+version = "1.0.2"
 source = { editable = "packages/phspectra" }
 dependencies = [
     { name = "numpy" },
