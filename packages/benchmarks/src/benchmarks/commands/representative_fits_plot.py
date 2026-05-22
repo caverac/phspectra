@@ -1,8 +1,8 @@
-r"""``benchmarks representative-fits-plot`` -- §3 representative-fits figure.
+"""``benchmarks representative-fits-plot`` -- representative-fits figure.
 
 Generates ``representative-fits.png`` for the manuscript, addressing R4
 in the 2026-05-08 reviewer plan: a 2x3 panel showing individual
-\phspectra\ decompositions across the benchmark difficulty spectrum.
+phspectra decompositions across the benchmark difficulty spectrum.
 
 Five panels are drawn from the synthetic benchmark with known
 ground-truth components (single bright, well-separated multi, heavily
@@ -272,7 +272,7 @@ def _build_panels(
 @click.option("--beta", default=_DEFAULT_BETA, show_default=True, type=float)
 @click.option("--seed", default=DEFAULT_SEED, show_default=True, type=int)
 def representative_fits_plot(fits_path: str, beta: float, seed: int) -> None:
-    """Generate the §3 representative-fits figure (R4 of the review)."""
+    """Generate the representative-fits figure (R4 of the review)."""
     if not os.path.exists(fits_path):
         err_console.print(
             f"ERROR: missing GRS test field at [bold]{fits_path}[/bold].\n" "Run `benchmarks download` first.",
