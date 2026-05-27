@@ -1,3 +1,9 @@
+# [1.6.0](https://github.com/caverac/phspectra/compare/v1.5.0...v1.6.0) (2026-05-27)
+
+### Features
+
+- **docs:** added zenodo integration ([3de4211](https://github.com/caverac/phspectra/commit/3de4211d345fe58b2805e6dfa11760f153aaf7b7))
+
 # [1.5.0](https://github.com/caverac/phspectra/compare/v1.4.7...v1.5.0) (2026-05-22)
 
 ### Bug Fixes
