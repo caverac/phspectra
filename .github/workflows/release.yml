@@ -92,6 +92,17 @@ jobs:
         with:
           packages-dir: packages/phspectra/dist/
 
+      - name: Archive new version on Zenodo
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          ZENODO_TOKEN: ${{ secrets.ZENODO_TOKEN }}
+          ZENODO_CONCEPT_ID: ${{ vars.ZENODO_CONCEPT_ID }}
+          VERSION: ${{ steps.semrel.outputs.version }}
+        run: |
+          SDIST_PATH="$(ls packages/phspectra/dist/phspectra-*.tar.gz | head -n 1)"
+          export SDIST_PATH
+          scripts/zenodo-publish.sh
+
   # ===========================================================================
   # Stage 2: Deploy docs (after releases, so version badge is up to date)
   # ===========================================================================
