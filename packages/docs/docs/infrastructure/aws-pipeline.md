@@ -336,6 +336,42 @@ yarn workspace @phspectra/infrastructure cdk deploy --all
 yarn workspace @phspectra/infrastructure cdk diff
 ```
 
+### Pausing the pipeline when idle
+
+Each SQS event source mapping keeps a baseline of two long-polling pollers running 24/7, even when the queue is empty. That works out to ~241k `ReceiveMessage` calls per queue per month, or ~480k for the two phspectra mappings combined — most of the 1M-request SQS free tier consumed by an idle dev account. Lambda's `ProvisionedPollerConfig` knob has a floor of 2 pollers for SQS, so there's no in-code fix that reduces the idle baseline. Instead, disable the mappings between active sessions.
+
+**Find the mapping UUIDs:**
+
+```bash
+aws lambda list-event-source-mappings \
+  --function-name phspectra__worker \
+  --query 'EventSourceMappings[].{UUID:UUID,Source:EventSourceArn,State:State}' \
+  --output table
+
+aws lambda list-event-source-mappings \
+  --function-name phspectra__slow_worker \
+  --query 'EventSourceMappings[].{UUID:UUID,Source:EventSourceArn,State:State}' \
+  --output table
+```
+
+**Disable polling:**
+
+```bash
+aws lambda update-event-source-mapping --uuid <worker-uuid>      --no-enabled
+aws lambda update-event-source-mapping --uuid <slow-worker-uuid> --no-enabled
+```
+
+State transitions `Enabled` -> `Disabling` -> `Disabled` over ~60 seconds. Confirm with the same `list-event-source-mappings` query.
+
+**Re-enable before a run:**
+
+```bash
+aws lambda update-event-source-mapping --uuid <worker-uuid>      --enabled
+aws lambda update-event-source-mapping --uuid <slow-worker-uuid> --enabled
+```
+
+**Gotcha:** disabling the mappings creates CloudFormation drift on the `Enabled` property. A subsequent `cdk deploy` only reconciles `Enabled` back to `true` if its change set touches that mapping resource. If nothing in the mapping's CDK config changed, the disabled state persists across deploys. Treat this as a manual ops knob, not a permanent code change — re-enable explicitly before benchmarking.
+
 ### Environment handling
 
 Resource names include the environment: `phspectra-development` or `phspectra-production`. Key differences:
