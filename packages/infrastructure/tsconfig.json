@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "node16",
     "lib": ["ES2022"],
     "strict": true,
     "esModuleInterop": true,
+    "types": ["node"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
@@ -20,10 +21,9 @@
     "noEmitOnError": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "./src",
     "paths": {
-      "lib/*": ["lib/*"],
-      "utils/*": ["utils/*"]
+      "lib/*": ["./src/lib/*"],
+      "utils/*": ["./src/utils/*"]
     }
   },
   "include": ["src/**/*"],
